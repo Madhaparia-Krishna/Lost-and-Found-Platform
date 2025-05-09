@@ -1,7 +1,25 @@
-import React from 'react';
+import React, { useContext, useEffect } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { AuthContext } from '../context/AuthContext';
+import ProfileDropdown from '../components/ProfileDropdown';
 import '../index.css';
+import '../styles/Navbar.css';
 
 function Home() {
+  const { currentUser, logout } = useContext(AuthContext);
+  const navigate = useNavigate();
+
+  // Debug the auth state
+  useEffect(() => {
+    console.log('Home component - Current user:', currentUser);
+  }, [currentUser]);
+
+  const handleLogout = () => {
+    console.log('Logging out...');
+    logout();
+    navigate('/login');
+  };
+
   return (
     <div className="home-container">
       <nav className="navbar">
@@ -9,12 +27,37 @@ function Home() {
           <h1>Lost@Campus</h1>
           <p className="subheading">Your go-to place when things go missing</p>
         </div>
+        
         <div className="nav-right">
-          <button className="nav-btn">Log In</button>
-          <button className="nav-btn">Register</button>
           <button className="nav-btn">Submit Lost Item</button>
           <button className="nav-btn">Submit Found Item</button>
           <button className="nav-btn">View Recent Posts</button>
+          
+          {/* Authentication components moved to right side */}
+          <div className="auth-section">
+            {!currentUser ? (
+              <>
+                <Link to="/login" className="nav-btn">Log In</Link>
+                <Link to="/register" className="nav-btn">Register</Link>
+              </>
+            ) : (
+              <>
+                <span className="welcome-text">Welcome, {currentUser.name}!</span>
+                
+                {/* Role-specific navigation links */}
+                {(currentUser.role === 'admin' || currentUser.role === 'security') && (
+                  <div className="role-specific-links">
+                    {currentUser.role === 'admin' && (
+                      <Link to="/admin" className="nav-btn admin-btn">Admin Panel</Link>
+                    )}
+                    <Link to="/security" className="nav-btn security-btn">Security Panel</Link>
+                  </div>
+                )}
+                
+                <ProfileDropdown user={currentUser} logout={logout} />
+              </>
+            )}
+          </div>
         </div>
       </nav>
 

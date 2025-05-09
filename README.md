@@ -1,70 +1,127 @@
-# Getting Started with Create React App
+# Lost and Found Platform
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+A web application for managing lost and found items on a campus with role-based access control.
 
-## Available Scripts
+## Features
 
-In the project directory, you can run:
+- User registration and login
+- Role-based access control (Admin, Security, User)
+- Admin panel for user management and system logs
+- Security panel for handling claims and item management
+- User dashboard for submitting lost/found items and making claims
 
-### `npm start`
+## Tech Stack
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
+- Frontend: React, React Router
+- Backend: Node.js, Express.js
+- Database: MySQL
+- Authentication: JWT (JSON Web Tokens)
 
-The page will reload when you make changes.\
-You may also see any lint errors in the console.
+## Prerequisites
 
-### `npm test`
+- Node.js (v14+)
+- MySQL (v5.7+)
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+## Setup Instructions
 
-### `npm run build`
+### 1. Clone the repository
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+```
+git clone <repository-url>
+cd lost-and-found-platform
+```
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+### 2. Install dependencies
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+```
+npm install
+```
 
-### `npm run eject`
+### 3. Set up MySQL database
 
-**Note: this is a one-way operation. Once you `eject`, you can't go back!**
+Make sure MySQL is running on your system. Then check the database.sql file for the schema.
 
-If you aren't satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
+You can configure your database connection in server-config.js:
 
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you're on your own.
+```javascript
+// Database configuration
+exports.dbConfig = {
+  host: 'localhost',  // Change if your MySQL server is on a different host
+  user: 'root',       // Your MySQL username
+  password: '',       // Your MySQL password
+  database: 'lost_and_found_system',
+  waitForConnections: true,
+  connectionLimit: 10,
+  queueLimit: 0
+};
+```
 
-You don't have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn't feel obligated to use this feature. However we understand that this tool wouldn't be useful if you couldn't customize it when you are ready for it.
+### 4. Run the database setup script
 
-## Learn More
+This will create the database, tables, and initial admin and security users:
 
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
+```
+npm run setup-db
+```
 
-To learn React, check out the [React documentation](https://reactjs.org/).
+### 5. Start the application
 
-### Code Splitting
+For development (runs both frontend and backend servers concurrently):
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/code-splitting](https://facebook.github.io/create-react-app/docs/code-splitting)
+```
+npm run dev
+```
 
-### Analyzing the Bundle Size
+For production:
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size](https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size)
+```
+npm run build
+npm run server
+```
 
-### Making a Progressive Web App
+## Default Users
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app](https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app)
+After setting up the database, the following users are created:
 
-### Advanced Configuration
+1. **Admin User**
+   - Email: admin@example.com
+   - Password: admin12345
+   - Role: admin
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/advanced-configuration](https://facebook.github.io/create-react-app/docs/advanced-configuration)
+2. **Security User**
+   - Email: security@example.com
+   - Password: security12345
+   - Role: security
 
-### Deployment
+## Password Requirements
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/deployment](https://facebook.github.io/create-react-app/docs/deployment)
+All passwords must be at least 8 characters long. This requirement is enforced on both the client and server side.
 
-### `npm run build` fails to minify
+## API Endpoints
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
+### Authentication
+
+- `POST /api/register` - Register a new user
+- `POST /api/login` - Login
+- `GET /api/verify-token` - Verify JWT token
+- `POST /api/logout` - Logout
+
+### Items (To be implemented)
+
+- `POST /api/items` - Add a new item
+- `GET /api/items` - Get all items
+- `GET /api/items/:id` - Get a specific item
+- `PUT /api/items/:id` - Update an item
+- `DELETE /api/items/:id` - Delete an item
+
+### Claims (To be implemented)
+
+- `POST /api/claims` - Add a new claim
+- `GET /api/claims` - Get all claims
+- `GET /api/claims/:id` - Get a specific claim
+- `PUT /api/claims/:id` - Update a claim
+- `DELETE /api/claims/:id` - Delete a claim
+
+## License
+
+[MIT](LICENSE)
