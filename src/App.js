@@ -10,6 +10,8 @@ import Unauthorized from './pages/Unauthorized';
 import FAQ from './pages/FAQ';
 import About from './pages/About';
 import HelpCenter from './pages/HelpCenter';
+import Profile from './pages/Profile';
+import ForgotPassword from './pages/ForgotPassword';
 import ProtectedRoute from './components/ProtectedRoute';
 
 function App() {
@@ -21,12 +23,22 @@ function App() {
           <Route path="/" element={<Home />} />
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
+          <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/faq" element={<FAQ />} />
           <Route path="/about" element={<About />} />
           <Route path="/help" element={<HelpCenter />} />
           <Route path="/unauthorized" element={<Unauthorized />} />
 
           {/* Protected routes */}
+          <Route 
+            path="/profile" 
+            element={
+              <ProtectedRoute 
+                element={<Profile />} 
+                allowedRoles={['user', 'admin', 'security']} 
+              />
+            } 
+          />
           <Route 
             path="/security" 
             element={

@@ -9,6 +9,12 @@ function Home() {
   const { currentUser, logout } = useContext(AuthContext);
   const navigate = useNavigate();
 
+  const [mobileMenuOpen, setMobileMenuOpen] = React.useState(false);
+
+  const toggleMobileMenu = () => {
+    setMobileMenuOpen(!mobileMenuOpen);
+  };
+
   // Debug the auth state
   useEffect(() => {
     console.log('Home component - Current user:', currentUser);
@@ -28,12 +34,19 @@ function Home() {
           <p className="subheading">Your go-to place when things go missing</p>
         </div>
         
-        <div className="nav-right">
-          <button className="nav-btn">Submit Lost Item</button>
-          <button className="nav-btn">Submit Found Item</button>
-          <button className="nav-btn">View Recent Posts</button>
+        {/* Hamburger menu for mobile */}
+        <div className="menu-toggle d-md-none" onClick={toggleMobileMenu}>
+          ☰
+        </div>
+        
+        <div className={`nav-right ${mobileMenuOpen ? 'active' : ''}`}>
+          <div className="action-buttons">
+            <button className="nav-btn">Submit Lost Item</button>
+            <button className="nav-btn">Submit Found Item</button>
+            <button className="nav-btn">View Recent Posts</button>
+          </div>
           
-          {/* Authentication components moved to right side */}
+          {/* Authentication components */}
           <div className="auth-section">
             {!currentUser ? (
               <>
@@ -43,18 +56,21 @@ function Home() {
             ) : (
               <>
                 <span className="welcome-text">Welcome, {currentUser.name}!</span>
-                
-                {/* Role-specific navigation links */}
-                {(currentUser.role === 'admin' || currentUser.role === 'security') && (
-                  <div className="role-specific-links">
-                    {currentUser.role === 'admin' && (
-                      <Link to="/admin" className="nav-btn admin-btn">Admin Panel</Link>
-                    )}
-                    <Link to="/security" className="nav-btn security-btn">Security Panel</Link>
-                  </div>
-                )}
-                
-                <ProfileDropdown user={currentUser} logout={logout} />
+                <div className="user-controls">
+                  <Link to="/profile" className="nav-btn profile-btn">My Profile</Link>
+                  
+                  {/* Role-specific navigation links */}
+                  {(currentUser.role === 'admin' || currentUser.role === 'security') && (
+                    <div className="admin-controls">
+                      {currentUser.role === 'admin' && (
+                        <Link to="/admin" className="nav-btn admin-btn">Admin Panel</Link>
+                      )}
+                      <Link to="/security" className="nav-btn security-btn">Security Panel</Link>
+                    </div>
+                  )}
+                  
+                  <div className="user-avatar">{currentUser.name.charAt(0).toUpperCase()}</div>
+                </div>
               </>
             )}
           </div>
