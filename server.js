@@ -1,3 +1,10 @@
+require('dotenv').config();
+console.log('Environment variables:', {
+  EMAIL_USER: process.env.EMAIL_USER,
+  EMAIL_FROM: process.env.EMAIL_FROM,
+  EMAIL_PASS: process.env.EMAIL_PASS ? 'Set' : 'Not set'
+});
+
 const express = require('express');
 const bodyParser = require('body-parser');
 const mysql = require('mysql2/promise');
@@ -6,6 +13,7 @@ const jwt = require('jsonwebtoken');
 const cors = require('cors');
 const path = require('path');
 const config = require('./server-config');
+const nodemailer = require('nodemailer');
 
 // Create Express app
 const app = express();
@@ -13,10 +21,51 @@ const app = express();
 // Middleware
 app.use(cors(config.serverConfig.corsOptions));
 app.use(bodyParser.json());
-app.use(express.static(path.join(__dirname, 'build')));
+
+// Only serve static files in production
+if (process.env.NODE_ENV === 'production') {
+  app.use(express.static(path.join(__dirname, 'build')));
+}
 
 // Create connection pool
 const pool = mysql.createPool(config.dbConfig);
+
+// Create test email account
+async function createTestAccount() {
+  try {
+    const testAccount = await nodemailer.createTestAccount();
+    console.log('Test email account created:', {
+      user: testAccount.user,
+      pass: testAccount.pass,
+      smtp: testAccount.smtp
+    });
+    
+    // Create email transporter with test account
+    const transporter = nodemailer.createTransport({
+      host: 'smtp.ethereal.email',
+      port: 587,
+      secure: false,
+      auth: {
+        user: testAccount.user,
+        pass: testAccount.pass
+      }
+    });
+    
+    return transporter;
+  } catch (error) {
+    console.error('Error creating test account:', error);
+    throw error;
+  }
+}
+
+// Initialize email transporter
+let transporter;
+createTestAccount().then(t => {
+  transporter = t;
+  console.log('Email transporter initialized');
+}).catch(error => {
+  console.error('Failed to initialize email transporter:', error);
+});
 
 // Initialize database connection
 async function initializeDatabase() {
@@ -221,22 +270,55 @@ app.post('/api/forgot-password', async (req, res) => {
       { expiresIn: '1h' }
     );
     
-    // In a real-world scenario, you would send an email with a link that includes the token
-    // For now, we'll just return the token in the response for testing
+    // Create reset URL
+    const resetUrl = `http://localhost:3000/reset-password?token=${resetToken}`;
     
-    // Log the password reset request
-    await pool.query(
-      'INSERT INTO Logs (action, by_user) VALUES (?, ?)',
-      [`Password reset requested`, user.id]
-    );
+    // Send email
+    const mailOptions = {
+      from: '"Lost@Campus" <noreply@lostcampus.com>',
+      to: user.email,
+      subject: 'Password Reset Request - Lost@Campus',
+      html: `
+        <h1>Password Reset Request</h1>
+        <p>Hello ${user.name},</p>
+        <p>We received a request to reset your password for your Lost@Campus account.</p>
+        <p>Click the link below to reset your password:</p>
+        <a href="${resetUrl}" style="
+          display: inline-block;
+          padding: 10px 20px;
+          background-color: #4a90e2;
+          color: white;
+          text-decoration: none;
+          border-radius: 5px;
+          margin: 20px 0;
+        ">Reset Password</a>
+        <p>This link will expire in 1 hour.</p>
+        <p>If you didn't request this password reset, please ignore this email or contact support if you have concerns.</p>
+        <p>Best regards,<br>The Lost@Campus Team</p>
+      `
+    };
     
-    res.json({
-      message: 'Password reset token generated',
-      resetToken: resetToken
-    });
+    try {
+      const info = await transporter.sendMail(mailOptions);
+      console.log('Preview URL:', nodemailer.getTestMessageUrl(info));
+      
+      // Log the password reset request
+      await pool.query(
+        'INSERT INTO Logs (action, by_user) VALUES (?, ?)',
+        [`Password reset requested`, user.id]
+      );
+      
+      res.json({
+        message: 'Password reset instructions have been sent to your email',
+        previewUrl: nodemailer.getTestMessageUrl(info) // For testing only
+      });
+    } catch (emailError) {
+      console.error('Error sending email:', emailError);
+      throw emailError;
+    }
   } catch (error) {
     console.error('Forgot password error:', error);
-    res.status(500).json({ message: 'Error processing request' });
+    res.status(500).json({ message: 'Error processing request: ' + error.message });
   }
 });
 
@@ -428,17 +510,28 @@ app.get('/api/admin/users', authenticateToken, async (req, res) => {
   }
 });
 
-// Get items for security panel
+// Security Panel API Routes
 app.get('/api/security/items', authenticateToken, async (req, res) => {
-  // Only allow security or admin to access this endpoint
-  if (req.user.role !== 'security' && req.user.role !== 'admin') {
-    return res.status(403).json({ message: 'Access denied: Security permission required' });
-  }
-  
   try {
-    const [items] = await pool.query(
-      'SELECT * FROM Items WHERE is_deleted = FALSE ORDER BY created_at DESC'
-    );
+    // Check if user is security or admin
+    if (req.user.role !== 'security' && req.user.role !== 'admin') {
+      return res.status(403).json({ message: 'Unauthorized access' });
+    }
+    
+    // Get all items
+    const [items] = await pool.query(`
+      SELECT 
+        i.*,
+        u.name as owner_name
+      FROM 
+        Items i
+      LEFT JOIN 
+        Users u ON i.user_id = u.id
+      WHERE 
+        i.is_deleted = FALSE
+      ORDER BY 
+        i.created_at DESC
+    `);
     
     res.json({ items });
   } catch (error) {
@@ -447,71 +540,31 @@ app.get('/api/security/items', authenticateToken, async (req, res) => {
   }
 });
 
-// Update item status
-app.put('/api/security/items/:itemId/status', authenticateToken, async (req, res) => {
-  // Only allow security or admin to access this endpoint
-  if (req.user.role !== 'security' && req.user.role !== 'admin') {
-    return res.status(403).json({ message: 'Access denied: Security permission required' });
-  }
-
-  const { itemId } = req.params;
-  const { status } = req.body;
-  
-  // Validate status
-  if (!status || !['claimed', 'returned'].includes(status)) {
-    return res.status(400).json({ message: 'Valid status is required (claimed or returned)' });
-  }
-  
+app.get('/api/security/claims', authenticateToken, async (req, res) => {
   try {
-    // Update item status
-    const [result] = await pool.query(
-      'UPDATE Items SET status = ? WHERE id = ? AND is_deleted = FALSE',
-      [status, itemId]
-    );
-    
-    if (result.affectedRows === 0) {
-      return res.status(404).json({ message: 'Item not found' });
+    // Check if user is security or admin
+    if (req.user.role !== 'security' && req.user.role !== 'admin') {
+      return res.status(403).json({ message: 'Unauthorized access' });
     }
     
-    // Log the status update
-    await pool.query(
-      'INSERT INTO Logs (action, by_user) VALUES (?, ?)',
-      [`Item status updated to ${status} for item ID ${itemId}`, req.user.id]
-    );
-    
-    // Get updated item info
-    const [items] = await pool.query(
-      'SELECT * FROM Items WHERE id = ? AND is_deleted = FALSE',
-      [itemId]
-    );
-    
-    res.json({ 
-      message: 'Item status updated successfully',
-      item: items[0]
-    });
-  } catch (error) {
-    console.error('Status update error:', error);
-    res.status(500).json({ message: 'Error updating item status' });
-  }
-});
-
-// Get claims for security panel
-app.get('/api/security/claims', authenticateToken, async (req, res) => {
-  // Only allow security or admin to access this endpoint
-  if (req.user.role !== 'security' && req.user.role !== 'admin') {
-    return res.status(403).json({ message: 'Access denied: Security permission required' });
-  }
-  
-  try {
-    // Get claims with item and user details
-    const [claims] = await pool.query(
-      `SELECT c.*, i.title as item_title, u.name as claimer_name 
-       FROM Claims c
-       JOIN Items i ON c.item_id = i.id
-       JOIN Users u ON c.claimer_id = u.id
-       WHERE c.is_deleted = FALSE
-       ORDER BY c.created_at DESC`
-    );
+    // Get all claims with item and claimer info
+    const [claims] = await pool.query(`
+      SELECT 
+        c.*,
+        i.title as item_title,
+        i.image as item_image,
+        u.name as claimer_name
+      FROM 
+        Claims c
+      JOIN 
+        Items i ON c.item_id = i.id
+      JOIN 
+        Users u ON c.claimer_id = u.id
+      WHERE 
+        c.is_deleted = FALSE
+      ORDER BY 
+        c.created_at DESC
+    `);
     
     res.json({ claims });
   } catch (error) {
@@ -520,92 +573,156 @@ app.get('/api/security/claims', authenticateToken, async (req, res) => {
   }
 });
 
-// Update claim status
-app.put('/api/security/claims/:claimId/status', authenticateToken, async (req, res) => {
-  // Only allow security or admin to access this endpoint
-  if (req.user.role !== 'security' && req.user.role !== 'admin') {
-    return res.status(403).json({ message: 'Access denied: Security permission required' });
-  }
-
-  const { claimId } = req.params;
-  const { status } = req.body;
-  
-  // Validate status
-  if (!status || !['pending', 'approved', 'rejected'].includes(status)) {
-    return res.status(400).json({ message: 'Valid status is required (pending, approved, or rejected)' });
-  }
-  
+app.get('/api/notifications', authenticateToken, async (req, res) => {
   try {
-    // Update claim status
-    const [result] = await pool.query(
-      'UPDATE Claims SET status = ? WHERE id = ? AND is_deleted = FALSE',
-      [status, claimId]
-    );
+    // Get notifications for this user
+    const [notifications] = await pool.query(`
+      SELECT * FROM Notifications
+      WHERE user_id = ? AND is_deleted = FALSE
+      ORDER BY created_at DESC
+    `, [req.user.id]);
     
-    if (result.affectedRows === 0) {
-      return res.status(404).json({ message: 'Claim not found' });
+    res.json({ notifications });
+  } catch (error) {
+    console.error('Error fetching notifications:', error);
+    res.status(500).json({ message: 'Error fetching notifications' });
+  }
+});
+
+app.put('/api/notifications/:id/read', authenticateToken, async (req, res) => {
+  try {
+    const notificationId = req.params.id;
+    
+    // Update notification status
+    await pool.query(`
+      UPDATE Notifications
+      SET status = 'read'
+      WHERE id = ? AND user_id = ?
+    `, [notificationId, req.user.id]);
+    
+    res.json({ message: 'Notification marked as read' });
+  } catch (error) {
+    console.error('Error updating notification:', error);
+    res.status(500).json({ message: 'Error updating notification' });
+  }
+});
+
+app.put('/api/security/claims/:id/status', authenticateToken, async (req, res) => {
+  try {
+    // Check if user is security or admin
+    if (req.user.role !== 'security' && req.user.role !== 'admin') {
+      return res.status(403).json({ message: 'Unauthorized access' });
     }
     
-    // If claim is approved, update item status to 'claimed'
+    const claimId = req.params.id;
+    const { status } = req.body;
+    
+    if (!status || !['approved', 'rejected'].includes(status)) {
+      return res.status(400).json({ message: 'Invalid status' });
+    }
+    
+    // Update claim status
+    await pool.query(`
+      UPDATE Claims
+      SET status = ?
+      WHERE id = ?
+    `, [status, claimId]);
+    
+    // If approved, update item status to returned
     if (status === 'approved') {
-      const [claimData] = await pool.query(
-        'SELECT item_id FROM Claims WHERE id = ?',
-        [claimId]
-      );
+      await pool.query(`
+        UPDATE Items i
+        JOIN Claims c ON i.id = c.item_id
+        SET i.status = 'returned'
+        WHERE c.id = ?
+      `, [claimId]);
       
-      if (claimData.length > 0) {
-        await pool.query(
-          'UPDATE Items SET status = ? WHERE id = ?',
-          ['claimed', claimData[0].item_id]
-        );
+      // Get claim details for notification
+      const [claimDetails] = await pool.query(`
+        SELECT 
+          c.claimer_id,
+          i.title as item_title,
+          i.user_id as owner_id
+        FROM 
+          Claims c
+        JOIN 
+          Items i ON c.item_id = i.id
+        WHERE 
+          c.id = ?
+      `, [claimId]);
+      
+      if (claimDetails.length > 0) {
+        const claim = claimDetails[0];
+        
+        // Create notification for claimer
+        await pool.query(`
+          INSERT INTO Notifications (user_id, action, item_id, status)
+          VALUES (?, ?, ?, ?)
+        `, [claim.claimer_id, 'Item returned', claim.item_id, 'unread']);
       }
     }
     
-    // Log the status update
+    // Log the claim status update
     await pool.query(
       'INSERT INTO Logs (action, by_user) VALUES (?, ?)',
       [`Claim status updated to ${status} for claim ID ${claimId}`, req.user.id]
     );
     
-    // Get updated claim info
-    const [claims] = await pool.query(
-      `SELECT c.*, i.title as item_title, u.name as claimer_name 
-       FROM Claims c
-       JOIN Items i ON c.item_id = i.id
-       JOIN Users u ON c.claimer_id = u.id
-       WHERE c.id = ? AND c.is_deleted = FALSE`,
-      [claimId]
-    );
-    
-    res.json({ 
-      message: 'Claim status updated successfully',
-      claim: claims[0]
-    });
+    res.json({ message: 'Claim status updated successfully' });
   } catch (error) {
-    console.error('Status update error:', error);
+    console.error('Error updating claim status:', error);
     res.status(500).json({ message: 'Error updating claim status' });
   }
 });
 
-// Logout endpoint (server-side session management, if needed)
-app.post('/api/logout', authenticateToken, (req, res) => {
-  // In a real-world scenario, you might blacklist the token
-  // Log the logout
-  try {
-    pool.query(
-      'INSERT INTO Logs (action, by_user) VALUES (?, ?)',
-      [`User logout`, req.user.id]
-    );
-  } catch (error) {
-    console.error('Error logging logout:', error);
+// Verify reset token endpoint
+app.post('/api/verify-token', async (req, res) => {
+  const { token } = req.body;
+  
+  if (!token) {
+    return res.status(400).json({ valid: false, message: 'Token is required' });
   }
   
-  res.json({ message: 'Logged out successfully' });
+  try {
+    // Verify token
+    const decoded = jwt.verify(token, JWT_SECRET);
+    
+    // Check if token is for password reset
+    if (!decoded.userId || !decoded.email) {
+      return res.status(400).json({ valid: false, message: 'Invalid token' });
+    }
+    
+    // Check if user exists
+    const [users] = await pool.query(
+      'SELECT id FROM Users WHERE id = ? AND email = ? AND is_deleted = FALSE',
+      [decoded.userId, decoded.email]
+    );
+    
+    if (users.length === 0) {
+      return res.status(404).json({ valid: false, message: 'User not found' });
+    }
+    
+    res.json({ valid: true });
+  } catch (error) {
+    if (error.name === 'TokenExpiredError') {
+      return res.status(401).json({ valid: false, message: 'Token has expired' });
+    }
+    if (error.name === 'JsonWebTokenError') {
+      return res.status(401).json({ valid: false, message: 'Invalid token' });
+    }
+    
+    console.error('Token verification error:', error);
+    res.status(500).json({ valid: false, message: 'Error verifying token' });
+  }
 });
 
-// Catch-all route to serve React app
+// Update the catch-all route
 app.get('*', (req, res) => {
-  res.sendFile(path.join(__dirname, 'build', 'index.html'));
+  if (process.env.NODE_ENV === 'production') {
+    res.sendFile(path.join(__dirname, 'build', 'index.html'));
+  } else {
+    res.redirect('http://localhost:3000');
+  }
 });
 
 // Start server
@@ -614,4 +731,4 @@ initializeDatabase().then(() => {
   app.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
   });
-}); 
+});

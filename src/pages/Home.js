@@ -23,7 +23,7 @@ function Home() {
   const handleLogout = () => {
     console.log('Logging out...');
     logout();
-    navigate('/login');
+    navigate('/');
   };
 
   return (
@@ -47,33 +47,16 @@ function Home() {
           </div>
           
           {/* Authentication components */}
-          <div className="auth-section">
-            {!currentUser ? (
-              <>
-                <Link to="/login" className="nav-btn">Log In</Link>
-                <Link to="/register" className="nav-btn">Register</Link>
-              </>
-            ) : (
-              <>
-                <span className="welcome-text">Welcome, {currentUser.name}!</span>
-                <div className="user-controls">
-                  <Link to="/profile" className="nav-btn profile-btn">My Profile</Link>
-                  
-                  {/* Role-specific navigation links */}
-                  {(currentUser.role === 'admin' || currentUser.role === 'security') && (
-                    <div className="admin-controls">
-                      {currentUser.role === 'admin' && (
-                        <Link to="/admin" className="nav-btn admin-btn">Admin Panel</Link>
-                      )}
-                      <Link to="/security" className="nav-btn security-btn">Security Panel</Link>
-                    </div>
-                  )}
-                  
-                  <div className="user-avatar">{currentUser.name.charAt(0).toUpperCase()}</div>
-                </div>
-              </>
-            )}
-          </div>
+          {!currentUser ? (
+            <div className="auth-section">
+              <Link to="/login" className="nav-btn">Log In</Link>
+              <Link to="/register" className="nav-btn">Register</Link>
+            </div>
+          ) : (
+            <div className="auth-section">
+              <ProfileDropdown user={currentUser} logout={logout} />
+            </div>
+          )}
         </div>
       </nav>
 

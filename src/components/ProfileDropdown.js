@@ -13,7 +13,8 @@ const ProfileDropdown = ({ user, logout }) => {
 
   const handleLogout = () => {
     logout();
-    navigate('/login');
+    setIsOpen(false);
+    navigate('/', { replace: true });
   };
 
   const handleClickOutside = (event) => {
