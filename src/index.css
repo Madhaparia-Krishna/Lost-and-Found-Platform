@@ -5,9 +5,181 @@ body {
     sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  background-color: #f8f9fa;
 }
 
 code {
   font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
     monospace;
 }
+
+/* Utility Classes */
+.d-md-none {
+  display: block;
+}
+
+@media (min-width: 769px) {
+  .d-md-none {
+    display: none;
+  }
+}
+
+/* Homepage */
+.home-container {
+  min-height: 100vh;
+  background-color: #f8f9fa;
+}
+
+.navbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.6rem 2rem;
+  background-color: #ffffff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  position: sticky;
+  top: 0;
+  z-index: 1000;
+}
+
+.nav-left {
+  display: flex;
+  flex-direction: column;
+}
+
+.nav-left h1 {
+  margin: 0;
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: #333;
+  line-height: 1.2;
+}
+
+.subheading {
+  margin: 0;
+  font-size: 0.8rem;
+  color: #666;
+  line-height: 1.2;
+}
+
+.nav-right {
+  display: flex;
+  gap: 0.7rem;
+  align-items: center;
+}
+
+.auth-buttons {
+  display: flex;
+  gap: 0.7rem;
+  margin-right: 0.7rem;
+  border-right: 1px solid #ddd;
+  padding-right: 0.7rem;
+}
+
+.nav-btn {
+  padding: 0.4rem 0.8rem;
+  border: none;
+  border-radius: 4px;
+  background-color: #007bff;
+  color: white;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.nav-btn:hover {
+  background-color: #0056b3;
+}
+
+.welcome-text {
+  font-size: 0.9rem;
+  margin-right: 0.5rem;
+}
+
+.user-avatar {
+  width: 35px;
+  height: 35px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: #007bff;
+  color: white;
+  font-weight: bold;
+}
+
+/* Add this class to keep admin/security buttons more compact */
+.admin-controls {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.admin-controls .nav-btn {
+  font-size: 0.85rem;
+  padding: 0.35rem 0.7rem;
+}
+
+.main-content {
+  padding: 2rem;
+  max-width: 1200px;
+  margin: 0 auto;
+  background-image: url('./images/background.jpg');
+  background-size: 100% 100%;
+  background-position: center;
+  background-repeat: no-repeat;
+  min-height: calc(100vh - 80px);
+  position: relative;
+}
+
+.main-content::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(255, 255, 255, 0.5);
+  z-index: 1;
+}
+
+.search-section,
+.rating-container,
+.recent-items {
+  position: relative;
+  z-index: 2;
+  background-color: rgba(255, 255, 255, 0.95);
+  padding: 2rem;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+  margin-bottom: 2rem;
+}
+
+.search-section {
+  margin-top: 1.5rem;
+}
+
+.search-section input,
+.search-section select {
+  margin: 0.5rem;
+  padding: 0.5rem;
+  font-size: 1rem;
+}
+
+.rating {
+  margin: 1.5rem 0;
+  font-size: 1.2rem;
+}
+
+.recent-items .item-grid {
+  display: flex;
+  justify-content: center;
+  gap: 1rem;
+}
+
+.item-card {
+  border: 1px solid #ccc;
+  padding: 1rem;
+  width: 150px;
+  background-color: #f9f9f9;
+}
+
