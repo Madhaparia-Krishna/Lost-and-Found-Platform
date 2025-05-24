@@ -23,14 +23,4 @@ exports.serverConfig = {
     origin: '*', // In production, specify your frontend domain
     methods: ['GET', 'POST', 'PUT', 'DELETE']
   }
-};
-
-// Email configuration
-exports.emailConfig = {
-  service: 'gmail',  // Use Gmail service
-  auth: {
-    user: process.env.EMAIL_USER || '',  // Your Gmail address
-    pass: process.env.EMAIL_PASS || ''   // Your Gmail app password
-  },
-  from: process.env.EMAIL_FROM || 'Lost@Campus <your-email@gmail.com>'
 }; 

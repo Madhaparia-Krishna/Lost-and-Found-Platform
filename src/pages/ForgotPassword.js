@@ -20,7 +20,7 @@ function ForgotPassword() {
     if (resetToken) {
       setLoading(true);
       // Verify token validity
-      fetch('http://localhost:5000/api/verify-token', {
+      fetch('/api/verify-token', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -72,6 +72,10 @@ function ForgotPassword() {
       }
 
       console.log('Password reset data received:', data);
+
+      if (!data.resetUrl) {
+        throw new Error('Invalid server response: missing reset URL');
+      }
 
       // Send email using EmailJS
       const emailParams = {
@@ -126,7 +130,7 @@ function ForgotPassword() {
       setLoading(true);
       setError(null);
       
-      const response = await fetch('http://localhost:5000/api/reset-password', {
+      const response = await fetch('/api/reset-password', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'

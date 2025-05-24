@@ -20,33 +20,24 @@ export const EMAIL_TEMPLATES = {
 // Function to send emails
 export const sendEmail = async (templateId, templateParams) => {
   try {
-    console.log('Sending email with params:', {
-      serviceId: SERVICE_ID,
-      templateId,
-      templateParams
-    });
-
-    // Ensure required parameters are present
+    console.log('Sending email with template:', templateId);
+    console.log('Email parameters:', templateParams);
+    
     if (!templateParams.email) {
-      throw new Error('Recipient email address is required');
+      console.error('Missing recipient email address');
+      return { success: false, error: 'Missing recipient email address' };
     }
 
-    const response = await emailjs.send(
+    const result = await emailjs.send(
       SERVICE_ID,
       templateId,
       templateParams
     );
     
-    console.log('Email sent successfully:', response);
-    return { success: true, response };
+    console.log('Email sent successfully:', result);
+    return { success: true, result };
   } catch (error) {
-    console.error('EmailJS error details:', {
-      status: error.status,
-      text: error.text,
-      serviceId: SERVICE_ID,
-      templateId,
-      templateParams
-    });
+    console.error('Error sending email:', error);
     return { success: false, error };
   }
 };
