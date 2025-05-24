@@ -14,6 +14,7 @@ const cors = require('cors');
 const path = require('path');
 const config = require('./server-config');
 const nodemailer = require('nodemailer');
+const crypto = require('crypto');
 
 // Create Express app
 const app = express();
@@ -258,67 +259,40 @@ app.post('/api/forgot-password', async (req, res) => {
     const [users] = await pool.query('SELECT * FROM Users WHERE email = ? AND is_deleted = FALSE', [email]);
     
     if (users.length === 0) {
-      return res.status(404).json({ message: 'User not found' });
+      return res.status(404).json({ message: 'No user found with this email address' });
     }
     
     const user = users[0];
     
-    // Generate reset token (valid for 1 hour)
-    const resetToken = jwt.sign(
-      { userId: user.id, email: user.email },
-      JWT_SECRET,
-      { expiresIn: '1h' }
+    // Generate reset token
+    const resetToken = crypto.randomBytes(32).toString('hex');
+    const resetExpires = new Date(Date.now() + 3600000); // 1 hour from now
+    
+    // Update user with reset token
+    await pool.query(
+      'UPDATE Users SET reset_token = ?, reset_expires = ? WHERE id = ?',
+      [resetToken, resetExpires, user.id]
     );
     
     // Create reset URL
-    const resetUrl = `http://localhost:3000/reset-password?token=${resetToken}`;
+    const resetUrl = `${config.serverConfig.frontendUrl}/reset-password?token=${resetToken}`;
     
-    // Send email
-    const mailOptions = {
-      from: '"Lost@Campus" <noreply@lostcampus.com>',
-      to: user.email,
-      subject: 'Password Reset Request - Lost@Campus',
-      html: `
-        <h1>Password Reset Request</h1>
-        <p>Hello ${user.name},</p>
-        <p>We received a request to reset your password for your Lost@Campus account.</p>
-        <p>Click the link below to reset your password:</p>
-        <a href="${resetUrl}" style="
-          display: inline-block;
-          padding: 10px 20px;
-          background-color: #4a90e2;
-          color: white;
-          text-decoration: none;
-          border-radius: 5px;
-          margin: 20px 0;
-        ">Reset Password</a>
-        <p>This link will expire in 1 hour.</p>
-        <p>If you didn't request this password reset, please ignore this email or contact support if you have concerns.</p>
-        <p>Best regards,<br>The Lost@Campus Team</p>
-      `
-    };
+    // Log the password reset request
+    await pool.query(
+      'INSERT INTO Logs (action, by_user) VALUES (?, ?)',
+      [`Password reset requested`, user.id]
+    );
     
-    try {
-      const info = await transporter.sendMail(mailOptions);
-      console.log('Preview URL:', nodemailer.getTestMessageUrl(info));
-      
-      // Log the password reset request
-      await pool.query(
-        'INSERT INTO Logs (action, by_user) VALUES (?, ?)',
-        [`Password reset requested`, user.id]
-      );
-      
-      res.json({
-        message: 'Password reset instructions have been sent to your email',
-        previewUrl: nodemailer.getTestMessageUrl(info) // For testing only
-      });
-    } catch (emailError) {
-      console.error('Error sending email:', emailError);
-      throw emailError;
-    }
+    // Send response with required data for EmailJS
+    res.json({
+      message: 'Password reset instructions have been sent to your email',
+      userName: user.name,
+      resetUrl: resetUrl,
+      userEmail: user.email
+    });
   } catch (error) {
-    console.error('Forgot password error:', error);
-    res.status(500).json({ message: 'Error processing request: ' + error.message });
+    console.error('Password reset error:', error);
+    res.status(500).json({ message: 'Error processing password reset request' });
   }
 });
 
@@ -656,79 +630,3 @@ app.put('/api/security/claims/:id/status', authenticateToken, async (req, res) =
         
         // Create notification for claimer
         await pool.query(`
-          INSERT INTO Notifications (user_id, action, item_id, status)
-          VALUES (?, ?, ?, ?)
-        `, [claim.claimer_id, 'Item returned', claim.item_id, 'unread']);
-      }
-    }
-    
-    // Log the claim status update
-    await pool.query(
-      'INSERT INTO Logs (action, by_user) VALUES (?, ?)',
-      [`Claim status updated to ${status} for claim ID ${claimId}`, req.user.id]
-    );
-    
-    res.json({ message: 'Claim status updated successfully' });
-  } catch (error) {
-    console.error('Error updating claim status:', error);
-    res.status(500).json({ message: 'Error updating claim status' });
-  }
-});
-
-// Verify reset token endpoint
-app.post('/api/verify-token', async (req, res) => {
-  const { token } = req.body;
-  
-  if (!token) {
-    return res.status(400).json({ valid: false, message: 'Token is required' });
-  }
-  
-  try {
-    // Verify token
-    const decoded = jwt.verify(token, JWT_SECRET);
-    
-    // Check if token is for password reset
-    if (!decoded.userId || !decoded.email) {
-      return res.status(400).json({ valid: false, message: 'Invalid token' });
-    }
-    
-    // Check if user exists
-    const [users] = await pool.query(
-      'SELECT id FROM Users WHERE id = ? AND email = ? AND is_deleted = FALSE',
-      [decoded.userId, decoded.email]
-    );
-    
-    if (users.length === 0) {
-      return res.status(404).json({ valid: false, message: 'User not found' });
-    }
-    
-    res.json({ valid: true });
-  } catch (error) {
-    if (error.name === 'TokenExpiredError') {
-      return res.status(401).json({ valid: false, message: 'Token has expired' });
-    }
-    if (error.name === 'JsonWebTokenError') {
-      return res.status(401).json({ valid: false, message: 'Invalid token' });
-    }
-    
-    console.error('Token verification error:', error);
-    res.status(500).json({ valid: false, message: 'Error verifying token' });
-  }
-});
-
-// Update the catch-all route
-app.get('*', (req, res) => {
-  if (process.env.NODE_ENV === 'production') {
-    res.sendFile(path.join(__dirname, 'build', 'index.html'));
-  } else {
-    res.redirect('http://localhost:3000');
-  }
-});
-
-// Start server
-const PORT = config.serverConfig.port;
-initializeDatabase().then(() => {
-  app.listen(PORT, () => {
-    console.log(`Server running on port ${PORT}`);
-  });
-});

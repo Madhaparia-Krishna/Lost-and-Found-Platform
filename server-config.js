@@ -18,6 +18,7 @@ exports.jwtConfig = {
 // Server configuration
 exports.serverConfig = {
   port: process.env.PORT || 5000,
+  frontendUrl: process.env.FRONTEND_URL || 'http://localhost:3000',
   corsOptions: {
     origin: '*', // In production, specify your frontend domain
     methods: ['GET', 'POST', 'PUT', 'DELETE']
