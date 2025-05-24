@@ -1,9 +1,4 @@
 require('dotenv').config();
-console.log('Environment variables:', {
-  EMAIL_USER: process.env.EMAIL_USER,
-  EMAIL_FROM: process.env.EMAIL_FROM,
-  EMAIL_PASS: process.env.EMAIL_PASS ? 'Set' : 'Not set'
-});
 
 const express = require('express');
 const bodyParser = require('body-parser');
@@ -13,7 +8,7 @@ const jwt = require('jsonwebtoken');
 const cors = require('cors');
 const path = require('path');
 const config = require('./server-config');
-const nodemailer = require('nodemailer');
+const crypto = require('crypto');
 
 // Create Express app
 const app = express();
@@ -29,43 +24,6 @@ if (process.env.NODE_ENV === 'production') {
 
 // Create connection pool
 const pool = mysql.createPool(config.dbConfig);
-
-// Create test email account
-async function createTestAccount() {
-  try {
-    const testAccount = await nodemailer.createTestAccount();
-    console.log('Test email account created:', {
-      user: testAccount.user,
-      pass: testAccount.pass,
-      smtp: testAccount.smtp
-    });
-    
-    // Create email transporter with test account
-    const transporter = nodemailer.createTransport({
-      host: 'smtp.ethereal.email',
-      port: 587,
-      secure: false,
-      auth: {
-        user: testAccount.user,
-        pass: testAccount.pass
-      }
-    });
-    
-    return transporter;
-  } catch (error) {
-    console.error('Error creating test account:', error);
-    throw error;
-  }
-}
-
-// Initialize email transporter
-let transporter;
-createTestAccount().then(t => {
-  transporter = t;
-  console.log('Email transporter initialized');
-}).catch(error => {
-  console.error('Failed to initialize email transporter:', error);
-});
 
 // Initialize database connection
 async function initializeDatabase() {
@@ -258,67 +216,46 @@ app.post('/api/forgot-password', async (req, res) => {
     const [users] = await pool.query('SELECT * FROM Users WHERE email = ? AND is_deleted = FALSE', [email]);
     
     if (users.length === 0) {
-      return res.status(404).json({ message: 'User not found' });
+      return res.status(404).json({ message: 'No user found with this email address' });
     }
     
     const user = users[0];
     
-    // Generate reset token (valid for 1 hour)
-    const resetToken = jwt.sign(
-      { userId: user.id, email: user.email },
-      JWT_SECRET,
-      { expiresIn: '1h' }
+    // Generate reset token
+    const resetToken = crypto.randomBytes(32).toString('hex');
+    const resetExpires = new Date(Date.now() + 3600000); // 1 hour from now
+    
+    console.log('Generated reset token:', resetToken);
+    
+    // Update user with reset token
+    await pool.query(
+      'UPDATE Users SET reset_token = ?, reset_expires = ? WHERE id = ?',
+      [resetToken, resetExpires, user.id]
     );
     
     // Create reset URL
-    const resetUrl = `http://localhost:3000/reset-password?token=${resetToken}`;
+    const resetUrl = `${config.serverConfig.frontendUrl}/reset-password?token=${resetToken}`;
+    console.log('Generated reset URL:', resetUrl);
     
-    // Send email
-    const mailOptions = {
-      from: '"Lost@Campus" <noreply@lostcampus.com>',
-      to: user.email,
-      subject: 'Password Reset Request - Lost@Campus',
-      html: `
-        <h1>Password Reset Request</h1>
-        <p>Hello ${user.name},</p>
-        <p>We received a request to reset your password for your Lost@Campus account.</p>
-        <p>Click the link below to reset your password:</p>
-        <a href="${resetUrl}" style="
-          display: inline-block;
-          padding: 10px 20px;
-          background-color: #4a90e2;
-          color: white;
-          text-decoration: none;
-          border-radius: 5px;
-          margin: 20px 0;
-        ">Reset Password</a>
-        <p>This link will expire in 1 hour.</p>
-        <p>If you didn't request this password reset, please ignore this email or contact support if you have concerns.</p>
-        <p>Best regards,<br>The Lost@Campus Team</p>
-      `
+    // Log the password reset request
+    await pool.query(
+      'INSERT INTO Logs (action, by_user) VALUES (?, ?)',
+      [`Password reset requested`, user.id]
+    );
+    
+    // Send response with required data for EmailJS
+    const responseData = {
+      message: 'Password reset instructions have been sent to your email',
+      userName: user.name,
+      resetUrl: resetUrl,
+      userEmail: user.email
     };
+    console.log('Sending response data:', responseData);
     
-    try {
-      const info = await transporter.sendMail(mailOptions);
-      console.log('Preview URL:', nodemailer.getTestMessageUrl(info));
-      
-      // Log the password reset request
-      await pool.query(
-        'INSERT INTO Logs (action, by_user) VALUES (?, ?)',
-        [`Password reset requested`, user.id]
-      );
-      
-      res.json({
-        message: 'Password reset instructions have been sent to your email',
-        previewUrl: nodemailer.getTestMessageUrl(info) // For testing only
-      });
-    } catch (emailError) {
-      console.error('Error sending email:', emailError);
-      throw emailError;
-    }
+    res.json(responseData);
   } catch (error) {
-    console.error('Forgot password error:', error);
-    res.status(500).json({ message: 'Error processing request: ' + error.message });
+    console.error('Password reset error:', error);
+    res.status(500).json({ message: 'Error processing password reset request' });
   }
 });
 
@@ -336,41 +273,64 @@ app.post('/api/reset-password', async (req, res) => {
   }
   
   try {
-    // Verify token
-    const decoded = jwt.verify(token, JWT_SECRET);
-    const userId = decoded.userId;
+    // Find user with this reset token
+    const [users] = await pool.query(
+      'SELECT * FROM Users WHERE reset_token = ? AND reset_expires > NOW() AND is_deleted = FALSE',
+      [token]
+    );
+    
+    if (users.length === 0) {
+      return res.status(400).json({ message: 'Invalid or expired reset token' });
+    }
+    
+    const user = users[0];
     
     // Hash new password
     const saltRounds = 10;
     const hashedPassword = await bcrypt.hash(newPassword, saltRounds);
     
-    // Update password in database
-    const [result] = await pool.query(
-      'UPDATE Users SET password = ? WHERE id = ? AND is_deleted = FALSE',
-      [hashedPassword, userId]
+    // Update password and clear reset token
+    await pool.query(
+      'UPDATE Users SET password = ?, reset_token = NULL, reset_expires = NULL WHERE id = ?',
+      [hashedPassword, user.id]
     );
-    
-    if (result.affectedRows === 0) {
-      return res.status(404).json({ message: 'User not found' });
-    }
     
     // Log the password reset
     await pool.query(
       'INSERT INTO Logs (action, by_user) VALUES (?, ?)',
-      [`Password reset completed`, userId]
+      [`Password reset completed`, user.id]
     );
     
     res.json({ message: 'Password reset successful' });
   } catch (error) {
-    if (error.name === 'TokenExpiredError') {
-      return res.status(401).json({ message: 'Reset token has expired' });
-    }
-    if (error.name === 'JsonWebTokenError') {
-      return res.status(401).json({ message: 'Invalid reset token' });
-    }
-    
     console.error('Reset password error:', error);
     res.status(500).json({ message: 'Error resetting password' });
+  }
+});
+
+// Verify reset token endpoint
+app.post('/api/verify-token', async (req, res) => {
+  const { token } = req.body;
+  
+  if (!token) {
+    return res.status(400).json({ valid: false, message: 'Token is required' });
+  }
+  
+  try {
+    // Check if token exists and is not expired
+    const [users] = await pool.query(
+      'SELECT id FROM Users WHERE reset_token = ? AND reset_expires > NOW() AND is_deleted = FALSE',
+      [token]
+    );
+    
+    if (users.length === 0) {
+      return res.status(400).json({ valid: false, message: 'Invalid or expired token' });
+    }
+    
+    res.json({ valid: true });
+  } catch (error) {
+    console.error('Token verification error:', error);
+    res.status(500).json({ valid: false, message: 'Error verifying token' });
   }
 });
 
@@ -656,79 +616,63 @@ app.put('/api/security/claims/:id/status', authenticateToken, async (req, res) =
         
         // Create notification for claimer
         await pool.query(`
-          INSERT INTO Notifications (user_id, action, item_id, status)
-          VALUES (?, ?, ?, ?)
-        `, [claim.claimer_id, 'Item returned', claim.item_id, 'unread']);
+          INSERT INTO Notifications (user_id, message, type)
+          VALUES (?, ?, ?)
+        `, [
+          claim.claimer_id,
+          `Your claim for "${claim.item_title}" has been approved`,
+          'claim_approved'
+        ]);
+        
+        // Create notification for owner
+        await pool.query(`
+          INSERT INTO Notifications (user_id, message, type)
+          VALUES (?, ?, ?)
+        `, [
+          claim.owner_id,
+          `Your item "${claim.item_title}" has been claimed and approved`,
+          'item_claimed'
+        ]);
+      }
+    } else if (status === 'rejected') {
+      // Get claim details for notification
+      const [claimDetails] = await pool.query(`
+        SELECT 
+          c.claimer_id,
+          i.title as item_title
+        FROM 
+          Claims c
+        JOIN 
+          Items i ON c.item_id = i.id
+        WHERE 
+          c.id = ?
+      `, [claimId]);
+      
+      if (claimDetails.length > 0) {
+        const claim = claimDetails[0];
+        
+        // Create notification for claimer
+        await pool.query(`
+          INSERT INTO Notifications (user_id, message, type)
+          VALUES (?, ?, ?)
+        `, [
+          claim.claimer_id,
+          `Your claim for "${claim.item_title}" has been rejected`,
+          'claim_rejected'
+        ]);
       }
     }
     
-    // Log the claim status update
-    await pool.query(
-      'INSERT INTO Logs (action, by_user) VALUES (?, ?)',
-      [`Claim status updated to ${status} for claim ID ${claimId}`, req.user.id]
-    );
-    
-    res.json({ message: 'Claim status updated successfully' });
+    res.json({ message: `Claim ${status} successfully` });
   } catch (error) {
     console.error('Error updating claim status:', error);
     res.status(500).json({ message: 'Error updating claim status' });
   }
 });
 
-// Verify reset token endpoint
-app.post('/api/verify-token', async (req, res) => {
-  const { token } = req.body;
-  
-  if (!token) {
-    return res.status(400).json({ valid: false, message: 'Token is required' });
-  }
-  
-  try {
-    // Verify token
-    const decoded = jwt.verify(token, JWT_SECRET);
-    
-    // Check if token is for password reset
-    if (!decoded.userId || !decoded.email) {
-      return res.status(400).json({ valid: false, message: 'Invalid token' });
-    }
-    
-    // Check if user exists
-    const [users] = await pool.query(
-      'SELECT id FROM Users WHERE id = ? AND email = ? AND is_deleted = FALSE',
-      [decoded.userId, decoded.email]
-    );
-    
-    if (users.length === 0) {
-      return res.status(404).json({ valid: false, message: 'User not found' });
-    }
-    
-    res.json({ valid: true });
-  } catch (error) {
-    if (error.name === 'TokenExpiredError') {
-      return res.status(401).json({ valid: false, message: 'Token has expired' });
-    }
-    if (error.name === 'JsonWebTokenError') {
-      return res.status(401).json({ valid: false, message: 'Invalid token' });
-    }
-    
-    console.error('Token verification error:', error);
-    res.status(500).json({ valid: false, message: 'Error verifying token' });
-  }
-});
-
-// Update the catch-all route
-app.get('*', (req, res) => {
-  if (process.env.NODE_ENV === 'production') {
-    res.sendFile(path.join(__dirname, 'build', 'index.html'));
-  } else {
-    res.redirect('http://localhost:3000');
-  }
-});
-
 // Start server
 const PORT = config.serverConfig.port;
-initializeDatabase().then(() => {
-  app.listen(PORT, () => {
-    console.log(`Server running on port ${PORT}`);
-  });
+app.listen(PORT, () => {
+  console.log(`Server is running on port ${PORT}`);
+  initializeDatabase();
 });

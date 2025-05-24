@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { sendEmail, buildEmailParams, EMAIL_TEMPLATES } from '../utils/emailService';
 import '../styles/AuthForms.css';
 
 function ForgotPassword() {
@@ -19,7 +20,7 @@ function ForgotPassword() {
     if (resetToken) {
       setLoading(true);
       // Verify token validity
-      fetch('http://localhost:5000/api/verify-token', {
+      fetch('/api/verify-token', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -54,7 +55,9 @@ function ForgotPassword() {
       setLoading(true);
       setError(null);
       
-      const response = await fetch('http://localhost:5000/api/forgot-password', {
+      console.log('Requesting password reset for email:', email);
+      
+      const response = await fetch('/api/forgot-password', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -67,21 +70,38 @@ function ForgotPassword() {
       if (!response.ok) {
         throw new Error(data.message || 'Error requesting password reset');
       }
-      
-      let message = 'Password reset instructions have been sent to your email. Please check your inbox.';
-      if (data.previewUrl) {
-        message = (
-          <>
-            Password reset instructions have been sent to your email. Please check your inbox.
-            <br /><br />
-            For testing: <a href={data.previewUrl} target="_blank" rel="noopener noreferrer" style={{ color: '#4a90e2', textDecoration: 'underline' }}>Click here to view the email</a>
-          </>
-        );
+
+      console.log('Password reset data received:', data);
+
+      if (!data.resetUrl) {
+        throw new Error('Invalid server response: missing reset URL');
       }
-      setSuccess(message);
+
+      // Send email using EmailJS
+      const emailParams = {
+        name: data.userName || 'User',
+        reset_link: data.resetUrl,
+        email: email
+      };
+      
+      console.log('Sending email with params:', emailParams);
+      
+      const emailResult = await sendEmail(
+        EMAIL_TEMPLATES.PASSWORD_RESET,
+        emailParams
+      );
+
+      if (!emailResult.success) {
+        console.error('Email sending failed:', emailResult.error);
+        throw new Error('Failed to send reset email. Please try again later.');
+      }
+      
+      console.log('Email sent successfully');
+      setSuccess('Password reset instructions have been sent to your email. Please check your inbox.');
       setEmail('');
     } catch (err) {
-      setError(err.message);
+      console.error('Password reset error:', err);
+      setError(err.message || 'An error occurred. Please try again later.');
     } finally {
       setLoading(false);
     }
@@ -110,7 +130,7 @@ function ForgotPassword() {
       setLoading(true);
       setError(null);
       
-      const response = await fetch('http://localhost:5000/api/reset-password', {
+      const response = await fetch('/api/reset-password', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'

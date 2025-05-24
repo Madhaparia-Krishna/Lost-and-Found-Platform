@@ -18,18 +18,9 @@ exports.jwtConfig = {
 // Server configuration
 exports.serverConfig = {
   port: process.env.PORT || 5000,
+  frontendUrl: process.env.FRONTEND_URL || 'http://localhost:3000',
   corsOptions: {
     origin: '*', // In production, specify your frontend domain
     methods: ['GET', 'POST', 'PUT', 'DELETE']
   }
-};
-
-// Email configuration
-exports.emailConfig = {
-  service: 'gmail',  // Use Gmail service
-  auth: {
-    user: process.env.EMAIL_USER || '',  // Your Gmail address
-    pass: process.env.EMAIL_PASS || ''   // Your Gmail app password
-  },
-  from: process.env.EMAIL_FROM || 'Lost@Campus <your-email@gmail.com>'
 }; 

@@ -15,6 +15,8 @@ CREATE TABLE Users (
     year_of_study VARCHAR(50),
     phone_number VARCHAR(20),
     role ENUM('admin', 'user', 'security') NOT NULL,
+    reset_token VARCHAR(255),
+    reset_expires DATETIME,
     is_deleted BOOLEAN DEFAULT FALSE,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
