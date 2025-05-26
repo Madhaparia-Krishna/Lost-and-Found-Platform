@@ -12,6 +12,7 @@ const categories = [
   'Other',
 ];
 
+
 const electronicsSubcategories = ['Phones', 'Chargers', 'Laptops', 'Buds'];
 
 const locations = [
