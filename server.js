@@ -9,6 +9,19 @@ const cors = require('cors');
 const path = require('path');
 const config = require('./server-config');
 const crypto = require('crypto');
+const multer = require('multer');
+
+const storage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    cb(null, 'uploads/');
+  },
+  filename: function (req, file, cb) {
+    const uniqueName = Date.now() + '-' + file.originalname;
+    cb(null, uniqueName);
+  },
+});
+const upload = multer({ storage: storage });
+
 
 // Create Express app
 const app = express();
@@ -16,6 +29,8 @@ const app = express();
 // Middleware
 app.use(cors(config.serverConfig.corsOptions));
 app.use(bodyParser.json());
+app.use('/uploads', express.static('uploads'));
+
 
 // Only serve static files in production
 if (process.env.NODE_ENV === 'production') {
@@ -669,6 +684,52 @@ app.put('/api/security/claims/:id/status', authenticateToken, async (req, res) =
     res.status(500).json({ message: 'Error updating claim status' });
   }
 });
+// Submit a lost item
+app.post('/items/lost', upload.single('image'), (req, res) => {
+  const { title, category, description, location, date, user_id } = req.body;
+  const image = req.file ? req.file.filename : null; 
+  if (!title || !user_id) {
+    return res.status(400).json({ message: 'Title and user_id are required' });
+  }
+
+  const sql = `
+    INSERT INTO Items 
+      (title, category, description, location, status, image, date, user_id) 
+    VALUES (?, ?, ?, ?, 'lost', ?, ?, ?)
+  `;
+
+  db.query(sql, [title, category, description, location, image, date, user_id], (err, result) => {
+    if (err) {
+      console.error('Error inserting lost item:', err);
+      return res.status(500).json({ message: 'Database error' });
+    }
+    res.status(201).json({ message: 'Lost item submitted successfully', itemId: result.insertId });
+  });
+});
+
+// Submit a found item
+app.post('/items/found', upload.single('image'), (req, res) => {
+  const { title, category, description, location, date, user_id } = req.body;
+  const image = req.file ? req.file.filename : null;
+  if (!title || !user_id) {
+    return res.status(400).json({ message: 'Title and user_id are required' });
+  }
+
+  const sql = `
+    INSERT INTO Items 
+      (title, category, description, location, status, image, date, user_id) 
+    VALUES (?, ?, ?, ?, 'found', ?, ?, ?)
+  `;
+
+  db.query(sql, [title, category, description, location, image, date, user_id], (err, result) => {
+    if (err) {
+      console.error('Error inserting found item:', err);
+      return res.status(500).json({ message: 'Database error' });
+    }
+    res.status(201).json({ message: 'Found item submitted successfully', itemId: result.insertId });
+  });
+});
+
 
 // Start server
 const PORT = config.serverConfig.port;
