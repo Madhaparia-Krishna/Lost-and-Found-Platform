@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
-import './Form.css';
+import '../styles/form.css';
+import '../styles/Navbar.css';
 
-const categories = ['Electronics', 'Clothing', 'Books', 'Bags', 'Documents', 'Bottle', 'Other'];
+const categories = ['Electronics', 'Clothing', 'Books', 'Bags', 'Documents', 'Bottle'];
 const electronicsSubcategories = ['Phones', 'Chargers', 'Laptops', 'Buds'];
-const locations = ['stc', 'stmb', 'msb', 'central building', 'oval building', 'library', 'other'];
+const locations = ['stc', 'stmb', 'msb', 'central building', 'oval building', 'library', ];
 
 const LostForm = ({ contact, setContact, currentUserId }) => {
   const [formData, setFormData] = useState({
@@ -29,6 +30,15 @@ const LostForm = ({ contact, setContact, currentUserId }) => {
     }));
     if (name === 'contact') setContact(value);
   };
+const handleFileChange = (e) => {
+  const file = e.target.files[0];
+  if (file) {
+    setFormData((prev) => ({
+      ...prev,
+      image: file,
+    }));
+  }
+};
 
   const handleSubmit = async e => {
     e.preventDefault();
@@ -41,7 +51,7 @@ const LostForm = ({ contact, setContact, currentUserId }) => {
     try {
       const res = await fetch('http://localhost:5000/items/found', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'multipart/form-data' },
         body: JSON.stringify(payload),
       });
 
@@ -71,7 +81,7 @@ const LostForm = ({ contact, setContact, currentUserId }) => {
     return (
       <div className="form confirmation-screen">
         <h2>Thank You!</h2>
-        <p>Your found item has been submitted successfully.</p>
+        <p>Your lost item has been submitted successfully.</p>
         <div className="summary">
           <p><strong>Item:</strong> {formData.title}</p>
           <p><strong>Category:</strong> {formData.category}{formData.subcategory && ` - ${formData.subcategory}`}</p>
@@ -101,14 +111,7 @@ const LostForm = ({ contact, setContact, currentUserId }) => {
             {categories.map(c => <option key={c} value={c}>{c}</option>)}
           </select>
         </div>
-        {formData.category === 'Electronics' && (
-          <div className="form-group">
-            <label>Subcategory:</label>
-            <select name="subcategory" value={formData.subcategory} onChange={handleChange} required>
-              {electronicsSubcategories.map(sc => <option key={sc} value={sc}>{sc}</option>)}
-            </select>
-          </div>
-        )}
+        
       </div>
 
       <div className="form-row">
@@ -131,7 +134,7 @@ const LostForm = ({ contact, setContact, currentUserId }) => {
 
       <div className="form-group">
         <label>Image URL (optional):</label>
-        <input type="text" name="image" value={formData.image} onChange={handleChange} placeholder="https://example.com/image.jpg" />
+        <input type="file" name="image" accept="image/*" onChange={handleFileChange} />
       </div>
 
       <div className="form-group">
@@ -139,10 +142,9 @@ const LostForm = ({ contact, setContact, currentUserId }) => {
         <input type="email" name="contact" value={formData.contact} onChange={handleChange} required />
       </div>
 
-      <button type="submit" className="submit-btn">Submit Found Item</button>
+      <button type="submit" className="submit-btn">Submit lost Item</button>
     </form>
   );
 };
 
 export default LostForm;
-

@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
-import './Form.css';
+import '../styles/form.css';
+import '../styles/Navbar.css';
 
-const categories = ['Electronics', 'Clothing', 'Books', 'Bags', 'Documents', 'Bottle', 'Other'];
+const categories = ['Electronics', 'Clothing', 'Books', 'Bags', 'Documents', 'Bottle'];
 const electronicsSubcategories = ['Phones', 'Chargers', 'Laptops', 'Buds'];
-const locations = ['stc', 'stmb', 'msb', 'central building', 'oval building', 'library', 'other'];
+const locations = ['stc', 'stmb', 'msb', 'central building', 'oval building', 'library'];
 
 const FoundForm = ({ contact, setContact, currentUserId }) => {
   const [formData, setFormData] = useState({
@@ -29,6 +30,15 @@ const FoundForm = ({ contact, setContact, currentUserId }) => {
     }));
     if (name === 'contact') setContact(value);
   };
+const handleFileChange = (e) => {
+  const file = e.target.files[0];
+  if (file) {
+    setFormData((prev) => ({
+      ...prev,
+      image: file,
+    }));
+  }
+};
 
   const handleSubmit = async e => {
     e.preventDefault();
@@ -41,7 +51,7 @@ const FoundForm = ({ contact, setContact, currentUserId }) => {
     try {
       const res = await fetch('http://localhost:5000/items/found', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'multipart/form-data' },
         body: JSON.stringify(payload),
       });
 
@@ -100,15 +110,9 @@ const FoundForm = ({ contact, setContact, currentUserId }) => {
           <select name="category" value={formData.category} onChange={handleChange} required>
             {categories.map(c => <option key={c} value={c}>{c}</option>)}
           </select>
+          
         </div>
-        {formData.category === 'Electronics' && (
-          <div className="form-group">
-            <label>Subcategory:</label>
-            <select name="subcategory" value={formData.subcategory} onChange={handleChange} required>
-              {electronicsSubcategories.map(sc => <option key={sc} value={sc}>{sc}</option>)}
-            </select>
-          </div>
-        )}
+        
       </div>
 
       <div className="form-row">
@@ -131,7 +135,7 @@ const FoundForm = ({ contact, setContact, currentUserId }) => {
 
       <div className="form-group">
         <label>Image URL (optional):</label>
-        <input type="text" name="image" value={formData.image} onChange={handleChange} placeholder="https://example.com/image.jpg" />
+        <input type="file" name="image" accept="image/*" onChange={handleFileChange} />
       </div>
 
       <div className="form-group">

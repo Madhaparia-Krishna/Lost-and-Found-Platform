@@ -9,6 +9,19 @@ const cors = require('cors');
 const path = require('path');
 const config = require('./server-config');
 const crypto = require('crypto');
+const multer = require('multer');
+
+const storage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    cb(null, 'uploads/');
+  },
+  filename: function (req, file, cb) {
+    const uniqueName = Date.now() + '-' + file.originalname;
+    cb(null, uniqueName);
+  },
+});
+const upload = multer({ storage: storage });
+
 
 // Create Express app
 const app = express();
@@ -16,6 +29,8 @@ const app = express();
 // Middleware
 app.use(cors(config.serverConfig.corsOptions));
 app.use(bodyParser.json());
+app.use('/uploads', express.static('uploads'));
+
 
 // Only serve static files in production
 if (process.env.NODE_ENV === 'production') {
@@ -670,9 +685,9 @@ app.put('/api/security/claims/:id/status', authenticateToken, async (req, res) =
   }
 });
 // Submit a lost item
-router.post('/items/lost', (req, res) => {
-  const { title, category, description, location, image, date, user_id } = req.body;
-
+app.post('/items/lost', upload.single('image'), (req, res) => {
+  const { title, category, description, location, date, user_id } = req.body;
+  const image = req.file ? req.file.filename : null; 
   if (!title || !user_id) {
     return res.status(400).json({ message: 'Title and user_id are required' });
   }
@@ -693,9 +708,9 @@ router.post('/items/lost', (req, res) => {
 });
 
 // Submit a found item
-router.post('/items/found', (req, res) => {
-  const { title, category, description, location, image, date, user_id } = req.body;
-
+app.post('/items/found', upload.single('image'), (req, res) => {
+  const { title, category, description, location, date, user_id } = req.body;
+  const image = req.file ? req.file.filename : null;
   if (!title || !user_id) {
     return res.status(400).json({ message: 'Title and user_id are required' });
   }
