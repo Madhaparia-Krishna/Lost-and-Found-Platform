@@ -669,6 +669,52 @@ app.put('/api/security/claims/:id/status', authenticateToken, async (req, res) =
     res.status(500).json({ message: 'Error updating claim status' });
   }
 });
+// Submit a lost item
+router.post('/items/lost', (req, res) => {
+  const { title, category, description, location, image, date, user_id } = req.body;
+
+  if (!title || !user_id) {
+    return res.status(400).json({ message: 'Title and user_id are required' });
+  }
+
+  const sql = `
+    INSERT INTO Items 
+      (title, category, description, location, status, image, date, user_id) 
+    VALUES (?, ?, ?, ?, 'lost', ?, ?, ?)
+  `;
+
+  db.query(sql, [title, category, description, location, image, date, user_id], (err, result) => {
+    if (err) {
+      console.error('Error inserting lost item:', err);
+      return res.status(500).json({ message: 'Database error' });
+    }
+    res.status(201).json({ message: 'Lost item submitted successfully', itemId: result.insertId });
+  });
+});
+
+// Submit a found item
+router.post('/items/found', (req, res) => {
+  const { title, category, description, location, image, date, user_id } = req.body;
+
+  if (!title || !user_id) {
+    return res.status(400).json({ message: 'Title and user_id are required' });
+  }
+
+  const sql = `
+    INSERT INTO Items 
+      (title, category, description, location, status, image, date, user_id) 
+    VALUES (?, ?, ?, ?, 'found', ?, ?, ?)
+  `;
+
+  db.query(sql, [title, category, description, location, image, date, user_id], (err, result) => {
+    if (err) {
+      console.error('Error inserting found item:', err);
+      return res.status(500).json({ message: 'Database error' });
+    }
+    res.status(201).json({ message: 'Found item submitted successfully', itemId: result.insertId });
+  });
+});
+
 
 // Start server
 const PORT = config.serverConfig.port;
