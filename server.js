@@ -9,9 +9,19 @@ const cors = require('cors');
 const path = require('path');
 const config = require('./server-config');
 const crypto = require('crypto');
+const http = require('http');
+const socketIo = require('socket.io');
+const multer = require('multer');
 
 // Create Express app
 const app = express();
+const server = http.createServer(app);
+const io = socketIo(server, {
+  cors: {
+    origin: "*",
+    methods: ["GET", "POST"]
+  }
+});
 
 // Middleware
 app.use(cors(config.serverConfig.corsOptions));
@@ -535,12 +545,13 @@ app.get('/api/security/claims', authenticateToken, async (req, res) => {
 
 app.get('/api/notifications', authenticateToken, async (req, res) => {
   try {
-    // Get notifications for this user
-    const [notifications] = await pool.query(`
-      SELECT * FROM Notifications
-      WHERE user_id = ? AND is_deleted = FALSE
-      ORDER BY created_at DESC
-    `, [req.user.id]);
+    const [notifications] = await pool.query(
+      `SELECT * FROM Notifications 
+       WHERE user_id = ? 
+       ORDER BY created_at DESC 
+       LIMIT 50`,
+      [req.user.id]
+    );
     
     res.json({ notifications });
   } catch (error) {
@@ -549,21 +560,19 @@ app.get('/api/notifications', authenticateToken, async (req, res) => {
   }
 });
 
-app.put('/api/notifications/:id/read', authenticateToken, async (req, res) => {
+app.put('/api/notifications/:notificationId/read', authenticateToken, async (req, res) => {
   try {
-    const notificationId = req.params.id;
+    const { notificationId } = req.params;
     
-    // Update notification status
-    await pool.query(`
-      UPDATE Notifications
-      SET status = 'read'
-      WHERE id = ? AND user_id = ?
-    `, [notificationId, req.user.id]);
+    await pool.query(
+      'UPDATE Notifications SET status = ? WHERE id = ? AND user_id = ?',
+      ['read', notificationId, req.user.id]
+    );
     
     res.json({ message: 'Notification marked as read' });
   } catch (error) {
-    console.error('Error updating notification:', error);
-    res.status(500).json({ message: 'Error updating notification' });
+    console.error('Error marking notification as read:', error);
+    res.status(500).json({ message: 'Error marking notification as read' });
   }
 });
 
@@ -670,9 +679,264 @@ app.put('/api/security/claims/:id/status', authenticateToken, async (req, res) =
   }
 });
 
+// Socket.IO connection handling
+io.on('connection', (socket) => {
+  console.log('New client connected');
+
+  // Join a chat room
+  socket.on('join_room', (roomId) => {
+    socket.join(roomId);
+    console.log(`User joined room: ${roomId}`);
+  });
+
+  // Handle chat messages
+  socket.on('send_message', async (data) => {
+    try {
+      const { roomId, message, senderId, senderName, senderRole } = data;
+      
+      // Save message to database
+      const [result] = await pool.query(
+        'INSERT INTO ChatMessages (room_id, sender_id, message, sender_name, sender_role) VALUES (?, ?, ?, ?, ?)',
+        [roomId, senderId, message, senderName, senderRole]
+      );
+
+      // Broadcast message to room
+      io.to(roomId).emit('receive_message', {
+        id: result.insertId,
+        roomId,
+        message,
+        senderId,
+        senderName,
+        senderRole,
+        timestamp: new Date()
+      });
+    } catch (error) {
+      console.error('Error saving message:', error);
+      socket.emit('error', 'Failed to send message');
+    }
+  });
+
+  // Handle disconnection
+  socket.on('disconnect', () => {
+    console.log('Client disconnected');
+  });
+});
+
+// Get chat messages for a room
+app.get('/api/chat/:roomId', authenticateToken, async (req, res) => {
+  try {
+    const { roomId } = req.params;
+    const [messages] = await pool.query(
+      'SELECT * FROM ChatMessages WHERE room_id = ? ORDER BY created_at ASC',
+      [roomId]
+    );
+    res.json({ messages });
+  } catch (error) {
+    console.error('Error fetching messages:', error);
+    res.status(500).json({ message: 'Error fetching chat messages' });
+  }
+});
+
+// Create a new chat room
+app.post('/api/chat/rooms', authenticateToken, async (req, res) => {
+  try {
+    const { participants } = req.body;
+    const [result] = await pool.query(
+      'INSERT INTO ChatRooms (created_by) VALUES (?)',
+      [req.user.id]
+    );
+    
+    const roomId = result.insertId;
+    
+    // Add participants to room
+    for (const participantId of participants) {
+      await pool.query(
+        'INSERT INTO ChatRoomParticipants (room_id, user_id) VALUES (?, ?)',
+        [roomId, participantId]
+      );
+    }
+    
+    res.json({ roomId });
+  } catch (error) {
+    console.error('Error creating chat room:', error);
+    res.status(500).json({ message: 'Error creating chat room' });
+  }
+});
+
+// Get user's chat rooms
+app.get('/api/chat/rooms', authenticateToken, async (req, res) => {
+  try {
+    const [rooms] = await pool.query(
+      `SELECT cr.*, 
+        GROUP_CONCAT(u.name) as participant_names,
+        GROUP_CONCAT(u.role) as participant_roles
+      FROM ChatRooms cr
+      JOIN ChatRoomParticipants crp ON cr.id = crp.room_id
+      JOIN Users u ON crp.user_id = u.id
+      WHERE crp.user_id = ?
+      GROUP BY cr.id`,
+      [req.user.id]
+    );
+    
+    res.json({ rooms });
+  } catch (error) {
+    console.error('Error fetching chat rooms:', error);
+    res.status(500).json({ message: 'Error fetching chat rooms' });
+  }
+});
+
+// Get system logs (admin only)
+app.get('/api/admin/logs', authenticateToken, async (req, res) => {
+  // Only allow admins to access this endpoint
+  if (req.user.role !== 'admin') {
+    return res.status(403).json({ message: 'Access denied: Admin permission required' });
+  }
+  
+  try {
+    const [logs] = await pool.query(
+      `SELECT l.*, u.name as user_name 
+       FROM SystemLogs l 
+       LEFT JOIN Users u ON l.user_id = u.id 
+       ORDER BY l.created_at DESC 
+       LIMIT 1000`
+    );
+    
+    // Format the logs for better readability
+    const formattedLogs = logs.map(log => ({
+      ...log,
+      created_at: new Date(log.created_at).toLocaleString(),
+      details: log.details || 'N/A'
+    }));
+    
+    res.json({ logs: formattedLogs });
+  } catch (error) {
+    console.error('Error fetching logs:', error);
+    res.status(500).json({ message: 'Error fetching system logs' });
+  }
+});
+
+// Helper function to log system actions
+async function logSystemAction(action, details, userId = null) {
+  try {
+    await pool.query(
+      'INSERT INTO SystemLogs (action, details, user_id) VALUES (?, ?, ?)',
+      [action, details, userId]
+    );
+  } catch (error) {
+    console.error('Error logging system action:', error);
+  }
+}
+
+// Helper function to create notifications
+async function createNotification(userId, message, type = 'info') {
+  try {
+    await pool.query(
+      'INSERT INTO Notifications (user_id, message, type) VALUES (?, ?, ?)',
+      [userId, message, type]
+    );
+  } catch (error) {
+    console.error('Error creating notification:', error);
+  }
+}
+
+// Helper function to notify security staff
+async function notifySecurityStaff(message, type = 'new_item') {
+  try {
+    // Get all security staff
+    const [securityStaff] = await pool.query(
+      'SELECT id FROM Users WHERE role = ? AND is_deleted = FALSE',
+      ['security']
+    );
+    
+    // Create notifications for each security staff member
+    for (const staff of securityStaff) {
+      await createNotification(staff.id, message, type);
+    }
+  } catch (error) {
+    console.error('Error notifying security staff:', error);
+  }
+}
+
+// Add item endpoint (add this where you handle item creation)
+app.post('/api/items', authenticateToken, async (req, res) => {
+  try {
+    const { title, description, type, location } = req.body;
+    
+    // Insert item into database
+    const [result] = await pool.query(
+      'INSERT INTO Items (title, description, type, location, user_id) VALUES (?, ?, ?, ?, ?)',
+      [title, description, type, location, req.user.id]
+    );
+    
+    // Notify security staff
+    const message = `New ${type} item "${title}" has been reported. Location: ${location}`;
+    await notifySecurityStaff(message, 'new_item');
+    
+    // Log the action
+    await logSystemAction(
+      'New item added',
+      `Item "${title}" (${type}) added by user ${req.user.id}`,
+      req.user.id
+    );
+    
+    res.status(201).json({ message: 'Item added successfully', itemId: result.insertId });
+  } catch (error) {
+    console.error('Error adding item:', error);
+    res.status(500).json({ message: 'Error adding item' });
+  }
+});
+
+// Update item status endpoint to include notifications
+app.put('/api/security/items/:itemId/status', authenticateToken, async (req, res) => {
+  if (req.user.role !== 'security' && req.user.role !== 'admin') {
+    return res.status(403).json({ message: 'Access denied: Security permission required' });
+  }
+
+  const { itemId } = req.params;
+  const { status } = req.body;
+
+  try {
+    // Get item details
+    const [items] = await pool.query(
+      'SELECT * FROM Items WHERE id = ?',
+      [itemId]
+    );
+
+    if (items.length === 0) {
+      return res.status(404).json({ message: 'Item not found' });
+    }
+
+    const item = items[0];
+
+    // Update item status
+    await pool.query(
+      'UPDATE Items SET status = ? WHERE id = ?',
+      [status, itemId]
+    );
+
+    // Create notification for the item owner
+    if (item.reported_by) {
+      const message = `Your ${item.type === 'lost' ? 'lost' : 'found'} item "${item.title}" has been ${status}`;
+      await createNotification(item.reported_by, message, 'status_update');
+    }
+
+    // Log the status update
+    await logSystemAction(
+      'Item status updated',
+      `Item ID ${itemId} status changed to ${status}`,
+      req.user.id
+    );
+
+    res.json({ message: 'Item status updated successfully' });
+  } catch (error) {
+    console.error('Error updating item status:', error);
+    res.status(500).json({ message: 'Error updating item status' });
+  }
+});
+
 // Start server
-const PORT = config.serverConfig.port;
-app.listen(PORT, () => {
-  console.log(`Server is running on port ${PORT}`);
+const PORT = process.env.PORT || 5000;
+server.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
   initializeDatabase();
 });

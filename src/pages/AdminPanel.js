@@ -57,6 +57,43 @@ const AdminPanel = () => {
     fetchUsers();
   }, [currentUser, navigate]);
 
+  // Fetch logs data
+  useEffect(() => {
+    const fetchLogs = async () => {
+      if (!currentUser || currentUser.role !== 'admin') {
+        navigate('/unauthorized');
+        return;
+      }
+
+      try {
+        setLoading(true);
+        setError(null); // Clear any previous errors
+        
+        const response = await fetch('/api/admin/logs', {
+          headers: {
+            'Authorization': `Bearer ${currentUser.token}`
+          }
+        });
+
+        if (!response.ok) {
+          throw new Error(`Failed to fetch logs: ${response.statusText}`);
+        }
+
+        const data = await response.json();
+        setLogs(data.logs);
+      } catch (err) {
+        console.error('Error fetching logs:', err);
+        setError(err.message || 'Failed to load system logs');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (activeTab === 'logs') {
+      fetchLogs();
+    }
+  }, [currentUser, navigate, activeTab]);
+
   // Handle role change
   const handleRoleChange = async (userId, newRole) => {
     if (!currentUser || currentUser.role !== 'admin') {
@@ -201,7 +238,36 @@ const AdminPanel = () => {
         {activeTab === 'logs' && (
           <div className="panel-section">
             <h2>System Logs</h2>
-            <p>Logs feature will be implemented soon.</p>
+            {loading ? (
+              <div className="loading">Loading logs...</div>
+            ) : error ? (
+              <div className="error-message">{error}</div>
+            ) : logs.length > 0 ? (
+              <table className="data-table">
+                <thead>
+                  <tr>
+                    <th>ID</th>
+                    <th>Action</th>
+                    <th>Details</th>
+                    <th>User</th>
+                    <th>Timestamp</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {logs.map(log => (
+                    <tr key={log.id}>
+                      <td>{log.id}</td>
+                      <td>{log.action}</td>
+                      <td>{log.details}</td>
+                      <td>{log.user_name || 'System'}</td>
+                      <td>{log.created_at}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            ) : (
+              <p>No logs found.</p>
+            )}
           </div>
         )}
 

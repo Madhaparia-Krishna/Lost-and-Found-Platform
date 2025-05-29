@@ -104,6 +104,7 @@
   border-collapse: collapse;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
   background-color: white;
+  table-layout: fixed;
 }
 
 .data-table th, 
@@ -111,12 +112,44 @@
   padding: 0.75rem 1rem;
   text-align: left;
   border-bottom: 1px solid #eaeaea;
+  word-wrap: break-word;
 }
 
 .data-table th {
   background-color: #f5f5f5;
   font-weight: 600;
   color: #333;
+}
+
+/* Set specific column widths */
+.data-table th:nth-child(1), /* ID */
+.data-table td:nth-child(1) {
+  width: 5%;
+}
+
+.data-table th:nth-child(2), /* Name */
+.data-table td:nth-child(2) {
+  width: 20%;
+}
+
+.data-table th:nth-child(3), /* Email */
+.data-table td:nth-child(3) {
+  width: 30%;
+}
+
+.data-table th:nth-child(4), /* Role */
+.data-table td:nth-child(4) {
+  width: 15%;
+}
+
+.data-table th:nth-child(5), /* Created At */
+.data-table td:nth-child(5) {
+  width: 15%;
+}
+
+.data-table th:nth-child(6), /* Actions */
+.data-table td:nth-child(6) {
+  width: 15%;
 }
 
 .data-table tr:hover {

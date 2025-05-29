@@ -31,6 +31,9 @@ async function setupDatabase() {
     // Create admin user
     await createAdminUser(connection);
     
+    // Create tables
+    await createTables(connection);
+    
   } catch (error) {
     console.error('Error setting up database:', error);
   } finally {
@@ -96,6 +99,77 @@ async function createAdminUser(connection) {
     
   } catch (error) {
     console.error('Error creating admin user:', error);
+  }
+}
+
+async function createTables(connection) {
+  try {
+    // Create ChatRooms table
+    await connection.query(`
+      CREATE TABLE IF NOT EXISTS ChatRooms (
+        id INT PRIMARY KEY AUTO_INCREMENT,
+        created_by INT NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (created_by) REFERENCES Users(id)
+      )
+    `);
+
+    // Create ChatRoomParticipants table
+    await connection.query(`
+      CREATE TABLE IF NOT EXISTS ChatRoomParticipants (
+        room_id INT NOT NULL,
+        user_id INT NOT NULL,
+        joined_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY (room_id, user_id),
+        FOREIGN KEY (room_id) REFERENCES ChatRooms(id),
+        FOREIGN KEY (user_id) REFERENCES Users(id)
+      )
+    `);
+
+    // Create ChatMessages table
+    await connection.query(`
+      CREATE TABLE IF NOT EXISTS ChatMessages (
+        id INT PRIMARY KEY AUTO_INCREMENT,
+        room_id INT NOT NULL,
+        sender_id INT NOT NULL,
+        message TEXT NOT NULL,
+        sender_name VARCHAR(255) NOT NULL,
+        sender_role VARCHAR(50) NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (room_id) REFERENCES ChatRooms(id),
+        FOREIGN KEY (sender_id) REFERENCES Users(id)
+      )
+    `);
+
+    // Create SystemLogs table
+    await connection.query(`
+      CREATE TABLE IF NOT EXISTS SystemLogs (
+        id INT PRIMARY KEY AUTO_INCREMENT,
+        action VARCHAR(255) NOT NULL,
+        details TEXT,
+        user_id INT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (user_id) REFERENCES Users(id)
+      )
+    `);
+
+    // Create Notifications table
+    await connection.query(`
+      CREATE TABLE IF NOT EXISTS Notifications (
+        id INT PRIMARY KEY AUTO_INCREMENT,
+        user_id INT NOT NULL,
+        message TEXT NOT NULL,
+        type VARCHAR(50) DEFAULT 'info',
+        status VARCHAR(20) DEFAULT 'unread',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (user_id) REFERENCES Users(id)
+      )
+    `);
+
+    console.log('All tables created successfully');
+  } catch (error) {
+    console.error('Error creating tables:', error);
+    throw error;
   }
 }
 
