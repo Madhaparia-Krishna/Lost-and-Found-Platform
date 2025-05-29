@@ -41,8 +41,12 @@ function Home() {
         
         <div className={`nav-right ${mobileMenuOpen ? 'active' : ''}`}>
           <div className="action-buttons">
-            <button className="nav-btn">Submit Lost Item</button>
-            <button className="nav-btn">Submit Found Item</button>
+            <button className="nav-btn" onClick={() => navigate('/lost')}>
+        Submit Lost Item
+      </button>
+      <button className="nav-btn" onClick={() => navigate('/found')}>
+        Submit Found Item
+      </button>
             <button className="nav-btn">View Recent Posts</button>
           </div>
           
