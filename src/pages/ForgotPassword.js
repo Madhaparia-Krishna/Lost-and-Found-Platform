@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { sendEmail, buildEmailParams, EMAIL_TEMPLATES } from '../utils/emailService';
+import emailService from '../utils/emailService';
 import '../styles/AuthForms.css';
 
 function ForgotPassword() {
@@ -77,18 +77,11 @@ function ForgotPassword() {
         throw new Error('Invalid server response: missing reset URL');
       }
 
-      // Send email using EmailJS
-      const emailParams = {
-        name: data.userName || 'User',
-        reset_link: data.resetUrl,
-        email: email
-      };
-      
-      console.log('Sending email with params:', emailParams);
-      
-      const emailResult = await sendEmail(
-        EMAIL_TEMPLATES.PASSWORD_RESET,
-        emailParams
+      // Send email using our emailService
+      const emailResult = await emailService.sendPasswordResetEmail(
+        email,
+        data.userName || 'User',
+        data.resetUrl
       );
 
       if (!emailResult.success) {

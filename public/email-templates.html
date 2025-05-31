@@ -1,0 +1,521 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lost & Found System - Email Templates</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background-color: white;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            margin-bottom: 20px;
+        }
+        h1, h2 {
+            color: #2c3e50;
+        }
+        h1 {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        h2 {
+            padding-bottom: 10px;
+            border-bottom: 1px solid #eee;
+        }
+        .template {
+            margin-bottom: 40px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            overflow: hidden;
+        }
+        .template-header {
+            background-color: #f8f9fa;
+            padding: 10px 20px;
+            border-bottom: 1px solid #ddd;
+        }
+        .template-header h3 {
+            margin: 0;
+        }
+        .template-content {
+            padding: 20px;
+            background-color: white;
+        }
+        pre {
+            background-color: #f8f9fa;
+            padding: 15px;
+            border-radius: 4px;
+            overflow-x: auto;
+            font-size: 14px;
+            border: 1px solid #eee;
+        }
+        .note {
+            background-color: #fff3cd;
+            border: 1px solid #ffeeba;
+            color: #856404;
+            padding: 15px;
+            border-radius: 4px;
+            margin-bottom: 20px;
+        }
+        .params {
+            background-color: #e8f4fd;
+            border: 1px solid #b8daff;
+            color: #004085;
+            padding: 15px;
+            border-radius: 4px;
+            margin-bottom: 20px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 20px;
+        }
+        th, td {
+            padding: 8px 12px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+        th {
+            background-color: #f2f2f2;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Lost & Found System Email Templates</h1>
+        
+        <div class="note">
+            <strong>How to use these templates:</strong> Copy the HTML code from each template and paste it into your EmailJS email template editor. The parameter placeholders (like <code>{{user_name}}</code>) will be replaced with actual values when the email is sent.
+        </div>
+
+        <!-- Template 1: Registration Email -->
+        <div class="template">
+            <div class="template-header">
+                <h3>1. Registration Confirmation Email</h3>
+            </div>
+            <div class="template-content">
+                <div class="params">
+                    <strong>Required Parameters:</strong>
+                    <ul>
+                        <li><code>to_email</code>: Recipient's email address</li>
+                        <li><code>user_name</code>: User's name</li>
+                    </ul>
+                </div>
+                
+                <h2>HTML Template Code:</h2>
+                <pre>
+&lt;!DOCTYPE html&gt;
+&lt;html&gt;
+&lt;head&gt;
+    &lt;style&gt;
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            color: #333333;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .email-container {
+            background-color: #ffffff;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+        .email-header {
+            background-color: #3498db;
+            color: white;
+            padding: 20px;
+            text-align: center;
+        }
+        .email-body {
+            padding: 20px;
+        }
+        .email-footer {
+            background-color: #f7f7f7;
+            padding: 15px;
+            text-align: center;
+            font-size: 12px;
+            color: #666666;
+        }
+        .button {
+            display: inline-block;
+            background-color: #3498db;
+            color: white;
+            text-decoration: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            margin: 20px 0;
+        }
+    &lt;/style&gt;
+&lt;/head&gt;
+&lt;body&gt;
+    &lt;div class="email-container"&gt;
+        &lt;div class="email-header"&gt;
+            &lt;h1&gt;Welcome to Lost &amp; Found System&lt;/h1&gt;
+        &lt;/div&gt;
+        &lt;div class="email-body"&gt;
+            &lt;h2&gt;Registration Successful&lt;/h2&gt;
+            &lt;p&gt;Hello {{user_name}},&lt;/p&gt;
+            &lt;p&gt;Thank you for registering with our Lost &amp; Found System. Your account has been successfully created.&lt;/p&gt;
+            &lt;p&gt;With your new account, you can:&lt;/p&gt;
+            &lt;ul&gt;
+                &lt;li&gt;Report lost items&lt;/li&gt;
+                &lt;li&gt;Report found items&lt;/li&gt;
+                &lt;li&gt;Search for items&lt;/li&gt;
+                &lt;li&gt;Receive notifications when matches are found&lt;/li&gt;
+            &lt;/ul&gt;
+            &lt;a href="http://localhost:3000/dashboard" class="button"&gt;Go to Your Dashboard&lt;/a&gt;
+            &lt;p&gt;If you have any questions or need assistance, please don't hesitate to contact our support team.&lt;/p&gt;
+            &lt;p&gt;Best regards,&lt;br&gt;The Lost &amp; Found Team&lt;/p&gt;
+        &lt;/div&gt;
+        &lt;div class="email-footer"&gt;
+            &lt;p&gt;This is an automated message, please do not reply to this email.&lt;/p&gt;
+            &lt;p&gt;&copy; 2023 Lost &amp; Found System. All rights reserved.&lt;/p&gt;
+        &lt;/div&gt;
+    &lt;/div&gt;
+&lt;/body&gt;
+&lt;/html&gt;
+                </pre>
+            </div>
+        </div>
+
+        <!-- Template 2: Block User Email -->
+        <div class="template">
+            <div class="template-header">
+                <h3>2. Account Blocked Email</h3>
+            </div>
+            <div class="template-content">
+                <div class="params">
+                    <strong>Required Parameters:</strong>
+                    <ul>
+                        <li><code>to_email</code>: Recipient's email address</li>
+                        <li><code>user_name</code>: User's name</li>
+                        <li><code>block_reason</code>: Reason for blocking (optional)</li>
+                        <li><code>block_date</code>: Date when account was blocked</li>
+                        <li><code>contact_email</code>: Email to contact for support</li>
+                    </ul>
+                </div>
+                
+                <h2>HTML Template Code:</h2>
+                <pre>
+&lt;!DOCTYPE html&gt;
+&lt;html&gt;
+&lt;head&gt;
+    &lt;style&gt;
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            color: #333333;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .email-container {
+            background-color: #ffffff;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+        .email-header {
+            background-color: #e74c3c;
+            color: white;
+            padding: 20px;
+            text-align: center;
+        }
+        .email-body {
+            padding: 20px;
+        }
+        .email-footer {
+            background-color: #f7f7f7;
+            padding: 15px;
+            text-align: center;
+            font-size: 12px;
+            color: #666666;
+        }
+        .button {
+            display: inline-block;
+            background-color: #3498db;
+            color: white;
+            text-decoration: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            margin: 20px 0;
+        }
+        .info-box {
+            background-color: #f8f9fa;
+            border-left: 4px solid #e74c3c;
+            padding: 15px;
+            margin: 20px 0;
+        }
+    &lt;/style&gt;
+&lt;/head&gt;
+&lt;body&gt;
+    &lt;div class="email-container"&gt;
+        &lt;div class="email-header"&gt;
+            &lt;h1&gt;Account Blocked&lt;/h1&gt;
+        &lt;/div&gt;
+        &lt;div class="email-body"&gt;
+            &lt;h2&gt;Your Account Has Been Blocked&lt;/h2&gt;
+            &lt;p&gt;Hello {{user_name}},&lt;/p&gt;
+            &lt;p&gt;We regret to inform you that your account on the Lost &amp; Found System has been blocked.&lt;/p&gt;
+            
+            &lt;div class="info-box"&gt;
+                &lt;p&gt;&lt;strong&gt;Block Date:&lt;/strong&gt; {{block_date}}&lt;/p&gt;
+                &lt;p&gt;&lt;strong&gt;Reason:&lt;/strong&gt; {{block_reason}}&lt;/p&gt;
+            &lt;/div&gt;
+            
+            &lt;p&gt;If you believe this is a mistake or would like to appeal this decision, please contact our support team at {{contact_email}}.&lt;/p&gt;
+            
+            &lt;p&gt;While your account is blocked, you will not be able to:&lt;/p&gt;
+            &lt;ul&gt;
+                &lt;li&gt;Log into your account&lt;/li&gt;
+                &lt;li&gt;Report items&lt;/li&gt;
+                &lt;li&gt;Access your profile or history&lt;/li&gt;
+            &lt;/ul&gt;
+            
+            &lt;p&gt;Thank you for your understanding.&lt;/p&gt;
+            
+            &lt;p&gt;Regards,&lt;br&gt;The Lost &amp; Found Administration Team&lt;/p&gt;
+        &lt;/div&gt;
+        &lt;div class="email-footer"&gt;
+            &lt;p&gt;This is an automated message, please do not reply to this email.&lt;/p&gt;
+            &lt;p&gt;&copy; 2023 Lost &amp; Found System. All rights reserved.&lt;/p&gt;
+        &lt;/div&gt;
+    &lt;/div&gt;
+&lt;/body&gt;
+&lt;/html&gt;
+                </pre>
+            </div>
+        </div>
+
+        <!-- Template 3: Unblock User Email -->
+        <div class="template">
+            <div class="template-header">
+                <h3>3. Account Unblocked Email</h3>
+            </div>
+            <div class="template-content">
+                <div class="params">
+                    <strong>Required Parameters:</strong>
+                    <ul>
+                        <li><code>to_email</code>: Recipient's email address</li>
+                        <li><code>user_name</code>: User's name</li>
+                        <li><code>unblock_date</code>: Date when account was unblocked</li>
+                    </ul>
+                </div>
+                
+                <h2>HTML Template Code:</h2>
+                <pre>
+&lt;!DOCTYPE html&gt;
+&lt;html&gt;
+&lt;head&gt;
+    &lt;style&gt;
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            color: #333333;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .email-container {
+            background-color: #ffffff;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+        .email-header {
+            background-color: #2ecc71;
+            color: white;
+            padding: 20px;
+            text-align: center;
+        }
+        .email-body {
+            padding: 20px;
+        }
+        .email-footer {
+            background-color: #f7f7f7;
+            padding: 15px;
+            text-align: center;
+            font-size: 12px;
+            color: #666666;
+        }
+        .button {
+            display: inline-block;
+            background-color: #2ecc71;
+            color: white;
+            text-decoration: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            margin: 20px 0;
+        }
+        .info-box {
+            background-color: #f8f9fa;
+            border-left: 4px solid #2ecc71;
+            padding: 15px;
+            margin: 20px 0;
+        }
+    &lt;/style&gt;
+&lt;/head&gt;
+&lt;body&gt;
+    &lt;div class="email-container"&gt;
+        &lt;div class="email-header"&gt;
+            &lt;h1&gt;Account Restored&lt;/h1&gt;
+        &lt;/div&gt;
+        &lt;div class="email-body"&gt;
+            &lt;h2&gt;Your Account Has Been Unblocked&lt;/h2&gt;
+            &lt;p&gt;Hello {{user_name}},&lt;/p&gt;
+            &lt;p&gt;We're pleased to inform you that your account on the Lost &amp; Found System has been unblocked and restored to full functionality.&lt;/p&gt;
+            
+            &lt;div class="info-box"&gt;
+                &lt;p&gt;&lt;strong&gt;Unblock Date:&lt;/strong&gt; {{unblock_date}}&lt;/p&gt;
+            &lt;/div&gt;
+            
+            &lt;p&gt;You can now:&lt;/p&gt;
+            &lt;ul&gt;
+                &lt;li&gt;Log into your account&lt;/li&gt;
+                &lt;li&gt;Report lost or found items&lt;/li&gt;
+                &lt;li&gt;Access all platform features&lt;/li&gt;
+            &lt;/ul&gt;
+            
+            &lt;a href="http://localhost:3000/login" class="button"&gt;Login to Your Account&lt;/a&gt;
+            
+            &lt;p&gt;Thank you for your patience and understanding during this process.&lt;/p&gt;
+            
+            &lt;p&gt;Welcome back!&lt;/p&gt;
+            
+            &lt;p&gt;Best regards,&lt;br&gt;The Lost &amp; Found Administration Team&lt;/p&gt;
+        &lt;/div&gt;
+        &lt;div class="email-footer"&gt;
+            &lt;p&gt;This is an automated message, please do not reply to this email.&lt;/p&gt;
+            &lt;p&gt;&copy; 2023 Lost &amp; Found System. All rights reserved.&lt;/p&gt;
+        &lt;/div&gt;
+    &lt;/div&gt;
+&lt;/body&gt;
+&lt;/html&gt;
+                </pre>
+            </div>
+        </div>
+
+        <!-- Template 4: Match Found Email (Already exists, but included for reference) -->
+        <div class="template">
+            <div class="template-header">
+                <h3>4. Match Found Email (For Reference)</h3>
+            </div>
+            <div class="template-content">
+                <div class="params">
+                    <strong>Required Parameters:</strong>
+                    <ul>
+                        <li><code>to_email</code>: Recipient's email address</li>
+                        <li><code>user_name</code>: User's name</li>
+                        <li><code>item_title</code>: Title of the matched item</li>
+                        <li><code>category</code>: Category of the item</li>
+                        <li><code>message</code>: Custom message about the match</li>
+                        <li><code>match_link</code>: Link to view the match details</li>
+                        <li><code>location</code>: Location where item was found</li>
+                        <li><code>time</code>: Time of match notification</li>
+                        <li><code>date</code>: Date when item was found</li>
+                    </ul>
+                </div>
+                
+                <h2>HTML Template Code:</h2>
+                <pre>
+&lt;!DOCTYPE html&gt;
+&lt;html&gt;
+&lt;head&gt;
+    &lt;style&gt;
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            color: #333333;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .email-container {
+            background-color: #ffffff;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+        .email-header {
+            background-color: #3498db;
+            color: white;
+            padding: 20px;
+            text-align: center;
+        }
+        .email-body {
+            padding: 20px;
+        }
+        .email-footer {
+            background-color: #f7f7f7;
+            padding: 15px;
+            text-align: center;
+            font-size: 12px;
+            color: #666666;
+        }
+        .item-details {
+            background-color: #f8f9fa;
+            border-left: 4px solid #3498db;
+            padding: 15px;
+            margin: 20px 0;
+        }
+        .button {
+            display: inline-block;
+            background-color: #3498db;
+            color: white;
+            text-decoration: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            margin: 20px 0;
+        }
+    &lt;/style&gt;
+&lt;/head&gt;
+&lt;body&gt;
+    &lt;div class="email-container"&gt;
+        &lt;div class="email-header"&gt;
+            &lt;h1&gt;Match Found!&lt;/h1&gt;
+        &lt;/div&gt;
+        &lt;div class="email-body"&gt;
+            &lt;h2&gt;Potential Match For Your Item&lt;/h2&gt;
+            &lt;p&gt;Hello {{user_name}},&lt;/p&gt;
+            &lt;p&gt;{{message}}&lt;/p&gt;
+            
+            &lt;div class="item-details"&gt;
+                &lt;h3&gt;Item Details:&lt;/h3&gt;
+                &lt;p&gt;&lt;strong&gt;Item:&lt;/strong&gt; {{item_title}}&lt;/p&gt;
+                &lt;p&gt;&lt;strong&gt;Category:&lt;/strong&gt; {{category}}&lt;/p&gt;
+                &lt;p&gt;&lt;strong&gt;Found at:&lt;/strong&gt; {{location}}&lt;/p&gt;
+                &lt;p&gt;&lt;strong&gt;Date:&lt;/strong&gt; {{date}}&lt;/p&gt;
+                &lt;p&gt;&lt;strong&gt;Notification Time:&lt;/strong&gt; {{time}}&lt;/p&gt;
+            &lt;/div&gt;
+            
+            &lt;p&gt;Please review this match and take action as soon as possible.&lt;/p&gt;
+            
+            &lt;a href="{{match_link}}" class="button"&gt;View Match Details&lt;/a&gt;
+            
+            &lt;p&gt;If you have any questions or need assistance, please contact our support team.&lt;/p&gt;
+            
+            &lt;p&gt;Best regards,&lt;br&gt;The Lost &amp; Found Team&lt;/p&gt;
+        &lt;/div&gt;
+        &lt;div class="email-footer"&gt;
+            &lt;p&gt;This is an automated message, please do not reply to this email.&lt;/p&gt;
+            &lt;p&gt;&copy; 2023 Lost &amp; Found System. All rights reserved.&lt;/p&gt;
+        &lt;/div&gt;
+    &lt;/div&gt;
+&lt;/body&gt;
+&lt;/html&gt;
+                </pre>
+            </div>
+        </div>
+    </div>
+</body>
+</html> 

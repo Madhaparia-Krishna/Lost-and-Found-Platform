@@ -10,6 +10,8 @@ const path = require('path');
 const config = require('./server-config');
 const crypto = require('crypto');
 const multer = require('multer');
+const { calculateMatchScore } = require('./server-utils');
+const emailService = require('./server-email');
 
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
@@ -24,7 +26,6 @@ const upload = multer({ storage: storage });
 
 const http = require('http');
 const socketIo = require('socket.io');
-const multer = require('multer');
 
 // Create Express app
 const app = express();
@@ -40,7 +41,7 @@ const io = socketIo(server, {
 app.use(cors(config.serverConfig.corsOptions));
 app.use(bodyParser.json());
 app.use('/uploads', express.static('uploads'));
-
+app.use(express.static('public')); // Serve static files from public directory
 
 // Only serve static files in production
 if (process.env.NODE_ENV === 'production') {
@@ -693,52 +694,252 @@ app.put('/api/security/claims/:id/status', authenticateToken, async (req, res) =
     res.status(500).json({ message: 'Error updating claim status' });
   }
 });
-// Submit a lost item
-app.post('/items/lost', upload.single('image'), (req, res) => {
-  const { title, category, description, location, date, user_id } = req.body;
-  const image = req.file ? req.file.filename : null; 
-  if (!title || !user_id) {
-    return res.status(400).json({ message: 'Title and user_id are required' });
-  }
 
-  const sql = `
-    INSERT INTO Items 
-      (title, category, description, location, status, image, date, user_id) 
-    VALUES (?, ?, ?, ?, 'lost', ?, ?, ?)
-  `;
-
-  db.query(sql, [title, category, description, location, image, date, user_id], (err, result) => {
-    if (err) {
-      console.error('Error inserting lost item:', err);
-      return res.status(500).json({ message: 'Database error' });
+// Get all items (public view - hide sensitive info)
+app.get('/items', async (req, res) => {
+  try {
+    console.log('Fetching items from database...');
+    
+    // First, check if we can connect to the database
+    const connection = await pool.getConnection();
+    console.log('Connected to database for items fetch');
+    connection.release();
+    
+    try {
+      // Try the original query with JOIN
+      const [items] = await pool.query(`
+        SELECT 
+          i.id,
+          i.title,
+          i.category,
+          i.description,
+          i.status,
+          i.image,
+          i.created_at,
+          u.name as reporter_name
+        FROM Items i
+        JOIN Users u ON i.user_id = u.id
+        WHERE i.is_deleted = FALSE 
+        AND i.is_approved = TRUE
+        ORDER BY i.created_at DESC
+      `);
+      
+      console.log(`Found ${items.length} items`);
+      res.json(items);
+    } catch (joinError) {
+      console.error('Error with JOIN query:', joinError);
+      
+      // If the JOIN fails, try a simpler query without the JOIN
+      const [items] = await pool.query(`
+        SELECT 
+          id,
+          title,
+          category,
+          description,
+          status,
+          image,
+          created_at,
+          user_id
+        FROM Items
+        WHERE is_deleted = FALSE 
+        AND is_approved = TRUE
+        ORDER BY created_at DESC
+      `);
+      
+      // Add a placeholder for reporter_name
+      const itemsWithReporter = items.map(item => ({
+        ...item,
+        reporter_name: 'Anonymous'
+      }));
+      
+      console.log(`Found ${itemsWithReporter.length} items (fallback query)`);
+      res.json(itemsWithReporter);
     }
-    res.status(201).json({ message: 'Lost item submitted successfully', itemId: result.insertId });
-  });
+  } catch (error) {
+    console.error('Error fetching items:', error);
+    console.error('Error details:', error.message);
+    console.error('Error stack:', error.stack);
+    res.status(500).json({ 
+      message: 'Error fetching items',
+      error: error.message
+    });
+  }
 });
 
-// Submit a found item
-app.post('/items/found', upload.single('image'), (req, res) => {
-  const { title, category, description, location, date, user_id } = req.body;
-  const image = req.file ? req.file.filename : null;
-  if (!title || !user_id) {
-    return res.status(400).json({ message: 'Title and user_id are required' });
-  }
+// Get item details (full details only for authorized users)
+app.get('/items/:id', authenticateToken, async (req, res) => {
+  try {
+    const [items] = await pool.query(`
+      SELECT 
+        i.*,
+        u.name as reporter_name,
+        u.email as reporter_email
+      FROM Items i
+      JOIN Users u ON i.user_id = u.id
+      WHERE i.id = ? AND i.is_deleted = FALSE
+    `, [req.params.id]);
 
-  const sql = `
-    INSERT INTO Items 
-      (title, category, description, location, status, image, date, user_id) 
-    VALUES (?, ?, ?, ?, 'found', ?, ?, ?)
-  `;
-
-  db.query(sql, [title, category, description, location, image, date, user_id], (err, result) => {
-    if (err) {
-      console.error('Error inserting found item:', err);
-      return res.status(500).json({ message: 'Database error' });
+    if (items.length === 0) {
+      return res.status(404).json({ message: 'Item not found' });
     }
-    res.status(201).json({ message: 'Found item submitted successfully', itemId: result.insertId });
-  });
+
+    const item = items[0];
+
+    // Only return sensitive info if user is admin, security, or the item reporter
+    if (req.user.role !== 'admin' && req.user.role !== 'security' && req.user.id !== item.user_id) {
+      delete item.location;
+      delete item.date;
+      delete item.reporter_email;
+    }
+
+    res.json(item);
+  } catch (error) {
+    console.error('Error fetching item details:', error);
+    res.status(500).json({ message: 'Error fetching item details' });
+  }
 });
 
+// Submit a lost item (JSON version)
+app.post('/items/lost', authenticateToken, async (req, res) => {
+  try {
+    console.log('Received lost item submission request (JSON)');
+    console.log('Request body:', req.body);
+    
+    // Extract data from request body
+    const { title, category, subcategory, description, location, date, status } = req.body;
+    
+    // User ID from token
+    const userId = req.user.id;
+    console.log('User ID from token:', userId);
+    
+    if (!title) {
+      console.error('Title is required but not provided');
+      return res.status(400).json({ message: 'Title is required' });
+    }
+
+    console.log('Inserting lost item into database with JSON data');
+    
+    try {
+      const [result] = await pool.query(`
+        INSERT INTO Items 
+          (title, category, subcategory, description, location, status, date, user_id) 
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      `, [title, category, subcategory, description, location, status, date, userId]);
+
+      console.log('Item inserted successfully with ID:', result.insertId);
+      
+      // Notify security staff about new lost item
+      const message = `New lost item "${title}" has been reported.`;
+      try {
+        await notifySecurityStaff(message);
+      } catch (notifyError) {
+        console.error('Error notifying security staff:', notifyError);
+        // Continue anyway
+      }
+
+      return res.status(201).json({ 
+        message: 'Lost item submitted successfully', 
+        itemId: result.insertId 
+      });
+    } catch (dbError) {
+      console.error('Database error during item insertion:', dbError);
+      return res.status(500).json({ 
+        message: 'Database error while submitting lost item',
+        error: dbError.message
+      });
+    }
+  } catch (error) {
+    console.error('Error submitting lost item:', error);
+    return res.status(500).json({ 
+      message: 'Error submitting lost item',
+      error: error.message
+    });
+  }
+});
+
+// Submit a found item (JSON version)
+app.post('/items/found', authenticateToken, async (req, res) => {
+  try {
+    console.log('Received found item submission request (JSON)');
+    console.log('Request body:', req.body);
+    
+    // Extract data from request body
+    const { title, category, subcategory, description, location, date, status } = req.body;
+    
+    // User ID from token
+    const userId = req.user.id;
+    console.log('User ID from token:', userId);
+    
+    if (!title) {
+      console.error('Title is required but not provided');
+      return res.status(400).json({ message: 'Title is required' });
+    }
+
+    console.log('Inserting found item into database with JSON data');
+    console.log('SQL parameters:', [title, category, subcategory, description, location, status, date, userId]);
+    
+    try {
+      const [result] = await pool.query(`
+        INSERT INTO Items 
+          (title, category, subcategory, description, location, status, date, user_id) 
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      `, [title, category, subcategory, description, location, status, date, userId]);
+
+      console.log('Item inserted successfully with ID:', result.insertId);
+      
+      // Notify security staff about new found item
+      const message = `New found item "${title}" has been reported.`;
+      try {
+        await notifySecurityStaff(message);
+      } catch (notifyError) {
+        console.error('Error notifying security staff:', notifyError);
+        // Continue anyway
+      }
+
+      return res.status(201).json({ 
+        message: 'Found item submitted successfully', 
+        itemId: result.insertId 
+      });
+    } catch (dbError) {
+      console.error('Database error during item insertion:', dbError);
+      console.error('Error code:', dbError.code);
+      console.error('Error message:', dbError.message);
+      console.error('Error stack:', dbError.stack);
+      return res.status(500).json({ 
+        message: 'Database error while submitting found item',
+        error: dbError.message,
+        code: dbError.code
+      });
+    }
+  } catch (error) {
+    console.error('Error submitting found item:', error);
+    console.error('Error stack:', error.stack);
+    return res.status(500).json({ 
+      message: 'Error submitting found item',
+      error: error.message
+    });
+  }
+});
+
+// Helper function to notify security staff
+async function notifySecurityStaff(message) {
+  try {
+    // Get all security and admin users
+    const [securityUsers] = await pool.query(
+      'SELECT id FROM Users WHERE role IN ("security", "admin") AND is_deleted = FALSE'
+    );
+
+    // Create notifications for each security staff member
+    for (const user of securityUsers) {
+      await pool.query(
+        'INSERT INTO Notifications (user_id, message, type) VALUES (?, ?, "item_report")',
+        [user.id, message]
+      );
+    }
+  } catch (error) {
+    console.error('Error notifying security staff:', error);
+  }
+}
 
 // Socket.IO connection handling
 io.on('connection', (socket) => {
@@ -992,6 +1193,384 @@ app.put('/api/security/items/:itemId/status', authenticateToken, async (req, res
   } catch (error) {
     console.error('Error updating item status:', error);
     res.status(500).json({ message: 'Error updating item status' });
+  }
+});
+
+// Check for matches when a new item is submitted
+app.post('/api/items/matches', async (req, res) => {
+  try {
+    const { item, isFoundItem } = req.body;
+    
+    // Get items to compare against
+    const [items] = await pool.query(`
+      SELECT i.*, u.email, u.name
+      FROM Items i
+      JOIN Users u ON i.user_id = u.id
+      WHERE i.is_deleted = FALSE
+      AND i.status = ?
+    `, [isFoundItem ? 'lost' : 'found']);
+
+    const matches = [];
+    const MATCH_THRESHOLD = 0.7; // Minimum score to consider a match
+
+    // Use the imported calculateMatchScore function
+    for (const compareItem of items) {
+      const score = calculateMatchScore(
+        isFoundItem ? compareItem : item,
+        isFoundItem ? item : compareItem
+      );
+
+      if (score >= MATCH_THRESHOLD) {
+        console.log(`Match found with score ${score}`);
+        
+        // Create match record
+        const [matchResult] = await pool.query(
+          `INSERT INTO ItemMatches 
+           (lost_item_id, found_item_id, match_score) 
+           VALUES (?, ?, ?)`,
+          [
+            isFoundItem ? compareItem.id : item.id,
+            isFoundItem ? item.id : compareItem.id,
+            score
+          ]
+        );
+
+        // Create notification
+        await pool.query(
+          `INSERT INTO Notifications 
+           (user_id, message, type, related_item_id) 
+           VALUES (?, ?, 'match', ?)`,
+          [
+            compareItem.user_id,
+            `A potential match has been found for your ${isFoundItem ? 'lost' : 'found'} item "${compareItem.title}"`,
+            compareItem.id
+          ]
+        );
+
+        // We'll handle email notifications from the frontend
+        matches.push({
+          matchId: matchResult.insertId,
+          score,
+          item: compareItem
+        });
+      }
+    }
+
+    res.json({ matches });
+  } catch (error) {
+    console.error('Error checking for matches:', error);
+    res.status(500).json({ message: 'Error checking for matches' });
+  }
+});
+
+// Approve a found item
+app.put('/api/security/items/:itemId/approve', authenticateToken, async (req, res) => {
+  try {
+    // Check if user is security or admin
+    if (req.user.role !== 'security' && req.user.role !== 'admin') {
+      return res.status(403).json({ message: 'Unauthorized access' });
+    }
+
+    const { itemId } = req.params;
+
+    // Update item approval status
+    await pool.query(
+      'UPDATE Items SET is_approved = TRUE WHERE id = ?',
+      [itemId]
+    );
+
+    // Get item details for notification
+    const [items] = await pool.query(
+      'SELECT user_id, title FROM Items WHERE id = ?',
+      [itemId]
+    );
+
+    if (items.length > 0) {
+      const item = items[0];
+      
+      // Create notification for item owner
+      await pool.query(
+        'INSERT INTO Notifications (user_id, message, type, related_item_id) VALUES (?, ?, ?, ?)',
+        [
+          item.user_id,
+          `Your found item "${item.title}" has been approved`,
+          'approval',
+          itemId
+        ]
+      );
+    }
+
+    res.json({ message: 'Item approved successfully' });
+  } catch (error) {
+    console.error('Error approving item:', error);
+    res.status(500).json({ message: 'Error approving item' });
+  }
+});
+
+// Submit a claim request
+app.post('/api/items/:itemId/claim', authenticateToken, async (req, res) => {
+  try {
+    const { itemId } = req.params;
+    const { claim_description, contact_info } = req.body;
+
+    // Check if item exists and is not already claimed
+    const [items] = await pool.query(
+      'SELECT * FROM Items WHERE id = ? AND is_deleted = FALSE',
+      [itemId]
+    );
+
+    if (items.length === 0) {
+      return res.status(404).json({ message: 'Item not found' });
+    }
+
+    const item = items[0];
+
+    // Check if user already has a pending claim for this item
+    const [existingClaims] = await pool.query(
+      'SELECT * FROM Claims WHERE item_id = ? AND claimer_id = ? AND status = "pending"',
+      [itemId, req.user.id]
+    );
+
+    if (existingClaims.length > 0) {
+      return res.status(400).json({ message: 'You already have a pending claim for this item' });
+    }
+
+    // Create claim
+    const [claimResult] = await pool.query(
+      `INSERT INTO Claims 
+       (item_id, claimer_id, claim_description, contact_info) 
+       VALUES (?, ?, ?, ?)`,
+      [itemId, req.user.id, claim_description, contact_info]
+    );
+
+    // Create notification for security staff
+    const [securityStaff] = await pool.query(
+      'SELECT id FROM Users WHERE role IN ("security", "admin") AND is_deleted = FALSE'
+    );
+
+    for (const staff of securityStaff) {
+      await pool.query(
+        'INSERT INTO Notifications (user_id, message, type, related_item_id) VALUES (?, ?, ?, ?)',
+        [
+          staff.id,
+          `New claim request for item "${item.title}"`,
+          'claim',
+          itemId
+        ]
+      );
+    }
+
+    res.status(201).json({ 
+      message: 'Claim request submitted successfully',
+      claimId: claimResult.insertId
+    });
+  } catch (error) {
+    console.error('Error submitting claim:', error);
+    res.status(500).json({ message: 'Error submitting claim' });
+  }
+});
+
+// Get pending items for security review
+app.get('/api/security/pending-items', authenticateToken, async (req, res) => {
+  try {
+    // Check if user is security or admin
+    if (req.user.role !== 'security' && req.user.role !== 'admin') {
+      return res.status(403).json({ message: 'Unauthorized access' });
+    }
+
+    const [items] = await pool.query(`
+      SELECT 
+        i.*,
+        u.name as reporter_name
+      FROM Items i
+      JOIN Users u ON i.user_id = u.id
+      WHERE i.is_deleted = FALSE 
+      AND (
+        (i.is_approved = FALSE AND i.status = 'found')
+        OR 
+        (i.status = 'lost')
+      )
+      ORDER BY i.created_at DESC
+    `);
+
+    res.json(items);
+  } catch (error) {
+    console.error('Error fetching pending items:', error);
+    res.status(500).json({ message: 'Error fetching pending items' });
+  }
+});
+
+// Get pending claims for security review
+app.get('/api/security/pending-claims', authenticateToken, async (req, res) => {
+  try {
+    // Check if user is security or admin
+    if (req.user.role !== 'security' && req.user.role !== 'admin') {
+      return res.status(403).json({ message: 'Unauthorized access' });
+    }
+
+    const [claims] = await pool.query(`
+      SELECT 
+        c.*,
+        i.title as item_title,
+        u.name as claimer_name
+      FROM Claims c
+      JOIN Items i ON c.item_id = i.id
+      JOIN Users u ON c.claimer_id = u.id
+      WHERE c.status = 'pending'
+      AND i.is_deleted = FALSE
+      ORDER BY c.created_at DESC
+    `);
+
+    res.json(claims);
+  } catch (error) {
+    console.error('Error fetching pending claims:', error);
+    res.status(500).json({ message: 'Error fetching pending claims' });
+  }
+});
+
+// Process claim (approve/reject)
+app.put('/api/security/claims/:claimId/:action', authenticateToken, async (req, res) => {
+  try {
+    // Check if user is security or admin
+    if (req.user.role !== 'security' && req.user.role !== 'admin') {
+      return res.status(403).json({ message: 'Unauthorized access' });
+    }
+
+    const { claimId, action } = req.params;
+    if (!['approve', 'reject'].includes(action)) {
+      return res.status(400).json({ message: 'Invalid action' });
+    }
+
+    // Get claim details
+    const [claims] = await pool.query(
+      'SELECT * FROM Claims WHERE id = ?',
+      [claimId]
+    );
+
+    if (claims.length === 0) {
+      return res.status(404).json({ message: 'Claim not found' });
+    }
+
+    const claim = claims[0];
+
+    // Update claim status
+    await pool.query(
+      'UPDATE Claims SET status = ? WHERE id = ?',
+      [action === 'approve' ? 'approved' : 'rejected', claimId]
+    );
+
+    if (action === 'approve') {
+      // Update item status
+      await pool.query(
+        'UPDATE Items SET status = ? WHERE id = ?',
+        ['claimed', claim.item_id]
+      );
+
+      // Create notification for claimer
+      await pool.query(
+        'INSERT INTO Notifications (user_id, message, type, related_item_id) VALUES (?, ?, ?, ?)',
+        [
+          claim.claimer_id,
+          'Your claim has been approved',
+          'claim_approved',
+          claim.item_id
+        ]
+      );
+    } else {
+      // Create notification for claimer
+      await pool.query(
+        'INSERT INTO Notifications (user_id, message, type, related_item_id) VALUES (?, ?, ?, ?)',
+        [
+          claim.claimer_id,
+          'Your claim has been rejected',
+          'claim_rejected',
+          claim.item_id
+        ]
+      );
+    }
+
+    res.json({ message: `Claim ${action}d successfully` });
+  } catch (error) {
+    console.error('Error processing claim:', error);
+    res.status(500).json({ message: 'Error processing claim' });
+  }
+});
+
+// TEST ROUTE: For testing email notifications
+app.get('/api/test/email-match/:email', async (req, res) => {
+  // Add CORS headers for this test endpoint
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Methods', 'GET');
+  res.header('Access-Control-Allow-Headers', 'Content-Type');
+  
+  try {
+    const { email } = req.params;
+    const { name, itemTitle, category, location } = req.query;
+
+    console.log(`Testing match notification email to: ${email}`);
+    
+    // Create a test item object
+    const testItem = {
+      id: 9999,
+      title: itemTitle || 'Test Item',
+      category: category || 'Electronics',
+      subcategory: 'Mobile Phone',
+      description: 'This is a test item for email notification testing',
+      location: location || 'Library',
+      status: 'found',
+      date: new Date().toISOString().slice(0, 10), // Today's date in YYYY-MM-DD format
+      user_id: 1,
+      is_approved: true
+    };
+    
+    // Create a test match
+    const testMatch = {
+      id: 8888,
+      lost_item_id: 7777,
+      found_item_id: 9999,
+      match_score: 0.85,
+      status: 'pending',
+      created_at: new Date()
+    };
+    
+    // Actually send the email notification
+    const emailResult = await emailService.sendMatchNotification(
+      email,
+      name || 'Test User',
+      testItem.title,
+      testMatch.id,
+      {
+        category: testItem.category,
+        date: testItem.date,
+        description: testItem.description,
+        location: testItem.location
+      }
+    );
+    
+    // Send a response with the email status
+    res.json({
+      success: emailResult.success,
+      message: emailResult.success 
+        ? `Test match notification sent to ${email}` 
+        : `Failed to send test notification to ${email}`,
+      emailResult,
+      testItem,
+      testMatch,
+      emailParams: {
+        userEmail: email,
+        userName: name || 'Test User',
+        itemTitle: testItem.title,
+        matchId: testMatch.id
+      }
+    });
+  } catch (error) {
+    console.error('Error sending test match notification:', error);
+    res.status(500).json({ 
+      success: false,
+      message: 'Error sending test match notification',
+      error: error.message,
+      stack: error.stack
+    });
   }
 });
 

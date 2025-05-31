@@ -1,6 +1,7 @@
 import React, { useContext, useEffect } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { AuthContext } from '../context/AuthContext';
+import { cloneElement } from 'react';
 
 const ProtectedRoute = ({ element, allowedRoles = [] }) => {
   const { currentUser } = useContext(AuthContext);
@@ -32,8 +33,8 @@ const ProtectedRoute = ({ element, allowedRoles = [] }) => {
     return <Navigate to="/unauthorized" replace />;
   }
 
-  // If user is authenticated and authorized
-  return element;
+  // If user is authenticated and authorized, pass currentUserId to the element
+  return cloneElement(element, { currentUserId: currentUser.id });
 };
 
 export default ProtectedRoute; 

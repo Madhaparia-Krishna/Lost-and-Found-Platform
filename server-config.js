@@ -6,7 +6,11 @@ exports.dbConfig = {
   database: process.env.DB_NAME || 'lost_and_found_system',
   waitForConnections: true,
   connectionLimit: 10,
-  queueLimit: 0
+  queueLimit: 0,
+  // Add these options for better error handling
+  enableKeepAlive: true,
+  keepAliveInitialDelay: 0,
+  debug: true
 };
 
 // JWT configuration

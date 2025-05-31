@@ -13,8 +13,11 @@ import HelpCenter from './pages/HelpCenter';
 import Profile from './pages/Profile';
 import ForgotPassword from './pages/ForgotPassword';
 import ProtectedRoute from './components/ProtectedRoute';
-import FoundForm from './pages/FoundForm';
-import LostForm from './pages/LostForm';
+import FoundForm from './pages/FoundForm.jsx';
+import LostForm from './pages/LostForm.jsx';
+import ViewAllItems from './pages/ViewAllItems';
+import SecurityDashboard from './pages/SecurityDashboard';
+
 function App() {
   return (
     <AuthProvider>
@@ -30,10 +33,26 @@ function App() {
           <Route path="/about" element={<About />} />
           <Route path="/help" element={<HelpCenter />} />
           <Route path="/unauthorized" element={<Unauthorized />} />
-          <Route path="/found" element={<FoundForm />} />
-        <Route path="/lost" element={<LostForm />} />
 
           {/* Protected routes */}
+          <Route 
+            path="/found" 
+            element={
+              <ProtectedRoute 
+                element={<FoundForm />} 
+                allowedRoles={['user', 'admin', 'security']} 
+              />
+            } 
+          />
+          <Route 
+            path="/lost" 
+            element={
+              <ProtectedRoute 
+                element={<LostForm />} 
+                allowedRoles={['user', 'admin', 'security']} 
+              />
+            } 
+          />
           <Route 
             path="/profile" 
             element={
@@ -61,6 +80,8 @@ function App() {
               />
             } 
           />
+          <Route path="/items" element={<ViewAllItems />} />
+          <Route path="/security-dashboard" element={<SecurityDashboard />} />
         </Routes>
       </Router>
     </AuthProvider>

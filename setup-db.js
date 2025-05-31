@@ -4,174 +4,130 @@ const path = require('path');
 const config = require('./server-config');
 
 async function setupDatabase() {
-  // Create connection to MySQL without database specified
-  const connection = await mysql.createConnection({
-    host: config.dbConfig.host,
-    user: config.dbConfig.user,
-    password: config.dbConfig.password
-  });
+  let connection;
   
   try {
-    console.log('Setting up database...');
+    console.log('Connecting to MySQL server...');
     
-    // Read SQL file
-    const sql = fs.readFileSync(path.join(__dirname, 'database.sql'), 'utf8');
+    // First connect without database to create it if needed
+    connection = await mysql.createConnection({
+      host: config.dbConfig.host,
+      user: config.dbConfig.user,
+      password: config.dbConfig.password
+    });
     
-    // Split by semicolon to get individual queries
-    const queries = sql.split(';').filter(query => query.trim() !== '');
+    console.log('Connected to MySQL server');
     
-    // Execute each query
-    for (const query of queries) {
-      await connection.query(query);
-      console.log('Executed:', query.substring(0, 50) + '...');
-    }
+    // Create database if it doesn't exist
+    await connection.query(`CREATE DATABASE IF NOT EXISTS ${config.dbConfig.database}`);
+    console.log(`Database "${config.dbConfig.database}" created or already exists`);
     
-    console.log('Database setup completed successfully');
+    // Use the database
+    await connection.query(`USE ${config.dbConfig.database}`);
     
-    // Create admin user
-    await createAdminUser(connection);
-    
-    // Create tables
-    await createTables(connection);
-    
-  } catch (error) {
-    console.error('Error setting up database:', error);
-  } finally {
-    await connection.end();
-    console.log('Database connection closed');
-  }
-}
-
-async function createAdminUser(connection) {
-  try {
-    const bcrypt = require('bcrypt');
-    const saltRounds = 10;
-    
-    // Admin credentials
-    const admin = {
-      name: 'Admin User',
-      email: 'admin@example.com',
-      password: await bcrypt.hash('admin12345', saltRounds),
-      role: 'admin'
-    };
-    
-    // First check if admin already exists
-    const [users] = await connection.query(
-      `SELECT * FROM lost_and_found_system.Users WHERE email = ?`, 
-      [admin.email]
-    );
-    
-    if (users.length === 0) {
-      // Create admin user
-      await connection.query(
-        `INSERT INTO lost_and_found_system.Users (name, email, password, role) VALUES (?, ?, ?, ?)`,
-        [admin.name, admin.email, admin.password, admin.role]
-      );
-      console.log('Admin user created');
-    } else {
-      console.log('Admin user already exists');
-    }
-    
-    // Create security user
-    const security = {
-      name: 'Security User',
-      email: 'security@example.com',
-      password: await bcrypt.hash('security12345', saltRounds),
-      role: 'security'
-    };
-    
-    // Check if security user exists
-    const [securityUsers] = await connection.query(
-      `SELECT * FROM lost_and_found_system.Users WHERE email = ?`, 
-      [security.email]
-    );
-    
-    if (securityUsers.length === 0) {
-      // Create security user
-      await connection.query(
-        `INSERT INTO lost_and_found_system.Users (name, email, password, role) VALUES (?, ?, ?, ?)`,
-        [security.name, security.email, security.password, security.role]
-      );
-      console.log('Security user created');
-    } else {
-      console.log('Security user already exists');
-    }
-    
-  } catch (error) {
-    console.error('Error creating admin user:', error);
-  }
-}
-
-async function createTables(connection) {
-  try {
-    // Create ChatRooms table
+    // Create Users table
+    console.log('Creating Users table...');
     await connection.query(`
-      CREATE TABLE IF NOT EXISTS ChatRooms (
-        id INT PRIMARY KEY AUTO_INCREMENT,
-        created_by INT NOT NULL,
+      CREATE TABLE IF NOT EXISTS Users (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        name VARCHAR(100) NOT NULL,
+        email VARCHAR(100) NOT NULL UNIQUE,
+        password VARCHAR(255) NOT NULL,
+        role ENUM('user', 'admin', 'security') NOT NULL DEFAULT 'user',
+        admission_number VARCHAR(20),
+        faculty_school VARCHAR(100),
+        year_of_study VARCHAR(20),
+        phone_number VARCHAR(20),
+        reset_token VARCHAR(255),
+        reset_expires DATETIME,
+        is_deleted BOOLEAN DEFAULT FALSE,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (created_by) REFERENCES Users(id)
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
       )
     `);
-
-    // Create ChatRoomParticipants table
+    
+    // Create Items table
+    console.log('Creating Items table...');
     await connection.query(`
-      CREATE TABLE IF NOT EXISTS ChatRoomParticipants (
-        room_id INT NOT NULL,
-        user_id INT NOT NULL,
-        joined_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        PRIMARY KEY (room_id, user_id),
-        FOREIGN KEY (room_id) REFERENCES ChatRooms(id),
-        FOREIGN KEY (user_id) REFERENCES Users(id)
-      )
-    `);
-
-    // Create ChatMessages table
-    await connection.query(`
-      CREATE TABLE IF NOT EXISTS ChatMessages (
-        id INT PRIMARY KEY AUTO_INCREMENT,
-        room_id INT NOT NULL,
-        sender_id INT NOT NULL,
-        message TEXT NOT NULL,
-        sender_name VARCHAR(255) NOT NULL,
-        sender_role VARCHAR(50) NOT NULL,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (room_id) REFERENCES ChatRooms(id),
-        FOREIGN KEY (sender_id) REFERENCES Users(id)
-      )
-    `);
-
-    // Create SystemLogs table
-    await connection.query(`
-      CREATE TABLE IF NOT EXISTS SystemLogs (
-        id INT PRIMARY KEY AUTO_INCREMENT,
-        action VARCHAR(255) NOT NULL,
-        details TEXT,
+      CREATE TABLE IF NOT EXISTS Items (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        title VARCHAR(100) NOT NULL,
+        category VARCHAR(50),
+        subcategory VARCHAR(50),
+        description TEXT,
+        location VARCHAR(100),
+        status ENUM('lost', 'found', 'claimed', 'returned') NOT NULL,
+        image VARCHAR(255),
+        date DATE,
         user_id INT,
+        is_deleted BOOLEAN DEFAULT FALSE,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
         FOREIGN KEY (user_id) REFERENCES Users(id)
       )
     `);
-
+    
+    // Create other tables as needed...
+    console.log('Creating other tables...');
+    
+    // Create Claims table
+    await connection.query(`
+      CREATE TABLE IF NOT EXISTS Claims (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        item_id INT NOT NULL,
+        claimer_id INT NOT NULL,
+        status ENUM('pending', 'approved', 'rejected') NOT NULL DEFAULT 'pending',
+        proof TEXT,
+        is_deleted BOOLEAN DEFAULT FALSE,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        FOREIGN KEY (item_id) REFERENCES Items(id),
+        FOREIGN KEY (claimer_id) REFERENCES Users(id)
+      )
+    `);
+    
     // Create Notifications table
     await connection.query(`
       CREATE TABLE IF NOT EXISTS Notifications (
-        id INT PRIMARY KEY AUTO_INCREMENT,
+        id INT AUTO_INCREMENT PRIMARY KEY,
         user_id INT NOT NULL,
         message TEXT NOT NULL,
-        type VARCHAR(50) DEFAULT 'info',
-        status VARCHAR(20) DEFAULT 'unread',
+        type VARCHAR(50),
+        status ENUM('unread', 'read') NOT NULL DEFAULT 'unread',
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (user_id) REFERENCES Users(id)
       )
     `);
-
-    console.log('All tables created successfully');
+    
+    // Insert default admin user if doesn't exist
+    console.log('Creating default admin user if needed...');
+    const hashedPassword = '$2b$10$1Xp0MQ4XzDg9XGKVUzvhCOK9W5FZC6xvg/zDqMeYS5sm7X5NWAqGq'; // admin123
+    await connection.query(`
+      INSERT INTO Users (name, email, password, role)
+      SELECT 'Admin', 'admin@example.com', ?, 'admin'
+      WHERE NOT EXISTS (SELECT 1 FROM Users WHERE email = 'admin@example.com')
+    `, [hashedPassword]);
+    
+    // Create Logs table
+    await connection.query(`
+      CREATE TABLE IF NOT EXISTS Logs (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        action VARCHAR(255) NOT NULL,
+        by_user INT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (by_user) REFERENCES Users(id)
+      )
+    `);
+    
+    console.log('Database setup completed successfully');
   } catch (error) {
-    console.error('Error creating tables:', error);
-    throw error;
+    console.error('Error setting up database:', error);
+  } finally {
+    if (connection) {
+      await connection.end();
+    }
   }
 }
 
-// Run setup
+// Run the setup
 setupDatabase(); 
