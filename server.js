@@ -12,6 +12,14 @@ const crypto = require('crypto');
 const multer = require('multer');
 const { calculateMatchScore } = require('./server-utils');
 const emailService = require('./server-email');
+const fs = require('fs');
+
+// Ensure uploads directory exists
+const uploadsDir = path.join(__dirname, 'uploads');
+if (!fs.existsSync(uploadsDir)) {
+  fs.mkdirSync(uploadsDir, { recursive: true });
+  console.log('Created uploads directory');
+}
 
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
@@ -40,8 +48,29 @@ const io = socketIo(server, {
 // Middleware
 app.use(cors(config.serverConfig.corsOptions));
 app.use(bodyParser.json());
-app.use('/uploads', express.static('uploads'));
+
+// Ensure uploads directory is properly served with absolute path
+app.use('/uploads', (req, res, next) => {
+  console.log(`Uploads request: ${req.url}`);
+  next();
+}, express.static(path.join(__dirname, 'uploads')));
+
 app.use(express.static('public')); // Serve static files from public directory
+
+// Add middleware to log requests for images
+app.use((req, res, next) => {
+  if (req.url.startsWith('/uploads/')) {
+    console.log(`Image request: ${req.url}`);
+    // Check if the file exists
+    const filePath = path.join(__dirname, req.url);
+    if (fs.existsSync(filePath)) {
+      console.log(`Image file exists: ${filePath}`);
+    } else {
+      console.log(`Image file does not exist: ${filePath}`);
+    }
+  }
+  next();
+});
 
 // Only serve static files in production
 if (process.env.NODE_ENV === 'production') {
@@ -806,7 +835,7 @@ app.post('/items/lost', authenticateToken, async (req, res) => {
     console.log('Request body:', req.body);
     
     // Extract data from request body
-    const { title, category, subcategory, description, location, date, status } = req.body;
+    const { title, category, subcategory, description, location, date, status, image } = req.body;
     
     // User ID from token
     const userId = req.user.id;
@@ -822,9 +851,9 @@ app.post('/items/lost', authenticateToken, async (req, res) => {
     try {
       const [result] = await pool.query(`
         INSERT INTO Items 
-          (title, category, subcategory, description, location, status, date, user_id) 
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-      `, [title, category, subcategory, description, location, status, date, userId]);
+          (title, category, subcategory, description, location, status, date, user_id, image) 
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `, [title, category, subcategory, description, location, status, date, userId, image || null]);
 
       console.log('Item inserted successfully with ID:', result.insertId);
       
@@ -864,7 +893,7 @@ app.post('/items/found', authenticateToken, async (req, res) => {
     console.log('Request body:', req.body);
     
     // Extract data from request body
-    const { title, category, subcategory, description, location, date, status } = req.body;
+    const { title, category, subcategory, description, location, date, status, image } = req.body;
     
     // User ID from token
     const userId = req.user.id;
@@ -876,14 +905,14 @@ app.post('/items/found', authenticateToken, async (req, res) => {
     }
 
     console.log('Inserting found item into database with JSON data');
-    console.log('SQL parameters:', [title, category, subcategory, description, location, status, date, userId]);
+    console.log('SQL parameters:', [title, category, subcategory, description, location, status, date, userId, image]);
     
     try {
       const [result] = await pool.query(`
         INSERT INTO Items 
-          (title, category, subcategory, description, location, status, date, user_id) 
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-      `, [title, category, subcategory, description, location, status, date, userId]);
+          (title, category, subcategory, description, location, status, date, user_id, image) 
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `, [title, category, subcategory, description, location, status, date, userId, image || null]);
 
       console.log('Item inserted successfully with ID:', result.insertId);
       
@@ -1574,9 +1603,87 @@ app.get('/api/test/email-match/:email', async (req, res) => {
   }
 });
 
+// Upload route for found item images
+app.post('/api/upload', upload.single('image'), async (req, res) => {
+  try {
+    // If no file was uploaded
+    if (!req.file) {
+      return res.status(400).json({ message: 'No image file provided' });
+    }
+
+    console.log('File uploaded successfully:', req.file);
+
+    // Return the filename that can be stored in the database
+    res.json({ 
+      success: true, 
+      filename: req.file.filename,
+      message: 'Image uploaded successfully' 
+    });
+  } catch (error) {
+    console.error('Error uploading image:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Error uploading image'
+    });
+  }
+});
+
+// Test route to check uploads directory
+app.get('/api/test-uploads', (req, res) => {
+  try {
+    if (!fs.existsSync(uploadsDir)) {
+      return res.status(404).json({ 
+        success: false, 
+        message: 'Uploads directory does not exist' 
+      });
+    }
+    
+    const files = fs.readdirSync(uploadsDir);
+    res.json({ 
+      success: true,
+      directory: uploadsDir,
+      files,
+      count: files.length,
+      message: 'Uploads directory is accessible'
+    });
+  } catch (error) {
+    console.error('Error checking uploads directory:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message,
+      message: 'Error checking uploads directory'
+    });
+  }
+});
+
+// Test route to directly serve the test image
+app.get('/api/test-image', (req, res) => {
+  const testImagePath = path.join(__dirname, 'uploads', 'test-image.png');
+  
+  if (fs.existsSync(testImagePath)) {
+    console.log(`Test image exists at: ${testImagePath}`);
+    res.sendFile(testImagePath);
+  } else {
+    console.log(`Test image does not exist at: ${testImagePath}`);
+    res.status(404).json({ message: 'Test image not found' });
+  }
+});
+
 // Start server
 const PORT = process.env.PORT || 5000;
 server.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
   initializeDatabase();
+}).on('error', (err) => {
+  if (err.code === 'EADDRINUSE') {
+    const newPort = PORT + 1;
+    console.error(`Port ${PORT} is already in use, trying ${newPort}`);
+    server.listen(newPort, () => {
+      console.log(`Server running on alternate port ${newPort}`);
+      console.log(`Please update your frontend to use http://localhost:${newPort}`);
+      initializeDatabase();
+    });
+  } else {
+    console.error('Server error:', err);
+  }
 });

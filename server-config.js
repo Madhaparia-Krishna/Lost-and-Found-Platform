@@ -24,7 +24,15 @@ exports.serverConfig = {
   port: process.env.PORT || 5000,
   frontendUrl: process.env.FRONTEND_URL || 'http://localhost:3000',
   corsOptions: {
-    origin: '*', // In production, specify your frontend domain
-    methods: ['GET', 'POST', 'PUT', 'DELETE']
+    origin: ['http://localhost:3000', 'http://127.0.0.1:3000'], // Explicitly include the frontend domains
+    methods: ['GET', 'POST', 'PUT', 'DELETE'],
+    credentials: true,
+    allowedHeaders: ['Content-Type', 'Authorization']
   }
+};
+
+// Helper function to get actual server URL (for use in logs or responses)
+exports.getServerUrl = (port) => {
+  const actualPort = port || exports.serverConfig.port;
+  return `http://localhost:${actualPort}`;
 }; 

@@ -92,7 +92,7 @@ const LostForm = ({ currentUserId }) => {
         image: formData.image ? 'Image file present' : 'No image'
       });
 
-      // Creating a simpler JSON payload first as a test
+      // Creating a JSON payload for the item data
       const jsonPayload = {
         title: formData.title,
         category: formData.category,
@@ -103,9 +103,42 @@ const LostForm = ({ currentUserId }) => {
         status: 'lost'
       };
 
-      console.log('Sending JSON payload to server');
+      // If image exists, upload it first
+      let imageFilename = null;
+      if (formData.image) {
+        const imageFormData = new FormData();
+        imageFormData.append('image', formData.image);
+        
+        try {
+          const uploadResponse = await fetch('http://localhost:5000/api/upload', {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${currentUser.token}`
+            },
+            body: imageFormData
+          });
+          
+          if (!uploadResponse.ok) {
+            throw new Error('Failed to upload image');
+          }
+          
+          const uploadResult = await uploadResponse.json();
+          imageFilename = uploadResult.filename;
+          console.log('Image uploaded successfully:', imageFilename);
+        } catch (uploadError) {
+          console.error('Image upload error:', uploadError);
+          // Continue with form submission even if image upload fails
+        }
+      }
+
+      // Add image filename to payload if available
+      if (imageFilename) {
+        jsonPayload.image = imageFilename;
+      }
+
+      console.log('Sending JSON payload to server:', jsonPayload);
       
-      // Try a simple JSON submission first without the image
+      // Submit the item data
       const res = await fetch('http://localhost:5000/items/lost', {
         method: 'POST',
         headers: {
