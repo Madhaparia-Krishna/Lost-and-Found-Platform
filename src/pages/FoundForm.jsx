@@ -1,6 +1,8 @@
 // FoundForm.jsx
-import React, { useState, useContext } from 'react';
+import React, { useState, useContext, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { AuthContext } from '../context/AuthContext';
+import { itemsApi } from '../utils/api';
 import '../styles/form.css';
 
 const categories = [
@@ -44,6 +46,20 @@ const FoundForm = ({ currentUserId }) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState('');
   const [submitSuccess, setSubmitSuccess] = useState(false);
+  const [imagePreview, setImagePreview] = useState(null);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [actionStatus, setActionStatus] = useState(null);
+
+  // Check authentication status on component mount
+  useEffect(() => {
+    if (currentUser && currentUser.token) {
+      setIsAuthenticated(true);
+      console.log('User is authenticated:', currentUser.name);
+    } else {
+      setIsAuthenticated(false);
+      console.log('User is not authenticated');
+    }
+  }, [currentUser]);
 
   const handleChange = e => {
     const { name, value, type, files } = e.target;
@@ -54,6 +70,18 @@ const FoundForm = ({ currentUserId }) => {
         return;
       }
       setFormData(prev => ({ ...prev, image: file }));
+      
+      // Create preview URL for the selected image
+      if (file) {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          setImagePreview(reader.result);
+        };
+        reader.readAsDataURL(file);
+      } else {
+        setImagePreview(null);
+      }
+      
       setSubmitError('');
     } else if (name === 'category') {
       setFormData(prev => ({
@@ -74,10 +102,16 @@ const FoundForm = ({ currentUserId }) => {
     e.preventDefault();
     setIsSubmitting(true);
     setSubmitError('');
+    setActionStatus({ type: 'loading', message: 'Submitting found item report...' });
 
     try {
+      // Check authentication before proceeding
+      if (!isAuthenticated) {
+        throw new Error('You must be logged in to submit a form. Please log in and try again.');
+      }
+
       if (!currentUser || !currentUser.token) {
-        throw new Error('You must be logged in to submit a form');
+        throw new Error('Authentication token is missing. Please log out and log in again.');
       }
 
       // Log form data for debugging
@@ -100,34 +134,31 @@ const FoundForm = ({ currentUserId }) => {
         description: formData.description,
         location: formData.location,
         date: formData.date,
-        status: 'found'
+        status: 'found',
+        is_approved: false, // Set initial approval status to false
+        user_id: currentUser.id // Ensure user ID is included
       };
 
       // If image exists, upload it first
       let imageFilename = null;
       if (formData.image) {
-        const imageFormData = new FormData();
-        imageFormData.append('image', formData.image);
-        
         try {
-          const uploadResponse = await fetch('http://localhost:5000/api/upload', {
-            method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${currentUser.token}`
-            },
-            body: imageFormData
-          });
-          
-          if (!uploadResponse.ok) {
-            throw new Error('Failed to upload image');
-          }
-          
-          const uploadResult = await uploadResponse.json();
+          console.log('Uploading image...');
+          const uploadResult = await itemsApi.uploadImage(formData.image);
           imageFilename = uploadResult.filename;
           console.log('Image uploaded successfully:', imageFilename);
         } catch (uploadError) {
           console.error('Image upload error:', uploadError);
           // Continue with form submission even if image upload fails
+          setActionStatus({ 
+            type: 'warning', 
+            message: `Note: Image upload failed (${uploadError.message}), but you can still submit the form.` 
+          });
+          
+          // Clear warning after 5 seconds
+          setTimeout(() => {
+            setActionStatus(null);
+          }, 5000);
         }
       }
 
@@ -138,30 +169,9 @@ const FoundForm = ({ currentUserId }) => {
 
       console.log('Sending JSON payload to server:', jsonPayload);
       
-      // Submit the item data
-      const res = await fetch('http://localhost:5000/items/found', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${currentUser.token}`
-        },
-        body: JSON.stringify(jsonPayload)
-      });
-
-      let responseData;
-      try {
-        responseData = await res.json();
-        console.log('Server response:', responseData);
-      } catch (jsonError) {
-        console.error('Error parsing JSON response:', jsonError);
-        const responseText = await res.text();
-        console.error('Server returned:', responseText);
-        responseData = { message: 'Error parsing server response' };
-      }
-
-      if (!res.ok) {
-        throw new Error(responseData.message || 'Failed to submit found item');
-      }
+      // Submit the item data using the API utility
+      const response = await itemsApi.submitFound(jsonPayload);
+      console.log('Server response:', response);
 
       setSubmitSuccess(true);
       setFormData({
@@ -175,34 +185,125 @@ const FoundForm = ({ currentUserId }) => {
         image: null,
       });
       
-      // Reset file input
+      // Reset file input and image preview
+      setImagePreview(null);
       const fileInput = document.querySelector('input[type="file"]');
       if (fileInput) {
         fileInput.value = '';
       }
+      
+      setActionStatus({ type: 'success', message: 'Item reported successfully! It will be reviewed by security staff.' });
     } catch (err) {
       console.error('Form submission error:', err);
-      setSubmitError(err.message || 'Error submitting form');
+      
+      // Provide more detailed error messages
+      if (err.response) {
+        // The request was made and the server responded with a status code
+        // that falls out of the range of 2xx
+        if (err.response.status === 401) {
+          setActionStatus({ 
+            type: 'error', 
+            message: 'Authentication error: Your session may have expired. Please log out and log in again.' 
+          });
+        } else if (err.response.status === 403) {
+          setActionStatus({ 
+            type: 'error', 
+            message: 'Permission denied: You do not have permission to submit found items.' 
+          });
+        } else if (err.response.data && err.response.data.message) {
+          setActionStatus({ 
+            type: 'error', 
+            message: `Server error: ${err.response.data.message}` 
+          });
+        } else {
+          setActionStatus({ 
+            type: 'error', 
+            message: `Server error (${err.response.status}): Please try again later.` 
+          });
+        }
+      } else if (err.request) {
+        // The request was made but no response was received
+        setActionStatus({ 
+          type: 'error', 
+          message: 'Network error: No response received from server. Please check your internet connection.' 
+        });
+      } else {
+        // Something happened in setting up the request that triggered an Error
+        setActionStatus({ 
+          type: 'error', 
+          message: err.message || 'An unexpected error occurred. Please try again.' 
+        });
+      }
+      
+      setSubmitError(err.message || 'An unexpected error occurred. Please try again.');
     } finally {
       setIsSubmitting(false);
     }
   };
 
+  if (!isAuthenticated) {
+    return (
+      <div className="form-container">
+        <div className="form-header">
+          <h1>Report Found Item</h1>
+          <div className="navigation-menu">
+            <Link to="/" className="menu-link">Home</Link>
+            <Link to="/login" className="menu-link">Login</Link>
+            <Link to="/register" className="menu-link">Register</Link>
+          </div>
+        </div>
+        <div className="auth-message">
+          <p>Please log in to report a found item.</p>
+          <Link to="/login" className="auth-button">Login</Link>
+        </div>
+      </div>
+    );
+  }
+
   if (submitSuccess) {
     return (
       <div className="form-container">
-        <div className="form success-message">
+        <div className="form-header">
+          <h1>Report Found Item</h1>
+          <div className="user-info">
+            {currentUser && (
+              <>
+                <span>Logged in as: {currentUser.name || currentUser.email}</span>
+                <span className="role-badge">{currentUser.role}</span>
+              </>
+            )}
+          </div>
+          <div className="navigation-menu">
+            <Link to="/" className="menu-link">Home</Link>
+            <Link to="/items" className="menu-link">View All Items</Link>
+            <Link to="/lost" className="menu-link">Report Lost Item</Link>
+          </div>
+        </div>
+        
+        {actionStatus && (
+          <div className={`action-status ${actionStatus.type}`}>
+            {actionStatus.message}
+          </div>
+        )}
+        
+        <div className="success-message">
           <h2>Thank You!</h2>
           <p>Your found item has been reported successfully.</p>
-          <button 
-            className="submit-btn"
-            onClick={() => {
-              setSubmitSuccess(false);
-              window.scrollTo(0, 0);
-            }}
-          >
-            Report Another Item
-          </button>
+          <p>It will be reviewed by security personnel shortly.</p>
+          <div className="success-actions">
+            <button 
+              onClick={() => {
+                setSubmitSuccess(false);
+                setActionStatus(null);
+              }}
+              className="report-another-btn"
+            >
+              Report Another Item
+            </button>
+            <Link to="/items" className="view-items-link">
+              View All Items
+            </Link>
+          </div>
         </div>
       </div>
     );
@@ -210,136 +311,178 @@ const FoundForm = ({ currentUserId }) => {
 
   return (
     <div className="form-container">
-      <form onSubmit={handleSubmit} className="form" encType="multipart/form-data">
-        <h2>Report Found Item</h2>
-        
-        {submitError && <div className="error-message">{submitError}</div>}
-
-        <div className="form-group">
-          <label htmlFor="title">Item Name*</label>
-          <input
-            id="title"
-            type="text"
-            name="title"
-            value={formData.title}
-            onChange={handleChange}
-            required
-            placeholder="Enter item name"
-            maxLength={100}
-          />
-        </div>
-
-        <div className="form-row">
-          <div className="form-group">
-            <label htmlFor="category">Category*</label>
-            <select
-              id="category"
-              name="category"
-              value={formData.category}
-              onChange={handleChange}
-              required
-            >
-              {categories.map(c => (
-                <option key={c} value={c}>{c}</option>
-              ))}
-            </select>
-          </div>
-
-          {formData.category === 'Electronics' && (
-            <div className="form-group">
-              <label htmlFor="subcategory">Type*</label>
-              <select
-                id="subcategory"
-                name="subcategory"
-                value={formData.subcategory}
-                onChange={handleChange}
-                required
-              >
-                {electronicsSubcategories.map(sc => (
-                  <option key={sc} value={sc}>{sc}</option>
-                ))}
-              </select>
-            </div>
+      <div className="form-header">
+        <h1>Report Found Item</h1>
+        <div className="user-info">
+          {currentUser && (
+            <>
+              <span>Logged in as: {currentUser.name || currentUser.email}</span>
+              <span className="role-badge">{currentUser.role}</span>
+            </>
           )}
         </div>
-
-        <div className="form-row">
-          <div className="form-group">
-            <label htmlFor="location">Found Location*</label>
-            <select
-              id="location"
-              name="location"
-              value={formData.location}
-              onChange={handleChange}
-              required
+        <div className="navigation-menu">
+          <Link to="/" className="menu-link">Home</Link>
+          <Link to="/items" className="menu-link">View All Items</Link>
+          <Link to="/lost" className="menu-link">Report Lost Item</Link>
+        </div>
+      </div>
+      
+      {actionStatus && (
+        <div className={`action-status ${actionStatus.type}`}>
+          {actionStatus.message}
+        </div>
+      )}
+      
+      <div className="form-container">
+        <div className="form">
+          <div className="form-notice">
+            <p>Please provide accurate details about the item you found. This will help the owner identify and claim their item.</p>
+          </div>
+          
+          {submitError && <div className="error-message">{submitError}</div>}
+          
+          <form onSubmit={handleSubmit}>
+            <div className="form-group">
+              <label htmlFor="title">Item Name/Title*</label>
+              <input
+                type="text"
+                id="title"
+                name="title"
+                value={formData.title}
+                onChange={handleChange}
+                required
+                placeholder="E.g. Blue Wallet, iPhone 13, Student ID Card"
+              />
+            </div>
+            
+            <div className="form-row">
+              <div className="form-group">
+                <label htmlFor="category">Category*</label>
+                <select
+                  id="category"
+                  name="category"
+                  value={formData.category}
+                  onChange={handleChange}
+                  required
+                >
+                  {categories.map((cat) => (
+                    <option key={cat} value={cat}>
+                      {cat}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              
+              {formData.category === 'Electronics' && (
+                <div className="form-group">
+                  <label htmlFor="subcategory">Subcategory</label>
+                  <select
+                    id="subcategory"
+                    name="subcategory"
+                    value={formData.subcategory}
+                    onChange={handleChange}
+                  >
+                    {electronicsSubcategories.map((subcat) => (
+                      <option key={subcat} value={subcat}>
+                        {subcat}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+            </div>
+            
+            <div className="form-row">
+              <div className="form-group">
+                <label htmlFor="location">Location Found*</label>
+                <select
+                  id="location"
+                  name="location"
+                  value={formData.location}
+                  onChange={handleChange}
+                  required
+                >
+                  {locations.map((loc) => (
+                    <option key={loc} value={loc}>
+                      {loc}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              
+              <div className="form-group">
+                <label htmlFor="date">Date Found*</label>
+                <input
+                  type="date"
+                  id="date"
+                  name="date"
+                  value={formData.date}
+                  onChange={handleChange}
+                  required
+                  max={new Date().toISOString().split('T')[0]}
+                />
+              </div>
+            </div>
+            
+            <div className="form-group">
+              <label htmlFor="description">Description*</label>
+              <textarea
+                id="description"
+                name="description"
+                value={formData.description}
+                onChange={handleChange}
+                required
+                placeholder="Provide details about the item (color, brand, condition, any identifying features, etc.)"
+              />
+            </div>
+            
+            <div className="form-group">
+              <label htmlFor="contact">Your Contact Information</label>
+              <input
+                type="text"
+                id="contact"
+                name="contact"
+                value={formData.contact}
+                onChange={handleChange}
+                placeholder="Phone number or email (optional)"
+              />
+              <small>This will only be visible to security staff.</small>
+            </div>
+            
+            <div className="form-group">
+              <label htmlFor="image">Upload Image (Optional)</label>
+              <input
+                type="file"
+                id="image"
+                name="image"
+                onChange={handleChange}
+                accept="image/*"
+                className="file-input"
+              />
+              <small>Max file size: 5MB. Supported formats: JPG, PNG, GIF.</small>
+            </div>
+            
+            {imagePreview && (
+              <div className="image-preview">
+                <img src={imagePreview} alt="Preview" />
+              </div>
+            )}
+            
+            <div className="approval-notice">
+              <p>Note: Your submission will be reviewed by security staff before being listed publicly.</p>
+            </div>
+            
+            <button
+              type="submit"
+              className="submit-btn"
+              disabled={isSubmitting}
             >
-              {locations.map(l => (
-                <option key={l} value={l}>{l}</option>
-              ))}
-            </select>
-          </div>
-
-          <div className="form-group">
-            <label htmlFor="date">Date Found*</label>
-            <input
-              id="date"
-              type="date"
-              name="date"
-              value={formData.date}
-              onChange={handleChange}
-              required
-              max={new Date().toISOString().split('T')[0]}
-            />
-          </div>
+              {isSubmitting ? 'Submitting...' : 'Submit Found Item'}
+            </button>
+          </form>
         </div>
-
-        <div className="form-group">
-          <label htmlFor="description">Description*</label>
-          <textarea
-            id="description"
-            name="description"
-            value={formData.description}
-            onChange={handleChange}
-            required
-            placeholder="Please provide detailed description of the item including any identifying marks or features"
-            rows={4}
-          />
-        </div>
-
-        <div className="form-group">
-          <label htmlFor="image">Image</label>
-          <input
-            id="image"
-            type="file"
-            name="image"
-            accept="image/*"
-            onChange={handleChange}
-            className="file-input"
-          />
-          <small>Upload a clear image of the item (if available)</small>
-        </div>
-
-        <div className="form-group">
-          <label htmlFor="contact">Contact Email*</label>
-          <input
-            id="contact"
-            type="email"
-            name="contact"
-            value={formData.contact}
-            onChange={handleChange}
-            required
-            placeholder="Enter your contact email"
-          />
-        </div>
-
-        <button 
-          type="submit" 
-          className="submit-btn" 
-          disabled={isSubmitting}
-        >
-          {isSubmitting ? 'Submitting...' : 'Submit Report'}
-        </button>
-      </form>
+      </div>
     </div>
   );
 };

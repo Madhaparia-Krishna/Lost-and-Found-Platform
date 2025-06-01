@@ -1,9 +1,118 @@
 .form-container {
   max-width: 800px;
-  margin: 2rem auto;
-  padding: 1rem;
-  position: relative;
-  z-index: 2;
+  margin: 0 auto;
+  padding: 2rem;
+}
+
+.form-header {
+  margin-bottom: 2rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid #ddd;
+}
+
+.form-header h1 {
+  margin-bottom: 0.5rem;
+  color: #333;
+  text-align: center;
+}
+
+.navigation-menu {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin-top: 1rem;
+  justify-content: center;
+}
+
+.menu-link {
+  text-decoration: none;
+  color: #005cb9;
+  padding: 0.5rem 0.8rem;
+  border-radius: 4px;
+  font-weight: 500;
+  transition: background-color 0.2s;
+}
+
+.menu-link:hover {
+  background-color: #e9f2ff;
+}
+
+.auth-message {
+  text-align: center;
+  padding: 2rem;
+  background-color: #f8f9fa;
+  border-radius: 8px;
+  margin-top: 2rem;
+}
+
+.auth-message p {
+  margin-bottom: 1rem;
+  color: #666;
+}
+
+.auth-button {
+  display: inline-block;
+  padding: 0.7rem 1.5rem;
+  background-color: #005cb9;
+  color: white;
+  text-decoration: none;
+  border-radius: 4px;
+  font-weight: 500;
+  transition: background-color 0.2s;
+}
+
+.auth-button:hover {
+  background-color: #004a94;
+}
+
+.success-message {
+  text-align: center;
+  padding: 2rem;
+  background-color: #d4edda;
+  border-radius: 8px;
+  margin-top: 2rem;
+  color: #155724;
+}
+
+.success-message h2 {
+  margin-bottom: 1rem;
+}
+
+.success-actions {
+  display: flex;
+  gap: 1rem;
+  justify-content: center;
+  margin-top: 1.5rem;
+}
+
+.report-another-btn {
+  padding: 0.7rem 1.5rem;
+  background-color: #28a745;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: background-color 0.2s;
+}
+
+.report-another-btn:hover {
+  background-color: #218838;
+}
+
+.view-items-link {
+  padding: 0.7rem 1.5rem;
+  background-color: #005cb9;
+  color: white;
+  text-decoration: none;
+  border-radius: 4px;
+  font-weight: 500;
+  transition: background-color 0.2s;
+  display: inline-block;
+}
+
+.view-items-link:hover {
+  background-color: #004a94;
 }
 
 .form {
@@ -126,6 +235,146 @@
 .success-message p {
   color: #333;
   margin-bottom: 2rem;
+}
+
+.form-notice {
+  background-color: #f8f9fa;
+  border-left: 4px solid #17a2b8;
+  padding: 1rem;
+  margin-bottom: 1.5rem;
+  border-radius: 4px;
+}
+
+.form-notice p {
+  margin: 0;
+  color: #333;
+  font-size: 0.95rem;
+}
+
+.image-preview {
+  margin-top: 1rem;
+  text-align: center;
+}
+
+.image-preview img {
+  max-width: 100%;
+  max-height: 200px;
+  border-radius: 4px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+}
+
+.form-text {
+  display: block;
+  margin-top: 0.5rem;
+  color: #666;
+  font-size: 0.85rem;
+}
+
+.approval-notice {
+  background-color: #f8f9fa;
+  border-left: 4px solid #17a2b8;
+  padding: 1rem;
+  margin-bottom: 1.5rem;
+  border-radius: 4px;
+}
+
+.approval-notice p {
+  margin: 0;
+  color: #333;
+  font-size: 0.95rem;
+}
+
+.success-actions {
+  display: flex;
+  justify-content: center;
+  gap: 1rem;
+  margin-top: 1.5rem;
+}
+
+.view-items-btn, .report-another-btn {
+  display: inline-block;
+  padding: 0.8rem 1.5rem;
+  border-radius: 4px;
+  font-weight: 500;
+  transition: background-color 0.2s;
+  text-decoration: none;
+  cursor: pointer;
+  border: none;
+}
+
+.view-items-btn {
+  background-color: #007bff;
+  color: white;
+}
+
+.view-items-btn:hover {
+  background-color: #0056b3;
+}
+
+.report-another-btn {
+  background-color: #6c757d;
+  color: white;
+}
+
+.report-another-btn:hover {
+  background-color: #5a6268;
+}
+
+.auth-required {
+  text-align: center;
+  padding: 2rem;
+}
+
+.auth-required h2 {
+  color: #333;
+  margin-bottom: 1rem;
+}
+
+.auth-buttons {
+  display: flex;
+  justify-content: center;
+  gap: 1rem;
+  margin-top: 1.5rem;
+}
+
+.login-btn, .register-btn {
+  display: inline-block;
+  padding: 0.8rem 1.5rem;
+  text-decoration: none;
+  border-radius: 4px;
+  font-weight: 500;
+  transition: background-color 0.2s;
+}
+
+.login-btn {
+  background-color: #007bff;
+  color: white;
+}
+
+.login-btn:hover {
+  background-color: #0056b3;
+}
+
+.register-btn {
+  background-color: #6c757d;
+  color: white;
+}
+
+.register-btn:hover {
+  background-color: #5a6268;
+}
+
+.form-auth-status {
+  background-color: #f8f9fa;
+  padding: 0.8rem;
+  margin: 1rem 0;
+  border-radius: 4px;
+  font-size: 0.9rem;
+}
+
+.form-auth-status p {
+  margin: 0;
+  color: #495057;
 }
 
 /* Responsive Design */

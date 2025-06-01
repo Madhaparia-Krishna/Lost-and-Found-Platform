@@ -2,10 +2,10 @@ import React, { useContext, useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { AuthContext } from '../context/AuthContext';
 import ProfileDropdown from '../components/ProfileDropdown';
+import { itemsApi } from '../utils/api';
 import '../index.css';
 import '../styles/Navbar.css';
 import '../styles/Home.css';
-import axios from 'axios';
 
 // Create a base API URL that can be easily changed
 const API_BASE_URL = 'http://localhost:5000';
@@ -29,13 +29,14 @@ function Home() {
 
   const fetchRecentItems = async () => {
     try {
-      const response = await axios.get(`${API_BASE_URL}/items`, {
-        timeout: 10000 // 10 seconds timeout
-      });
+      // Use the API utility for better error handling
+      const data = await itemsApi.getAll();
+      
       // Filter to only show approved found items
-      const foundItems = response.data.filter(item => 
+      const foundItems = data.filter(item => 
         item.status === 'found' && item.is_approved === true
       );
+      
       // Get most recent 6 items
       setRecentItems(foundItems.slice(0, 6));
     } catch (error) {
@@ -192,9 +193,9 @@ function Home() {
           <div className="footer-section">
             <h3>Quick Links</h3>
             <ul>
-              <li><Link to="/about">About Us</Link></li>
-              <li><Link to="/faq">FAQ</Link></li>
-              <li><Link to="/help">Help Center</Link></li>
+              <li><Link to="/items">Browse Items</Link></li>
+              <li><Link to="/lost">Report Lost Item</Link></li>
+              <li><Link to="/found">Report Found Item</Link></li>
             </ul>
           </div>
           <div className="footer-section">

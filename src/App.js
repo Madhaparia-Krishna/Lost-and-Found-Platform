@@ -4,12 +4,8 @@ import { AuthProvider } from './context/AuthContext';
 import Home from './pages/Home';
 import Login from './pages/Login';
 import Register from './pages/Register';
-import SecurityPanel from './pages/SecurityPanel';
 import AdminPanel from './pages/AdminPanel';
 import Unauthorized from './pages/Unauthorized';
-import FAQ from './pages/FAQ';
-import About from './pages/About';
-import HelpCenter from './pages/HelpCenter';
 import Profile from './pages/Profile';
 import ForgotPassword from './pages/ForgotPassword';
 import ProtectedRoute from './components/ProtectedRoute';
@@ -30,9 +26,6 @@ function App() {
           <Route path="/register" element={<Register />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/reset-password" element={<ForgotPassword />} />
-          <Route path="/faq" element={<FAQ />} />
-          <Route path="/about" element={<About />} />
-          <Route path="/help" element={<HelpCenter />} />
           <Route path="/unauthorized" element={<Unauthorized />} />
           <Route path="/items" element={<ViewAllItems />} />
 
@@ -68,7 +61,16 @@ function App() {
             path="/security" 
             element={
               <ProtectedRoute 
-                element={<SecurityPanel />} 
+                element={<SecurityDashboard />} 
+                allowedRoles={['security', 'admin']} 
+              />
+            } 
+          />
+          <Route 
+            path="/security-dashboard" 
+            element={
+              <ProtectedRoute 
+                element={<SecurityDashboard />} 
                 allowedRoles={['security', 'admin']} 
               />
             } 
@@ -79,15 +81,6 @@ function App() {
               <ProtectedRoute 
                 element={<AdminPanel />} 
                 allowedRoles={['admin']} 
-              />
-            } 
-          />
-          <Route 
-            path="/security-dashboard" 
-            element={
-              <ProtectedRoute 
-                element={<SecurityDashboard />} 
-                allowedRoles={['security', 'admin']} 
               />
             } 
           />
