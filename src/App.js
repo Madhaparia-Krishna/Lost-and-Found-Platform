@@ -17,6 +17,7 @@ import FoundForm from './pages/FoundForm.jsx';
 import LostForm from './pages/LostForm.jsx';
 import ViewAllItems from './pages/ViewAllItems';
 import SecurityDashboard from './pages/SecurityDashboard';
+import ClaimForm from './pages/ClaimForm';
 
 function App() {
   return (
@@ -33,6 +34,7 @@ function App() {
           <Route path="/about" element={<About />} />
           <Route path="/help" element={<HelpCenter />} />
           <Route path="/unauthorized" element={<Unauthorized />} />
+          <Route path="/items" element={<ViewAllItems />} />
 
           {/* Protected routes */}
           <Route 
@@ -80,8 +82,26 @@ function App() {
               />
             } 
           />
-          <Route path="/items" element={<ViewAllItems />} />
-          <Route path="/security-dashboard" element={<SecurityDashboard />} />
+          <Route 
+            path="/security-dashboard" 
+            element={
+              <ProtectedRoute 
+                element={<SecurityDashboard />} 
+                allowedRoles={['security', 'admin']} 
+              />
+            } 
+          />
+          
+          {/* Claim form route */}
+          <Route 
+            path="/claim/:itemId" 
+            element={
+              <ProtectedRoute 
+                element={<ClaimForm />} 
+                allowedRoles={['user', 'admin', 'security']} 
+              />
+            } 
+          />
         </Routes>
       </Router>
     </AuthProvider>
