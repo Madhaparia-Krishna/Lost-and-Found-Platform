@@ -1,0 +1,4 @@
+{
+  "token": "YOUR_SECURITY_USER_TOKEN_HERE",
+  "note": "Please replace the token above with a valid security user token by logging in as a security user and copying the token from localStorage"
+} 

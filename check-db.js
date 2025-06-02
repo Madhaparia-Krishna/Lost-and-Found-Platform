@@ -6,14 +6,7 @@ const config = require('./server-config');
 async function checkDatabase() {
   let connection;
   try {
-    console.log('Attempting to connect to database...');
-    console.log('Database config:', {
-      host: config.dbConfig.host,
-      user: config.dbConfig.user,
-      database: config.dbConfig.database
-    });
-    
-    // Create connection
+    console.log('Connecting to database...');
     connection = await mysql.createConnection({
       host: config.dbConfig.host,
       user: config.dbConfig.user,
@@ -23,96 +16,45 @@ async function checkDatabase() {
     
     console.log('Connected to database successfully!');
     
-    // Check Tables
-    console.log('\nChecking database tables...');
-    const [tables] = await connection.query('SHOW TABLES');
-    console.log('Tables in database:');
-    tables.forEach(table => {
-      console.log(`- ${Object.values(table)[0]}`);
-    });
+    // Check recently added found items
+    console.log('\nChecking recently added found items:');
+    const [foundItems] = await connection.query(`
+      SELECT id, title, status, is_approved, created_at, user_id 
+      FROM Items 
+      WHERE status = 'found' 
+      ORDER BY created_at DESC 
+      LIMIT 10
+    `);
     
-    // Check Items table structure
-    console.log('\nChecking Items table structure...');
-    try {
-      const [columns] = await connection.query('DESCRIBE Items');
-      console.log('Items table columns:');
-      columns.forEach(col => {
-        console.log(`- ${col.Field}: ${col.Type} ${col.Null === 'NO' ? 'NOT NULL' : 'NULL'}`);
+    if (foundItems.length === 0) {
+      console.log('No found items in the database.');
+    } else {
+      console.log(`Found ${foundItems.length} items:`);
+      foundItems.forEach(item => {
+        console.log(`ID: ${item.id}, Title: ${item.title}, Approved: ${item.is_approved ? 'Yes' : 'No'}, Created: ${item.created_at}`);
       });
-    } catch (error) {
-      console.error('Error checking Items table:', error.message);
     }
     
-    // Check Users table structure
-    console.log('\nChecking Users table structure...');
-    try {
-      const [columns] = await connection.query('DESCRIBE Users');
-      console.log('Users table columns:');
-      columns.forEach(col => {
-        console.log(`- ${col.Field}: ${col.Type} ${col.Null === 'NO' ? 'NOT NULL' : 'NULL'}`);
+    // Check pending found items (not approved)
+    console.log('\nChecking pending found items (not approved):');
+    const [pendingItems] = await connection.query(`
+      SELECT id, title, status, is_approved, created_at, user_id 
+      FROM Items 
+      WHERE status = 'found' AND is_approved = FALSE AND is_deleted = FALSE
+      ORDER BY created_at DESC
+    `);
+    
+    if (pendingItems.length === 0) {
+      console.log('No pending found items in the database.');
+    } else {
+      console.log(`Found ${pendingItems.length} pending items:`);
+      pendingItems.forEach(item => {
+        console.log(`ID: ${item.id}, Title: ${item.title}, Created: ${item.created_at}`);
       });
-    } catch (error) {
-      console.error('Error checking Users table:', error.message);
-    }
-    
-    // Check Items count
-    console.log('\nChecking Items count...');
-    try {
-      const [totalCount] = await connection.query('SELECT COUNT(*) as count FROM Items');
-      console.log(`Total items: ${totalCount[0].count}`);
-      
-      const [approvedCount] = await connection.query('SELECT COUNT(*) as count FROM Items WHERE is_approved = TRUE');
-      console.log(`Approved items: ${approvedCount[0].count}`);
-      
-      const [notApprovedCount] = await connection.query('SELECT COUNT(*) as count FROM Items WHERE is_approved = FALSE');
-      console.log(`Not approved items: ${notApprovedCount[0].count}`);
-      
-      // Sample Items data
-      if (totalCount[0].count > 0) {
-        console.log('\nSample items data:');
-        const [sampleItems] = await connection.query('SELECT * FROM Items LIMIT 2');
-        console.log(JSON.stringify(sampleItems, null, 2));
-      }
-    } catch (error) {
-      console.error('Error checking Items count:', error.message);
-    }
-    
-    // Try the exact query from the endpoint
-    console.log('\nTrying endpoint query...');
-    try {
-      const [items] = await connection.query(`
-        SELECT 
-          i.id,
-          i.title,
-          i.category,
-          i.description,
-          i.status,
-          i.image,
-          i.created_at,
-          u.name as reporter_name
-        FROM Items i
-        JOIN Users u ON i.user_id = u.id
-        WHERE i.is_deleted = FALSE 
-        AND i.is_approved = TRUE
-        ORDER BY i.created_at DESC
-      `);
-      console.log(`Query successful! Found ${items.length} items`);
-    } catch (error) {
-      console.error('Error with endpoint query:', error.message);
-      // Try a simpler version
-      try {
-        console.log('Trying simpler query without JOIN...');
-        const [items] = await connection.query(`
-          SELECT * FROM Items WHERE is_deleted = FALSE AND is_approved = TRUE
-        `);
-        console.log(`Simpler query successful! Found ${items.length} items`);
-      } catch (error2) {
-        console.error('Error with simpler query:', error2.message);
-      }
     }
     
   } catch (error) {
-    console.error('Database check failed:', error);
+    console.error('Error:', error);
   } finally {
     if (connection) {
       console.log('\nClosing database connection...');
@@ -121,8 +63,5 @@ async function checkDatabase() {
   }
 }
 
-// Run the check
-checkDatabase().catch(err => {
-  console.error('Script failed:', err);
-  process.exit(1);
-}); 
+// Run the function
+checkDatabase(); 

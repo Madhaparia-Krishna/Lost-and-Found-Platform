@@ -56,11 +56,23 @@ const ViewAllItems = () => {
       
       // Filter to only show approved found items
       let filteredItems = itemsArray.filter(item => {
-        console.log(`Item ${item.id || 'unknown'}: status=${item.status}, approved=${item.is_approved}, deleted=${item.is_deleted || false}`);
-        return item.status === 'found' && item.is_approved === true && !item.is_deleted;
+        // Log each item's approval status for debugging
+        console.log(`Item ${item.id || 'unknown'}: title=${item.title}, status=${item.status}, approved=${item.is_approved === true ? 'true' : 'false'}, deleted=${item.is_deleted === true ? 'true' : 'false'}`);
+        
+        // Strict check to ensure item is approved
+        const isApproved = item.is_approved === true;
+        
+        // Check for valid status (found, requested, received)
+        const hasValidStatus = item.status === 'found' || item.status === 'requested' || item.status === 'received';
+        
+        // Ensure item is not deleted
+        const isNotDeleted = item.is_deleted !== true;
+        
+        // Only return true if all conditions are met
+        return isApproved && hasValidStatus && isNotDeleted;
       });
       
-      console.log('Filtered approved found items:', filteredItems.length);
+      console.log('Filtered approved items:', filteredItems.length);
       
       // Apply search filters if present
       if (searchParams.search) {
@@ -85,6 +97,11 @@ const ViewAllItems = () => {
         setActionStatus({ 
           type: 'info', 
           message: 'Using demonstration data - Connected to demo database' 
+        });
+      } else if (filteredItems.length === 0) {
+        setActionStatus({
+          type: 'info',
+          message: 'No approved items found. Items must be approved by security staff before appearing here.'
         });
       }
     } catch (err) {
@@ -210,6 +227,13 @@ const ViewAllItems = () => {
         </div>
       </div>
       
+      <div className="info-banner">
+        <p>This page displays only items that have been approved by security staff. If you've reported an item that's not visible here, it may still be pending approval.</p>
+        {currentUser && currentUser.role === 'security' && (
+          <p>Security staff: To approve pending items, please visit the <Link to="/security">Security Dashboard</Link>.</p>
+        )}
+      </div>
+      
       {actionStatus && (
         <div className={`action-status ${actionStatus.type}`}>
           {actionStatus.message}
@@ -283,7 +307,7 @@ const ViewAllItems = () => {
         <div className="no-items-message">
           {searchParams.search || searchParams.category ? 
             "No items match your search criteria" : 
-            "No approved found items available at the moment. Check back later."}
+            "No approved items available at the moment. Check back later."}
         </div>
       ) : (
         <div className="items-grid">
@@ -310,7 +334,7 @@ const ViewAllItems = () => {
                 </div>
               )}
               <div className="item-details">
-                <div className="status-badge found">Found</div>
+                <div className="status-badge found">{item.status === 'found' ? 'Found' : item.status === 'requested' ? 'Requested' : item.status === 'received' ? 'Received' : 'Unknown'}</div>
                 <h3>{item.title || 'Untitled Item'}</h3>
                 <p className="category">{item.category || 'Uncategorized'}</p>
                 <p className="description">{item.description || 'No description provided'}</p>
@@ -335,7 +359,7 @@ const ViewAllItems = () => {
                       className="claim-button"
                       onClick={() => window.location.href = `/claim/${item.id}`}
                     >
-                      Claim This Item
+                      Request This Item
                     </button>
                   )}
                 </div>

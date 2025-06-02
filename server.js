@@ -727,7 +727,7 @@ app.put('/api/security/claims/:id/status', authenticateToken, async (req, res) =
 // Get all items (public view - hide sensitive info)
 app.get('/items', async (req, res) => {
   try {
-    console.log('Fetching items from database...');
+    console.log('Fetching items from database for public view...');
     
     // First, check if we can connect to the database
     const connection = await pool.getConnection();
@@ -745,16 +745,23 @@ app.get('/items', async (req, res) => {
           i.status,
           i.image,
           i.created_at,
+          i.is_approved,
           u.name as reporter_name
         FROM Items i
         JOIN Users u ON i.user_id = u.id
         WHERE i.is_deleted = FALSE 
         AND i.is_approved = TRUE
+        AND (i.status = 'found' OR i.status = 'requested' OR i.status = 'received')
         ORDER BY i.created_at DESC
       `);
       
-      console.log(`Found ${items.length} items`);
-      res.json(items);
+      console.log(`Found ${items.length} approved items for public view`);
+      
+      // Double check that all items are approved (belt and suspenders approach)
+      const verifiedItems = items.filter(item => item.is_approved === 1 || item.is_approved === true);
+      console.log(`After verification: ${verifiedItems.length} items confirmed as approved`);
+      
+      res.json(verifiedItems);
     } catch (joinError) {
       console.error('Error with JOIN query:', joinError);
       
@@ -768,20 +775,25 @@ app.get('/items', async (req, res) => {
           status,
           image,
           created_at,
+          is_approved,
           user_id
         FROM Items
         WHERE is_deleted = FALSE 
         AND is_approved = TRUE
+        AND (status = 'found' OR status = 'requested' OR status = 'received')
         ORDER BY created_at DESC
       `);
       
+      // Verify approval status again
+      const verifiedItems = items.filter(item => item.is_approved === 1 || item.is_approved === true);
+      console.log(`Found ${verifiedItems.length} approved items (fallback query)`);
+      
       // Add a placeholder for reporter_name
-      const itemsWithReporter = items.map(item => ({
+      const itemsWithReporter = verifiedItems.map(item => ({
         ...item,
         reporter_name: 'Anonymous'
       }));
       
-      console.log(`Found ${itemsWithReporter.length} items (fallback query)`);
       res.json(itemsWithReporter);
     }
   } catch (error) {
@@ -910,11 +922,12 @@ app.post('/items/found', authenticateToken, async (req, res) => {
     try {
       const [result] = await pool.query(`
         INSERT INTO Items 
-          (title, category, subcategory, description, location, status, date, user_id, image) 
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+          (title, category, subcategory, description, location, status, date, user_id, image, is_approved) 
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, FALSE)
       `, [title, category, subcategory, description, location, status, date, userId, image || null]);
 
       console.log('Item inserted successfully with ID:', result.insertId);
+      console.log('Item approval status set to FALSE - requires security approval');
       
       // Notify security staff about new found item
       const message = `New found item "${title}" has been reported.`;
@@ -1336,13 +1349,58 @@ app.put('/api/security/items/:itemId/approve', authenticateToken, async (req, re
   }
 });
 
-// Submit a claim request
+// Reject a found item
+app.put('/api/security/items/:itemId/reject', authenticateToken, async (req, res) => {
+  try {
+    // Check if user is security or admin
+    if (req.user.role !== 'security' && req.user.role !== 'admin') {
+      return res.status(403).json({ message: 'Unauthorized access' });
+    }
+
+    const { itemId } = req.params;
+    const { reason } = req.body;
+
+    // Mark the item as rejected (set is_approved to FALSE)
+    await pool.query(
+      'UPDATE Items SET is_approved = FALSE, rejection_reason = ? WHERE id = ?',
+      [reason || 'Not approved by security', itemId]
+    );
+
+    // Get item details for notification
+    const [items] = await pool.query(
+      'SELECT user_id, title FROM Items WHERE id = ?',
+      [itemId]
+    );
+
+    if (items.length > 0) {
+      const item = items[0];
+      
+      // Create notification for item owner
+      await pool.query(
+        'INSERT INTO Notifications (user_id, message, type, related_item_id) VALUES (?, ?, ?, ?)',
+        [
+          item.user_id,
+          `Your found item "${item.title}" has been rejected${reason ? `: ${reason}` : ''}`,
+          'rejection',
+          itemId
+        ]
+      );
+    }
+
+    res.json({ message: 'Item rejected successfully' });
+  } catch (error) {
+    console.error('Error rejecting item:', error);
+    res.status(500).json({ message: 'Error rejecting item' });
+  }
+});
+
+// Submit a request for an item
 app.post('/api/items/:itemId/claim', authenticateToken, async (req, res) => {
   try {
     const { itemId } = req.params;
     const { claim_description, contact_info } = req.body;
 
-    // Check if item exists and is not already claimed
+    // Check if item exists and is not already requested
     const [items] = await pool.query(
       'SELECT * FROM Items WHERE id = ? AND is_deleted = FALSE',
       [itemId]
@@ -1354,17 +1412,17 @@ app.post('/api/items/:itemId/claim', authenticateToken, async (req, res) => {
 
     const item = items[0];
 
-    // Check if user already has a pending claim for this item
+    // Check if user already has a pending request for this item
     const [existingClaims] = await pool.query(
       'SELECT * FROM Claims WHERE item_id = ? AND claimer_id = ? AND status = "pending"',
       [itemId, req.user.id]
     );
 
     if (existingClaims.length > 0) {
-      return res.status(400).json({ message: 'You already have a pending claim for this item' });
+      return res.status(400).json({ message: 'You already have a pending request for this item' });
     }
 
-    // Create claim
+    // Create request
     const [claimResult] = await pool.query(
       `INSERT INTO Claims 
        (item_id, claimer_id, claim_description, contact_info) 
@@ -1382,20 +1440,20 @@ app.post('/api/items/:itemId/claim', authenticateToken, async (req, res) => {
         'INSERT INTO Notifications (user_id, message, type, related_item_id) VALUES (?, ?, ?, ?)',
         [
           staff.id,
-          `New claim request for item "${item.title}"`,
-          'claim',
+          `New item request for "${item.title}"`,
+          'request',
           itemId
         ]
       );
     }
 
     res.status(201).json({ 
-      message: 'Claim request submitted successfully',
+      message: 'Item request submitted successfully',
       claimId: claimResult.insertId
     });
   } catch (error) {
-    console.error('Error submitting claim:', error);
-    res.status(500).json({ message: 'Error submitting claim' });
+    console.error('Error submitting item request:', error);
+    res.status(500).json({ message: 'Error submitting item request' });
   }
 });
 
@@ -1492,7 +1550,7 @@ app.put('/api/security/claims/:claimId/:action', authenticateToken, async (req, 
       // Update item status
       await pool.query(
         'UPDATE Items SET status = ? WHERE id = ?',
-        ['claimed', claim.item_id]
+        ['requested', claim.item_id]
       );
 
       // Create notification for claimer
@@ -1500,8 +1558,8 @@ app.put('/api/security/claims/:claimId/:action', authenticateToken, async (req, 
         'INSERT INTO Notifications (user_id, message, type, related_item_id) VALUES (?, ?, ?, ?)',
         [
           claim.claimer_id,
-          'Your claim has been approved',
-          'claim_approved',
+          'Your request has been approved',
+          'request_approved',
           claim.item_id
         ]
       );
@@ -1511,14 +1569,14 @@ app.put('/api/security/claims/:claimId/:action', authenticateToken, async (req, 
         'INSERT INTO Notifications (user_id, message, type, related_item_id) VALUES (?, ?, ?, ?)',
         [
           claim.claimer_id,
-          'Your claim has been rejected',
-          'claim_rejected',
+          'Your request has been rejected',
+          'request_rejected',
           claim.item_id
         ]
       );
     }
 
-    res.json({ message: `Claim ${action}d successfully` });
+    res.json({ message: `Request ${action}d successfully` });
   } catch (error) {
     console.error('Error processing claim:', error);
     res.status(500).json({ message: 'Error processing claim' });
@@ -1666,6 +1724,128 @@ app.get('/api/test-image', (req, res) => {
   } else {
     console.log(`Test image does not exist at: ${testImagePath}`);
     res.status(404).json({ message: 'Test image not found' });
+  }
+});
+
+// Mark item as received by security
+app.put('/api/security/items/:itemId/receive', authenticateToken, async (req, res) => {
+  try {
+    // Check if user is security or admin
+    if (req.user.role !== 'security' && req.user.role !== 'admin') {
+      return res.status(403).json({ message: 'Unauthorized access' });
+    }
+
+    const { itemId } = req.params;
+
+    // Update item status to received
+    await pool.query(
+      'UPDATE Items SET status = ? WHERE id = ?',
+      ['received', itemId]
+    );
+
+    // Get item details for notification
+    const [items] = await pool.query(
+      'SELECT user_id, title FROM Items WHERE id = ?',
+      [itemId]
+    );
+
+    if (items.length > 0) {
+      const item = items[0];
+      
+      // Create notification for item owner
+      await pool.query(
+        'INSERT INTO Notifications (user_id, message, type, related_item_id) VALUES (?, ?, ?, ?)',
+        [
+          item.user_id,
+          `Your requested item "${item.title}" has been received by security`,
+          'item_received',
+          itemId
+        ]
+      );
+    }
+
+    res.json({ message: 'Item marked as received successfully' });
+  } catch (error) {
+    console.error('Error marking item as received:', error);
+    res.status(500).json({ message: 'Error marking item as received' });
+  }
+});
+
+// Mark item as returned to owner
+app.put('/api/security/items/:itemId/return', authenticateToken, async (req, res) => {
+  try {
+    // Check if user is security or admin
+    if (req.user.role !== 'security' && req.user.role !== 'admin') {
+      return res.status(403).json({ message: 'Unauthorized access' });
+    }
+
+    const { itemId } = req.params;
+
+    // Update item status to returned
+    await pool.query(
+      'UPDATE Items SET status = ? WHERE id = ?',
+      ['returned', itemId]
+    );
+
+    // Get item details for notification
+    const [items] = await pool.query(
+      'SELECT user_id, title FROM Items WHERE id = ?',
+      [itemId]
+    );
+
+    if (items.length > 0) {
+      const item = items[0];
+      
+      // Create notification for item owner
+      await pool.query(
+        'INSERT INTO Notifications (user_id, message, type, related_item_id) VALUES (?, ?, ?, ?)',
+        [
+          item.user_id,
+          `Your item "${item.title}" has been returned to its owner`,
+          'item_returned',
+          itemId
+        ]
+      );
+    }
+
+    res.json({ message: 'Item marked as returned successfully' });
+  } catch (error) {
+    console.error('Error marking item as returned:', error);
+    res.status(500).json({ message: 'Error marking item as returned' });
+  }
+});
+
+// Get unclaimed items older than 1 year for potential donation
+app.get('/api/admin/unclaimed-items', authenticateToken, async (req, res) => {
+  try {
+    // Check if user is admin
+    if (req.user.role !== 'admin') {
+      return res.status(403).json({ message: 'Unauthorized access' });
+    }
+
+    // Calculate date 1 year ago
+    const oneYearAgo = new Date();
+    oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
+    const oneYearAgoStr = oneYearAgo.toISOString().split('T')[0];
+
+    // Get items that are found, approved, not deleted, and older than 1 year
+    const [items] = await pool.query(`
+      SELECT 
+        i.*,
+        u.name as reporter_name
+      FROM Items i
+      JOIN Users u ON i.user_id = u.id
+      WHERE i.is_deleted = FALSE 
+      AND i.is_approved = TRUE
+      AND i.status = 'found'
+      AND i.created_at < ?
+      ORDER BY i.created_at ASC
+    `, [oneYearAgoStr]);
+
+    res.json(items);
+  } catch (error) {
+    console.error('Error fetching unclaimed items:', error);
+    res.status(500).json({ message: 'Error fetching unclaimed items' });
   }
 });
 

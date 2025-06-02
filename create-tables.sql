@@ -29,7 +29,7 @@ CREATE TABLE Items (
     description TEXT NOT NULL,
     location VARCHAR(100) NOT NULL,
     date DATE NOT NULL,
-    status ENUM('lost', 'found', 'claimed', 'returned') NOT NULL,
+    status ENUM('lost', 'found', 'requested', 'received', 'returned') NOT NULL,
     image VARCHAR(255),
     user_id INT NOT NULL,
     is_approved BOOLEAN DEFAULT FALSE,
@@ -39,7 +39,7 @@ CREATE TABLE Items (
     FOREIGN KEY (user_id) REFERENCES Users(id)
 );
 
--- Claims table
+-- Claims table (for item requests)
 CREATE TABLE Claims (
     id INT PRIMARY KEY AUTO_INCREMENT,
     item_id INT NOT NULL,
@@ -59,7 +59,7 @@ CREATE TABLE Notifications (
     id INT PRIMARY KEY AUTO_INCREMENT,
     user_id INT NOT NULL,
     message TEXT NOT NULL,
-    type ENUM('match', 'claim', 'approval', 'system') NOT NULL,
+    type ENUM('match', 'request', 'approval', 'request_approved', 'request_rejected', 'item_received', 'item_returned', 'system') NOT NULL,
     status ENUM('unread', 'read') DEFAULT 'unread',
     related_item_id INT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,

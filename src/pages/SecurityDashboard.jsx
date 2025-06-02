@@ -319,8 +319,9 @@ const SecurityDashboard = () => {
 
   // Separate lost and found items
   const foundItems = pendingItems.filter(item => {
-    console.log(`Checking found item ${item.id || 'unknown'}: status=${item.status}, approved=${item.is_approved}`);
-    return item.status === 'found' && item.is_approved === false;
+    console.log(`Checking found item ${item.id || 'unknown'}: status=${item.status}, approved=${item.is_approved}, is_approved type: ${typeof item.is_approved}`);
+    // MySQL boolean values might be coming as 0/1 integers instead of true/false
+    return item.status === 'found' && (item.is_approved === false || item.is_approved === 0);
   });
   
   const lostItems = pendingItems.filter(item => {
@@ -329,6 +330,8 @@ const SecurityDashboard = () => {
   });
   
   console.log(`Found ${foundItems.length} pending found items and ${lostItems.length} lost items`);
+  console.log('Pending items from API:', pendingItems);
+  console.log('Filtered found items:', foundItems);
 
   // Add error displays for each section
   const renderErrorMessage = (errorMsg, refreshFunction) => {
@@ -363,6 +366,11 @@ const SecurityDashboard = () => {
             <Link to="/admin" className="nav-link admin-link">Admin Panel</Link>
           )}
         </div>
+      </div>
+      
+      <div className="dashboard-info-banner">
+        <p><strong>Important:</strong> Found items must be approved before they appear on the public "View All Items" page.</p>
+        <p>Use the "Approve Item" button to make items visible to the public.</p>
       </div>
       
       {actionStatus && (
@@ -407,6 +415,9 @@ const SecurityDashboard = () => {
       {activeTab === 'items' && (
         <div className="pending-items">
           <h2>Pending Found Items</h2>
+          <p className="section-description">
+            These items need your approval before they will be visible on the public "View All Items" page.
+          </p>
           {renderErrorMessage(itemsError, fetchPendingItems)}
           {foundItems.length === 0 && !itemsError ? (
             <p>No pending found items to review</p>
@@ -427,6 +438,7 @@ const SecurityDashboard = () => {
                     </div>
                   )}
                   <div className="item-details">
+                    <div className="approval-badge pending">Awaiting Approval</div>
                     <h3>{item.title}</h3>
                     <p className="category">{item.category}</p>
                     <p className="description">{item.description}</p>
@@ -480,7 +492,7 @@ const SecurityDashboard = () => {
                     </div>
                   )}
                   <div className="item-details">
-                    <div className="status-badge approved">Approved</div>
+                    <div className="approval-badge approved">Approved</div>
                     {item.is_received && <div className="status-badge received">Received</div>}
                     {item.is_returned && <div className="status-badge returned">Returned</div>}
                     <h3>{item.title}</h3>
@@ -494,7 +506,7 @@ const SecurityDashboard = () => {
                     <div className="item-actions">
                       {!item.is_received && (
                         <button
-                          className="received-button"
+                          className="receive-button"
                           onClick={() => handleMarkItemReceived(item.id)}
                         >
                           Mark as Received
@@ -502,7 +514,7 @@ const SecurityDashboard = () => {
                       )}
                       {item.is_received && !item.is_returned && (
                         <button
-                          className="returned-button"
+                          className="return-button"
                           onClick={() => handleMarkItemReturned(item.id)}
                         >
                           Mark as Returned

@@ -111,7 +111,7 @@ const generateMockItems = () => {
   const threeDaysAgo = new Date(now);
   threeDaysAgo.setDate(threeDaysAgo.getDate() - 3);
   
-  // Create a variety of mock items
+  // Create a variety of mock items - all approved for public view
   const mockItems = [
     {
       id: 1,
@@ -124,6 +124,7 @@ const generateMockItems = () => {
       created_at: threeDaysAgo.toISOString(),
       status: "found",
       is_approved: true,
+      is_deleted: false,
       is_received: true,
       is_returned: false
     },
@@ -138,6 +139,7 @@ const generateMockItems = () => {
       created_at: twoDaysAgo.toISOString(),
       status: "found",
       is_approved: true,
+      is_deleted: false,
       is_received: true,
       is_returned: false
     },
@@ -152,6 +154,7 @@ const generateMockItems = () => {
       created_at: yesterday.toISOString(),
       status: "found",
       is_approved: true,
+      is_deleted: false,
       is_received: false,
       is_returned: false
     },
@@ -166,6 +169,7 @@ const generateMockItems = () => {
       created_at: yesterday.toISOString(),
       status: "found",
       is_approved: true,
+      is_deleted: false,
       is_received: false,
       is_returned: false
     },
@@ -180,6 +184,7 @@ const generateMockItems = () => {
       created_at: now.toISOString(),
       status: "found",
       is_approved: true,
+      is_deleted: false,
       is_received: false,
       is_returned: false
     },
@@ -194,6 +199,7 @@ const generateMockItems = () => {
       created_at: now.toISOString(),
       status: "found",
       is_approved: true,
+      is_deleted: false,
       is_received: false,
       is_returned: false
     },
@@ -208,6 +214,7 @@ const generateMockItems = () => {
       created_at: yesterday.toISOString(),
       status: "found",
       is_approved: true,
+      is_deleted: false,
       is_received: true,
       is_returned: true
     },
@@ -222,6 +229,7 @@ const generateMockItems = () => {
       created_at: twoDaysAgo.toISOString(),
       status: "found",
       is_approved: true,
+      is_deleted: false,
       is_received: true,
       is_returned: true
     },
@@ -236,6 +244,7 @@ const generateMockItems = () => {
       created_at: now.toISOString(),
       status: "found",
       is_approved: true,
+      is_deleted: false,
       is_received: false,
       is_returned: false
     },
@@ -250,12 +259,18 @@ const generateMockItems = () => {
       created_at: threeDaysAgo.toISOString(),
       status: "found",
       is_approved: true,
+      is_deleted: false,
       is_received: false,
       is_returned: false
     }
   ];
   
-  return mockItems;
+  // Ensure all items are properly marked as approved and not deleted
+  return mockItems.map(item => ({
+    ...item,
+    is_approved: true,
+    is_deleted: false
+  }));
 };
 
 // API methods for items
@@ -268,24 +283,38 @@ export const itemsApi = {
       try {
         const response = await api.get('/items');
         console.log('API response for all items:', response.status, response.statusText);
-        return normalizeResponse(response.data);
+        const items = normalizeResponse(response.data);
+        
+        // Verify that we have items and they have the correct format
+        if (Array.isArray(items) && items.length > 0) {
+          console.log(`Received ${items.length} items from server`);
+          console.log('Sample item structure:', JSON.stringify(items[0]));
+          
+          // Ensure all items have the is_approved property set correctly
+          return items.map(item => ({
+            ...item,
+            is_approved: item.is_approved === true || item.is_approved === 1
+          }));
+        }
+        
+        return items;
       } catch (err) {
         // If that fails, try a second endpoint
-        console.log('First endpoint failed, trying second endpoint...');
+        console.log('First endpoint failed, trying second endpoint...', err.message);
         try {
           const response = await api.get('/api/items');
           console.log('API response from second endpoint:', response.status, response.statusText);
           return normalizeResponse(response.data);
         } catch (err2) {
           // If that fails too, try a third endpoint
-          console.log('Second endpoint failed, trying third endpoint...');
+          console.log('Second endpoint failed, trying third endpoint...', err2.message);
           try {
             const response = await api.get('/api/security/all-items');
             console.log('API response from third endpoint:', response.status, response.statusText);
             return normalizeResponse(response.data);
           } catch (err3) {
             // If all endpoints fail, return mock data
-            console.log('All endpoints failed, returning mock data');
+            console.log('All endpoints failed, returning mock data', err3.message);
             return generateMockItems();
           }
         }
@@ -519,9 +548,18 @@ export const securityApi = {
   rejectItem: async (itemId, reason = '') => {
     try {
       console.log(`Rejecting item with ID ${itemId}...`);
-      const response = await api.put(`/api/security/items/${itemId}/reject`, { reason });
-      console.log(`Item ${itemId} rejected successfully. Response:`, response.data);
-      return response.data;
+      // Try the correct endpoint first
+      try {
+        const response = await api.put(`/api/security/items/${itemId}/reject`, { reason });
+        console.log(`Item ${itemId} rejected successfully. Response:`, response.data);
+        return response.data;
+      } catch (err) {
+        // If that fails, try an alternative endpoint
+        console.log('First endpoint failed, trying alternative endpoint...', err.message);
+        const response = await api.put(`/security/items/${itemId}/reject`, { reason });
+        console.log(`Item ${itemId} rejected successfully from alternative endpoint. Response:`, response.data);
+        return response.data;
+      }
     } catch (error) {
       console.error(`Error rejecting item ${itemId}:`, error);
       if (error.response) {
