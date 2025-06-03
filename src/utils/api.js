@@ -375,10 +375,27 @@ export const itemsApi = {
   submitLost: async (formData) => {
     try {
       console.log('Submitting lost item with data:', formData);
+      
+      // Get the auth token directly to check if it exists
+      const userData = localStorage.getItem('user');
+      if (!userData) {
+        throw new Error('Authentication required. Please log in.');
+      }
+      
+      const user = JSON.parse(userData);
+      if (!user.token) {
+        throw new Error('Invalid authentication. Please log in again.');
+      }
+      
       const response = await api.post('/items/lost', formData);
       return response.data;
     } catch (error) {
       console.error('Error submitting lost item:', error);
+      if (error.response) {
+        console.error('Response data:', error.response.data);
+        console.error('Response status:', error.response.status);
+        console.error('Response headers:', error.response.headers);
+      }
       throw error;
     }
   },
@@ -510,10 +527,7 @@ export const securityApi = {
   markItemReceived: async (itemId) => {
     try {
       console.log(`Marking item ${itemId} as received by security...`);
-      const response = await api.put(`/items/${itemId}/status`, { 
-        status: 'received',
-        is_received: true
-      });
+      const response = await api.put(`/api/security/items/${itemId}/receive`);
       console.log(`Item ${itemId} marked as received. Response:`, response.data);
       return response.data;
     } catch (error) {
@@ -529,10 +543,7 @@ export const securityApi = {
   markItemReturned: async (itemId) => {
     try {
       console.log(`Marking item ${itemId} as returned to owner...`);
-      const response = await api.put(`/items/${itemId}/status`, { 
-        status: 'returned',
-        is_returned: true
-      });
+      const response = await api.put(`/api/security/items/${itemId}/return`);
       console.log(`Item ${itemId} marked as returned. Response:`, response.data);
       return response.data;
     } catch (error) {
@@ -677,4 +688,4 @@ export const notificationsApi = {
   }
 };
 
-export default api; 
+export default api;

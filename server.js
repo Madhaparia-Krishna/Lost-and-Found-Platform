@@ -847,7 +847,7 @@ app.post('/items/lost', authenticateToken, async (req, res) => {
     console.log('Request body:', req.body);
     
     // Extract data from request body
-    const { title, category, subcategory, description, location, date, status, image } = req.body;
+    const { title, category, subcategory, description, location, date } = req.body;
     
     // User ID from token
     const userId = req.user.id;
@@ -863,11 +863,11 @@ app.post('/items/lost', authenticateToken, async (req, res) => {
     try {
       const [result] = await pool.query(`
         INSERT INTO Items 
-          (title, category, subcategory, description, location, status, date, user_id, image) 
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-      `, [title, category, subcategory, description, location, status, date, userId, image || null]);
+          (title, category, subcategory, description, location, status, date, user_id, is_approved) 
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, TRUE)
+      `, [title, category, subcategory, description, location, 'lost', date, userId]);
 
-      console.log('Item inserted successfully with ID:', result.insertId);
+      console.log('Lost item inserted successfully with ID:', result.insertId);
       
       // Notify security staff about new lost item
       const message = `New lost item "${title}" has been reported.`;
@@ -1164,22 +1164,22 @@ async function notifySecurityStaff(message, type = 'new_item') {
 // Add item endpoint (add this where you handle item creation)
 app.post('/api/items', authenticateToken, async (req, res) => {
   try {
-    const { title, description, type, location } = req.body;
+    const { title, category, subcategory, description, location, date, status, image } = req.body;
     
-    // Insert item into database
+    // Insert item into database with proper fields
     const [result] = await pool.query(
-      'INSERT INTO Items (title, description, type, location, user_id) VALUES (?, ?, ?, ?, ?)',
-      [title, description, type, location, req.user.id]
+      'INSERT INTO Items (title, category, description, location, date, status, image, user_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+      [title, category, description, location, date || new Date(), status || 'found', image, req.user.id]
     );
     
     // Notify security staff
-    const message = `New ${type} item "${title}" has been reported. Location: ${location}`;
+    const message = `New ${status || 'found'} item "${title}" has been reported. Location: ${location}`;
     await notifySecurityStaff(message, 'new_item');
     
     // Log the action
     await logSystemAction(
       'New item added',
-      `Item "${title}" (${type}) added by user ${req.user.id}`,
+      `Item "${title}" (${status || 'found'}) added by user ${req.user.id}`,
       req.user.id
     );
     
@@ -1821,6 +1821,80 @@ app.get('/api/admin/unclaimed-items', authenticateToken, async (req, res) => {
 //     });
 //   }
 // });
+
+// Ban/Delete a user (soft delete) - Admin and Security only
+app.put('/api/admin/users/:userId/ban', authenticateToken, async (req, res) => {
+  try {
+    // Check if user is security or admin
+    if (req.user.role !== 'security' && req.user.role !== 'admin') {
+      return res.status(403).json({ message: 'Access denied: Admin or Security permission required' });
+    }
+    
+    const { userId } = req.params;
+    
+    // Prevent self-banning
+    if (userId == req.user.id) {
+      return res.status(400).json({ message: 'You cannot ban yourself' });
+    }
+    
+    // Check if user exists
+    const [users] = await pool.query('SELECT * FROM Users WHERE id = ?', [userId]);
+    
+    if (users.length === 0) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+    
+    // Check if trying to ban an admin (only admins can ban other admins)
+    if (users[0].role === 'admin' && req.user.role !== 'admin') {
+      return res.status(403).json({ message: 'Security staff cannot ban admin users' });
+    }
+    
+    // Soft delete the user
+    await pool.query('UPDATE Users SET is_deleted = TRUE WHERE id = ?', [userId]);
+    
+    // Log the action
+    await logSystemAction(
+      'User banned',
+      `User ID ${userId} (${users[0].name}) has been banned by ${req.user.id}`,
+      req.user.id
+    );
+    
+    res.json({ message: 'User banned successfully' });
+  } catch (error) {
+    console.error('Error banning user:', error);
+    res.status(500).json({ message: 'Error banning user' });
+  }
+});
+
+// Get all items for security/admin dashboard
+app.get('/api/security/all-items', authenticateToken, async (req, res) => {
+  try {
+    // Check if user is security or admin
+    if (req.user.role !== 'security' && req.user.role !== 'admin') {
+      return res.status(403).json({ message: 'Unauthorized access' });
+    }
+    
+    // Get all items including unapproved ones
+    const [items] = await pool.query(`
+      SELECT 
+        i.*,
+        u.name as reporter_name
+      FROM 
+        Items i
+      LEFT JOIN 
+        Users u ON i.user_id = u.id
+      WHERE 
+        i.is_deleted = FALSE
+      ORDER BY 
+        i.created_at DESC
+    `);
+    
+    res.json(items);
+  } catch (error) {
+    console.error('Error fetching all items:', error);
+    res.status(500).json({ message: 'Error fetching all items' });
+  }
+});
 
 // Start server
 const PORT = process.env.PORT || 5000;

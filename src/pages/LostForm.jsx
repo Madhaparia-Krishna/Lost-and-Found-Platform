@@ -1,7 +1,8 @@
 // LostForm.jsx
-import React, { useState, useContext } from 'react';
+import React, { useState, useContext, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { AuthContext } from '../context/AuthContext';
+import { itemsApi } from '../utils/api';
 import '../styles/form.css';
 
 const categories = [
@@ -38,7 +39,6 @@ const LostForm = ({ currentUserId }) => {
     location: locations[0],
     date: '',
     description: '',
-    contact: savedContact || '',
     image: null,
   });
 
@@ -78,10 +78,6 @@ const LostForm = ({ currentUserId }) => {
       }));
     } else {
       setFormData(prev => ({ ...prev, [name]: value }));
-      // Save contact to localStorage when it changes
-      if (name === 'contact') {
-        localStorage.setItem('userContact', value);
-      }
     }
   };
 
@@ -92,8 +88,9 @@ const LostForm = ({ currentUserId }) => {
     setActionStatus({ type: 'loading', message: 'Submitting lost item report...' });
 
     try {
+      // Check authentication before proceeding
       if (!currentUser || !currentUser.token) {
-        throw new Error('You must be logged in to submit a form');
+        throw new Error('Authentication token is missing. Please log out and log in again.');
       }
 
       // Log form data for debugging
@@ -104,7 +101,6 @@ const LostForm = ({ currentUserId }) => {
         location: formData.location,
         date: formData.date,
         description: formData.description,
-        contact: formData.contact,
         image: formData.image ? 'Image file present' : 'No image'
       });
 
@@ -116,29 +112,16 @@ const LostForm = ({ currentUserId }) => {
         description: formData.description,
         location: formData.location,
         date: formData.date,
-        status: 'lost'
+        status: 'lost',
+        user_id: currentUser.id // Ensure user ID is included
       };
 
       // If image exists, upload it first
       let imageFilename = null;
       if (formData.image) {
-        const imageFormData = new FormData();
-        imageFormData.append('image', formData.image);
-        
         try {
-          const uploadResponse = await fetch('http://localhost:5000/api/upload', {
-            method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${currentUser.token}`
-            },
-            body: imageFormData
-          });
-          
-          if (!uploadResponse.ok) {
-            throw new Error('Failed to upload image');
-          }
-          
-          const uploadResult = await uploadResponse.json();
+          console.log('Uploading image...');
+          const uploadResult = await itemsApi.uploadImage(formData.image);
           imageFilename = uploadResult.filename;
           console.log('Image uploaded successfully:', imageFilename);
         } catch (uploadError) {
@@ -146,7 +129,7 @@ const LostForm = ({ currentUserId }) => {
           // Continue with form submission even if image upload fails
           setActionStatus({ 
             type: 'warning', 
-            message: `Note: Image upload failed, but you can still submit the form.` 
+            message: `Note: Image upload failed (${uploadError.message}), but you can still submit the form.` 
           });
           
           // Clear warning after 5 seconds
@@ -163,30 +146,9 @@ const LostForm = ({ currentUserId }) => {
 
       console.log('Sending JSON payload to server:', jsonPayload);
       
-      // Submit the item data
-      const res = await fetch('http://localhost:5000/items/lost', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${currentUser.token}`
-        },
-        body: JSON.stringify(jsonPayload)
-      });
-
-      let responseData;
-      try {
-        responseData = await res.json();
-        console.log('Server response:', responseData);
-      } catch (jsonError) {
-        console.error('Error parsing JSON response:', jsonError);
-        const responseText = await res.text();
-        console.error('Server returned:', responseText);
-        responseData = { message: 'Error parsing server response' };
-      }
-
-      if (!res.ok) {
-        throw new Error(responseData.message || 'Failed to submit lost item');
-      }
+      // Submit the item data using the API utility
+      const response = await itemsApi.submitLost(jsonPayload);
+      console.log('Server response:', response);
 
       setSubmitSuccess(true);
       setFormData({
@@ -196,7 +158,6 @@ const LostForm = ({ currentUserId }) => {
         location: locations[0],
         date: '',
         description: '',
-        contact: formData.contact, // Keep contact info
         image: null,
       });
       
@@ -210,11 +171,47 @@ const LostForm = ({ currentUserId }) => {
       setActionStatus({ type: 'success', message: 'Lost item reported successfully!' });
     } catch (err) {
       console.error('Form submission error:', err);
-      setSubmitError(err.message || 'Error submitting form');
-      setActionStatus({ 
-        type: 'error', 
-        message: err.message || 'Error submitting form. Please try again.' 
-      });
+      
+      // Provide more detailed error messages
+      if (err.response) {
+        // The request was made and the server responded with a status code
+        // that falls out of the range of 2xx
+        if (err.response.status === 401) {
+          setActionStatus({ 
+            type: 'error', 
+            message: 'Authentication error: Your session may have expired. Please log out and log in again.' 
+          });
+        } else if (err.response.status === 403) {
+          setActionStatus({ 
+            type: 'error', 
+            message: 'Permission denied: You do not have permission to submit lost items.' 
+          });
+        } else if (err.response.data && err.response.data.message) {
+          setActionStatus({ 
+            type: 'error', 
+            message: `Server error: ${err.response.data.message}` 
+          });
+        } else {
+          setActionStatus({ 
+            type: 'error', 
+            message: `Server error (${err.response.status}): Please try again later.` 
+          });
+        }
+      } else if (err.request) {
+        // The request was made but no response was received
+        setActionStatus({ 
+          type: 'error', 
+          message: 'Network error: No response received from server. Please check your internet connection.' 
+        });
+      } else {
+        // Something happened in setting up the request that triggered an Error
+        setActionStatus({ 
+          type: 'error', 
+          message: err.message || 'An unexpected error occurred. Please try again.' 
+        });
+      }
+      
+      setSubmitError(err.message || 'An unexpected error occurred. Please try again.');
     } finally {
       setIsSubmitting(false);
     }
@@ -414,20 +411,6 @@ const LostForm = ({ currentUserId }) => {
                 required
                 placeholder="Provide details about the item (color, brand, condition, any identifying features, etc.)"
               />
-            </div>
-            
-            <div className="form-group">
-              <label htmlFor="contact">Your Contact Information*</label>
-              <input
-                type="text"
-                id="contact"
-                name="contact"
-                value={formData.contact}
-                onChange={handleChange}
-                required
-                placeholder="Phone number or email"
-              />
-              <small>This will be used to contact you if your item is found.</small>
             </div>
             
             <div className="form-group">

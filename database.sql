@@ -28,12 +28,14 @@ CREATE TABLE Items (
     id INT PRIMARY KEY AUTO_INCREMENT,
     title VARCHAR(100) NOT NULL,
     category VARCHAR(50),
+    subcategory VARCHAR(50),
     description TEXT,
     location VARCHAR(100),
-    status ENUM('claimed', 'returned') NOT NULL,
+    status ENUM('lost', 'found', 'requested', 'received', 'returned') NOT NULL,
     image VARCHAR(255),
     date DATE,
     user_id INT,
+    is_approved BOOLEAN DEFAULT FALSE,
     is_deleted BOOLEAN DEFAULT FALSE,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -47,6 +49,8 @@ CREATE TABLE Claims (
     item_id INT,
     claimer_id INT,
     status ENUM('pending', 'approved', 'rejected') DEFAULT 'pending',
+    claim_description TEXT,
+    contact_info TEXT,
     date DATE,
     is_deleted BOOLEAN DEFAULT FALSE,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -61,11 +65,14 @@ CREATE TABLE Notifications (
     id INT PRIMARY KEY AUTO_INCREMENT,
     message TEXT NOT NULL,
     user_id INT,
+    type ENUM('match', 'request', 'approval', 'request_approved', 'request_rejected', 'item_received', 'item_returned', 'system') DEFAULT 'system',
     status ENUM('unread', 'read') DEFAULT 'unread',
+    related_item_id INT,
     is_deleted BOOLEAN DEFAULT FALSE,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    FOREIGN KEY (user_id) REFERENCES Users(id) ON DELETE CASCADE
+    FOREIGN KEY (user_id) REFERENCES Users(id) ON DELETE CASCADE,
+    FOREIGN KEY (related_item_id) REFERENCES Items(id) ON DELETE CASCADE
 );
 
 -- LOGS TABLE
@@ -79,3 +86,58 @@ CREATE TABLE Logs (
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     FOREIGN KEY (by_user) REFERENCES Users(id) ON DELETE CASCADE
 );
+
+-- ITEM MATCHES TABLE
+DROP TABLE IF EXISTS ItemMatches;
+CREATE TABLE ItemMatches (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    lost_item_id INT,
+    found_item_id INT,
+    match_score FLOAT,
+    status ENUM('pending', 'notified', 'claimed', 'rejected') DEFAULT 'pending',
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (lost_item_id) REFERENCES Items(id) ON DELETE CASCADE,
+    FOREIGN KEY (found_item_id) REFERENCES Items(id) ON DELETE CASCADE
+);
+
+-- CHAT ROOMS TABLE
+DROP TABLE IF EXISTS ChatRooms;
+CREATE TABLE ChatRooms (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    name VARCHAR(100),
+    created_by INT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (created_by) REFERENCES Users(id) ON DELETE CASCADE
+);
+
+-- CHAT ROOM PARTICIPANTS TABLE
+DROP TABLE IF EXISTS ChatRoomParticipants;
+CREATE TABLE ChatRoomParticipants (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    room_id INT,
+    user_id INT,
+    joined_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (room_id) REFERENCES ChatRooms(id) ON DELETE CASCADE,
+    FOREIGN KEY (user_id) REFERENCES Users(id) ON DELETE CASCADE,
+    UNIQUE (room_id, user_id)
+);
+
+-- CHAT MESSAGES TABLE
+DROP TABLE IF EXISTS ChatMessages;
+CREATE TABLE ChatMessages (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    room_id INT,
+    sender_id INT,
+    message TEXT,
+    sender_name VARCHAR(100),
+    sender_role VARCHAR(50),
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (room_id) REFERENCES ChatRooms(id) ON DELETE CASCADE,
+    FOREIGN KEY (sender_id) REFERENCES Users(id) ON DELETE CASCADE
+);
+
+-- Insert default admin user
+INSERT INTO Users (name, email, password, role)
+VALUES ('Admin', 'admin@example.com', '$2b$10$1Xp0MQ4XzDg9XGKVUzvhCOK9W5FZC6xvg/zDqMeYS5sm7X5NWAqGq', 'admin');
+-- Default password: admin123

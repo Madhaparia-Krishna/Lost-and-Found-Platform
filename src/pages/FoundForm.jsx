@@ -29,8 +29,6 @@ const locations = [
 
 const FoundForm = ({ currentUserId }) => {
   const { currentUser } = useContext(AuthContext);
-  // Initialize contact from localStorage if available
-  const savedContact = localStorage.getItem('userContact');
   
   const [formData, setFormData] = useState({
     title: '',
@@ -39,7 +37,6 @@ const FoundForm = ({ currentUserId }) => {
     location: locations[0],
     date: '',
     description: '',
-    contact: savedContact || '',
     image: null,
   });
 
@@ -91,10 +88,6 @@ const FoundForm = ({ currentUserId }) => {
       }));
     } else {
       setFormData(prev => ({ ...prev, [name]: value }));
-      // Save contact to localStorage when it changes
-      if (name === 'contact') {
-        localStorage.setItem('userContact', value);
-      }
     }
   };
 
@@ -122,7 +115,6 @@ const FoundForm = ({ currentUserId }) => {
         location: formData.location,
         date: formData.date,
         description: formData.description,
-        contact: formData.contact,
         image: formData.image ? 'Image file present' : 'No image'
       });
 
@@ -181,7 +173,6 @@ const FoundForm = ({ currentUserId }) => {
         location: locations[0],
         date: '',
         description: '',
-        contact: formData.contact, // Keep contact info
         image: null,
       });
       
@@ -248,61 +239,15 @@ const FoundForm = ({ currentUserId }) => {
           <h1>Report Found Item</h1>
           <div className="navigation-menu">
             <Link to="/" className="menu-link">Home</Link>
-            <Link to="/login" className="menu-link">Login</Link>
-            <Link to="/register" className="menu-link">Register</Link>
+            <Link to="/login" className="menu-link">Login to Continue</Link>
           </div>
         </div>
-        <div className="auth-message">
-          <p>Please log in to report a found item.</p>
-          <Link to="/login" className="auth-button">Login</Link>
-        </div>
-      </div>
-    );
-  }
-
-  if (submitSuccess) {
-    return (
-      <div className="form-container">
-        <div className="form-header">
-          <h1>Report Found Item</h1>
-          <div className="user-info">
-            {currentUser && (
-              <>
-                <span>Logged in as: {currentUser.name || currentUser.email}</span>
-                <span className="role-badge">{currentUser.role}</span>
-              </>
-            )}
-          </div>
-          <div className="navigation-menu">
-            <Link to="/" className="menu-link">Home</Link>
-            <Link to="/items" className="menu-link">View All Items</Link>
-            <Link to="/lost" className="menu-link">Report Lost Item</Link>
-          </div>
-        </div>
-        
-        {actionStatus && (
-          <div className={`action-status ${actionStatus.type}`}>
-            {actionStatus.message}
-          </div>
-        )}
-        
-        <div className="success-message">
-          <h2>Thank You!</h2>
-          <p>Your found item has been reported successfully.</p>
-          <p>It will be reviewed by security personnel shortly.</p>
-          <div className="success-actions">
-            <button 
-              onClick={() => {
-                setSubmitSuccess(false);
-                setActionStatus(null);
-              }}
-              className="report-another-btn"
-            >
-              Report Another Item
-            </button>
-            <Link to="/items" className="view-items-link">
-              View All Items
-            </Link>
+        <div className="form-content">
+          <div className="auth-message">
+            <p>You need to be logged in to report a found item.</p>
+            <Link to="/login" className="auth-link">Login</Link>
+            <span className="auth-separator">or</span>
+            <Link to="/register" className="auth-link">Register</Link>
           </div>
         </div>
       </div>
@@ -313,175 +258,182 @@ const FoundForm = ({ currentUserId }) => {
     <div className="form-container">
       <div className="form-header">
         <h1>Report Found Item</h1>
-        <div className="user-info">
-          {currentUser && (
-            <>
-              <span>Logged in as: {currentUser.name || currentUser.email}</span>
-              <span className="role-badge">{currentUser.role}</span>
-            </>
-          )}
-        </div>
         <div className="navigation-menu">
           <Link to="/" className="menu-link">Home</Link>
-          <Link to="/items" className="menu-link">View All Items</Link>
-          <Link to="/lost" className="menu-link">Report Lost Item</Link>
+          <Link to="/dashboard" className="menu-link">Dashboard</Link>
         </div>
       </div>
-      
-      {actionStatus && (
-        <div className={`action-status ${actionStatus.type}`}>
-          {actionStatus.message}
-        </div>
-      )}
-      
-      <div className="form-container">
-        <div className="form">
-          <div className="form-notice">
-            <p>Please provide accurate details about the item you found. This will help the owner identify and claim their item.</p>
-          </div>
-          
-          {submitError && <div className="error-message">{submitError}</div>}
-          
-          <form onSubmit={handleSubmit}>
-            <div className="form-group">
-              <label htmlFor="title">Item Name/Title*</label>
-              <input
-                type="text"
-                id="title"
-                name="title"
-                value={formData.title}
-                onChange={handleChange}
-                required
-                placeholder="E.g. Blue Wallet, iPhone 13, Student ID Card"
-              />
+
+      <div className="form-content">
+        {submitSuccess ? (
+          <div className="success-message">
+            <h2>Thank You!</h2>
+            <p>Your found item has been reported successfully.</p>
+            <p>Security staff will review your submission shortly.</p>
+            <div className="success-actions">
+              <button 
+                onClick={() => {
+                  setSubmitSuccess(false);
+                  setActionStatus(null);
+                }}
+                className="btn primary-btn"
+              >
+                Report Another Item
+              </button>
+              <Link to="/dashboard" className="btn secondary-btn">
+                Go to Dashboard
+              </Link>
             </div>
-            
-            <div className="form-row">
+          </div>
+        ) : (
+          <>
+            <div className="form-instructions">
+              <h2>Found an item?</h2>
+              <p>Please provide accurate details about the item you found. This will help the owner identify and claim their item.</p>
+              <p>Items will be reviewed by security staff before being published.</p>
+            </div>
+
+            {actionStatus && (
+              <div className={`action-status ${actionStatus.type}`}>
+                <p>{actionStatus.message}</p>
+                {actionStatus.type === 'loading' && <div className="loading-spinner"></div>}
+              </div>
+            )}
+
+            <form className="item-form" onSubmit={handleSubmit}>
               <div className="form-group">
-                <label htmlFor="category">Category*</label>
-                <select
-                  id="category"
-                  name="category"
-                  value={formData.category}
+                <label htmlFor="title">Item Name *</label>
+                <input
+                  type="text"
+                  id="title"
+                  name="title"
+                  value={formData.title}
                   onChange={handleChange}
                   required
-                >
-                  {categories.map((cat) => (
-                    <option key={cat} value={cat}>
-                      {cat}
-                    </option>
-                  ))}
-                </select>
+                  placeholder="Brief title describing the item"
+                />
               </div>
-              
-              {formData.category === 'Electronics' && (
+
+              <div className="form-row">
                 <div className="form-group">
-                  <label htmlFor="subcategory">Subcategory</label>
+                  <label htmlFor="category">Category *</label>
                   <select
-                    id="subcategory"
-                    name="subcategory"
-                    value={formData.subcategory}
+                    id="category"
+                    name="category"
+                    value={formData.category}
                     onChange={handleChange}
+                    required
                   >
-                    {electronicsSubcategories.map((subcat) => (
-                      <option key={subcat} value={subcat}>
-                        {subcat}
-                      </option>
+                    {categories.map(category => (
+                      <option key={category} value={category}>{category}</option>
                     ))}
                   </select>
                 </div>
-              )}
-            </div>
-            
-            <div className="form-row">
+
+                {formData.category === 'Electronics' && (
+                  <div className="form-group">
+                    <label htmlFor="subcategory">Type</label>
+                    <select
+                      id="subcategory"
+                      name="subcategory"
+                      value={formData.subcategory}
+                      onChange={handleChange}
+                    >
+                      {electronicsSubcategories.map(subcategory => (
+                        <option key={subcategory} value={subcategory}>{subcategory}</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+              </div>
+
+              <div className="form-row">
+                <div className="form-group">
+                  <label htmlFor="location">Location Found *</label>
+                  <select
+                    id="location"
+                    name="location"
+                    value={formData.location}
+                    onChange={handleChange}
+                    required
+                  >
+                    {locations.map(location => (
+                      <option key={location} value={location}>{location}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="form-group">
+                  <label htmlFor="date">Date Found *</label>
+                  <input
+                    type="date"
+                    id="date"
+                    name="date"
+                    value={formData.date}
+                    onChange={handleChange}
+                    required
+                  />
+                </div>
+              </div>
+
               <div className="form-group">
-                <label htmlFor="location">Location Found*</label>
-                <select
-                  id="location"
-                  name="location"
-                  value={formData.location}
+                <label htmlFor="description">Description *</label>
+                <textarea
+                  id="description"
+                  name="description"
+                  value={formData.description}
                   onChange={handleChange}
                   required
-                >
-                  {locations.map((loc) => (
-                    <option key={loc} value={loc}>
-                      {loc}
-                    </option>
-                  ))}
-                </select>
+                  placeholder="Detailed description of the item (color, brand, distinguishing features, etc.)"
+                  rows="4"
+                ></textarea>
               </div>
-              
+
               <div className="form-group">
-                <label htmlFor="date">Date Found*</label>
+                <label htmlFor="image">Image (Optional)</label>
                 <input
-                  type="date"
-                  id="date"
-                  name="date"
-                  value={formData.date}
+                  type="file"
+                  id="image"
+                  name="image"
                   onChange={handleChange}
-                  required
-                  max={new Date().toISOString().split('T')[0]}
+                  accept="image/*"
                 />
+                {imagePreview && (
+                  <div className="image-preview">
+                    <img src={imagePreview} alt="Preview" />
+                    <button 
+                      type="button" 
+                      className="remove-image" 
+                      onClick={() => {
+                        setFormData(prev => ({ ...prev, image: null }));
+                        setImagePreview(null);
+                        const fileInput = document.querySelector('input[type="file"]');
+                        if (fileInput) fileInput.value = '';
+                      }}
+                    >
+                      ✕
+                    </button>
+                  </div>
+                )}
               </div>
-            </div>
-            
-            <div className="form-group">
-              <label htmlFor="description">Description*</label>
-              <textarea
-                id="description"
-                name="description"
-                value={formData.description}
-                onChange={handleChange}
-                required
-                placeholder="Provide details about the item (color, brand, condition, any identifying features, etc.)"
-              />
-            </div>
-            
-            <div className="form-group">
-              <label htmlFor="contact">Your Contact Information</label>
-              <input
-                type="text"
-                id="contact"
-                name="contact"
-                value={formData.contact}
-                onChange={handleChange}
-                placeholder="Phone number or email (optional)"
-              />
-              <small>This will only be visible to security staff.</small>
-            </div>
-            
-            <div className="form-group">
-              <label htmlFor="image">Upload Image (Optional)</label>
-              <input
-                type="file"
-                id="image"
-                name="image"
-                onChange={handleChange}
-                accept="image/*"
-                className="file-input"
-              />
-              <small>Max file size: 5MB. Supported formats: JPG, PNG, GIF.</small>
-            </div>
-            
-            {imagePreview && (
-              <div className="image-preview">
-                <img src={imagePreview} alt="Preview" />
+
+              <div className="form-actions">
+                <button
+                  type="submit"
+                  className="btn primary-btn"
+                  disabled={isSubmitting}
+                >
+                  {isSubmitting ? 'Submitting...' : 'Submit Report'}
+                </button>
+                <Link to="/" className="btn secondary-btn">
+                  Cancel
+                </Link>
               </div>
-            )}
-            
-            <div className="approval-notice">
-              <p>Note: Your submission will be reviewed by security staff before being listed publicly.</p>
-            </div>
-            
-            <button
-              type="submit"
-              className="submit-btn"
-              disabled={isSubmitting}
-            >
-              {isSubmitting ? 'Submitting...' : 'Submit Found Item'}
-            </button>
-          </form>
-        </div>
+
+              {submitError && <div className="error-message">{submitError}</div>}
+            </form>
+          </>
+        )}
       </div>
     </div>
   );
