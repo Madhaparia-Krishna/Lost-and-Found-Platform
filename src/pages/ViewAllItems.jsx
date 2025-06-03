@@ -93,12 +93,7 @@ const ViewAllItems = () => {
       
       // Check if we're using mock data by looking at the first item's ID
       // Real data from the database would likely have different ID patterns
-      if (filteredItems.length > 0 && filteredItems[0].id <= 10 && filteredItems[0].id >= 1) {
-        setActionStatus({ 
-          type: 'info', 
-          message: 'Using demonstration data - Connected to demo database' 
-        });
-      } else if (filteredItems.length === 0) {
+      if (filteredItems.length === 0) {
         setActionStatus({
           type: 'info',
           message: 'No approved items found. Items must be approved by security staff before appearing here.'

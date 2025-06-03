@@ -1583,84 +1583,6 @@ app.put('/api/security/claims/:claimId/:action', authenticateToken, async (req, 
   }
 });
 
-// TEST ROUTE: For testing email notifications
-app.get('/api/test/email-match/:email', async (req, res) => {
-  // Add CORS headers for this test endpoint
-  res.header('Access-Control-Allow-Origin', '*');
-  res.header('Access-Control-Allow-Methods', 'GET');
-  res.header('Access-Control-Allow-Headers', 'Content-Type');
-  
-  try {
-    const { email } = req.params;
-    const { name, itemTitle, category, location } = req.query;
-
-    console.log(`Testing match notification email to: ${email}`);
-    
-    // Create a test item object
-    const testItem = {
-      id: 9999,
-      title: itemTitle || 'Test Item',
-      category: category || 'Electronics',
-      subcategory: 'Mobile Phone',
-      description: 'This is a test item for email notification testing',
-      location: location || 'Library',
-      status: 'found',
-      date: new Date().toISOString().slice(0, 10), // Today's date in YYYY-MM-DD format
-      user_id: 1,
-      is_approved: true
-    };
-    
-    // Create a test match
-    const testMatch = {
-      id: 8888,
-      lost_item_id: 7777,
-      found_item_id: 9999,
-      match_score: 0.85,
-      status: 'pending',
-      created_at: new Date()
-    };
-    
-    // Actually send the email notification
-    const emailResult = await emailService.sendMatchNotification(
-      email,
-      name || 'Test User',
-      testItem.title,
-      testMatch.id,
-      {
-        category: testItem.category,
-        date: testItem.date,
-        description: testItem.description,
-        location: testItem.location
-      }
-    );
-    
-    // Send a response with the email status
-    res.json({
-      success: emailResult.success,
-      message: emailResult.success 
-        ? `Test match notification sent to ${email}` 
-        : `Failed to send test notification to ${email}`,
-      emailResult,
-      testItem,
-      testMatch,
-      emailParams: {
-        userEmail: email,
-        userName: name || 'Test User',
-        itemTitle: testItem.title,
-        matchId: testMatch.id
-      }
-    });
-  } catch (error) {
-    console.error('Error sending test match notification:', error);
-    res.status(500).json({ 
-      success: false,
-      message: 'Error sending test match notification',
-      error: error.message,
-      stack: error.stack
-    });
-  }
-});
-
 // Upload route for found item images
 app.post('/api/upload', upload.single('image'), async (req, res) => {
   try {
@@ -1686,46 +1608,46 @@ app.post('/api/upload', upload.single('image'), async (req, res) => {
   }
 });
 
-// Test route to check uploads directory
-app.get('/api/test-uploads', (req, res) => {
-  try {
-    if (!fs.existsSync(uploadsDir)) {
-      return res.status(404).json({ 
-        success: false, 
-        message: 'Uploads directory does not exist' 
-      });
-    }
-    
-    const files = fs.readdirSync(uploadsDir);
-    res.json({ 
-      success: true,
-      directory: uploadsDir,
-      files,
-      count: files.length,
-      message: 'Uploads directory is accessible'
-    });
-  } catch (error) {
-    console.error('Error checking uploads directory:', error);
-    res.status(500).json({
-      success: false,
-      error: error.message,
-      message: 'Error checking uploads directory'
-    });
-  }
-});
+// Test route to check uploads directory - commented out
+// app.get('/api/test-uploads', (req, res) => {
+//   try {
+//     if (!fs.existsSync(uploadsDir)) {
+//       return res.status(404).json({ 
+//         success: false, 
+//         message: 'Uploads directory does not exist' 
+//       });
+//     }
+//     
+//     const files = fs.readdirSync(uploadsDir);
+//     res.json({ 
+//       success: true,
+//       directory: uploadsDir,
+//       files,
+//       count: files.length,
+//       message: 'Uploads directory is accessible'
+//     });
+//   } catch (error) {
+//     console.error('Error checking uploads directory:', error);
+//     res.status(500).json({
+//       success: false,
+//       error: error.message,
+//       message: 'Error checking uploads directory'
+//     });
+//   }
+// });
 
-// Test route to directly serve the test image
-app.get('/api/test-image', (req, res) => {
-  const testImagePath = path.join(__dirname, 'uploads', 'test-image.png');
-  
-  if (fs.existsSync(testImagePath)) {
-    console.log(`Test image exists at: ${testImagePath}`);
-    res.sendFile(testImagePath);
-  } else {
-    console.log(`Test image does not exist at: ${testImagePath}`);
-    res.status(404).json({ message: 'Test image not found' });
-  }
-});
+// Test route to directly serve the test image - commented out
+// app.get('/api/test-image', (req, res) => {
+//   const testImagePath = path.join(__dirname, 'uploads', 'test-image.png');
+//   
+//   if (fs.existsSync(testImagePath)) {
+//     console.log(`Test image exists at: ${testImagePath}`);
+//     res.sendFile(testImagePath);
+//   } else {
+//     console.log(`Test image does not exist at: ${testImagePath}`);
+//     res.status(404).json({ message: 'Test image not found' });
+//   }
+// });
 
 // Mark item as received by security
 app.put('/api/security/items/:itemId/receive', authenticateToken, async (req, res) => {
@@ -1848,6 +1770,57 @@ app.get('/api/admin/unclaimed-items', authenticateToken, async (req, res) => {
     res.status(500).json({ message: 'Error fetching unclaimed items' });
   }
 });
+
+// Test route for sending match notification emails - commented out
+// app.get('/api/test/email-match/:email', async (req, res) => {
+//   res.header('Access-Control-Allow-Origin', '*');
+//   res.header('Access-Control-Allow-Methods', 'GET');
+//   res.header('Access-Control-Allow-Headers', 'Content-Type');
+//   
+//   try {
+//     const { email } = req.params;
+//     const { name, itemTitle, category, location } = req.query;
+// 
+//     console.log(`Testing match notification email to: ${email}`);
+//     
+//     // Actually send the email notification
+//     const emailResult = await emailService.sendMatchNotification(
+//       email,
+//       name || 'Test User',
+//       itemTitle || 'Sample Item',
+//       '0', // Sample match ID
+//       {
+//         category: category || 'Electronics',
+//         date: new Date().toISOString().slice(0, 10),
+//         description: 'Sample item description',
+//         location: location || 'Library'
+//       }
+//     );
+//     
+//     // Send a response with the email status
+//     res.json({
+//       success: emailResult.success,
+//       message: emailResult.success 
+//         ? `Test match notification sent to ${email}` 
+//         : `Failed to send test notification to ${email}`,
+//       emailResult,
+//       emailParams: {
+//         userEmail: email,
+//         userName: name || 'Test User',
+//         itemTitle: itemTitle || 'Sample Item',
+//         matchId: '0'
+//       }
+//     });
+//   } catch (error) {
+//     console.error('Error sending test match notification:', error);
+//     res.status(500).json({ 
+//       success: false,
+//       message: 'Error sending test match notification',
+//       error: error.message,
+//       stack: error.stack
+//     });
+//   }
+// });
 
 // Start server
 const PORT = process.env.PORT || 5000;
