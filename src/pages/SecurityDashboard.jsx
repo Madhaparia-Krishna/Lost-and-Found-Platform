@@ -141,41 +141,71 @@ const SecurityDashboard = () => {
 
   const handleApproveItem = async (itemId) => {
     try {
-      setActionStatus({ type: 'loading', message: `Approving item ${itemId}...` });
-      await securityApi.approveItem(itemId);
-      setActionStatus({ type: 'success', message: 'Item approved successfully!' });
+      setActionLoading(true);
+      setActionStatus({
+        type: 'loading',
+        message: 'Approving item...'
+      });
+      
+      console.log(`Approving item ${itemId}...`);
+      const response = await securityApi.approveItem(itemId);
+      console.log('Item approval response:', response);
+      
+      setActionStatus({
+        type: 'success',
+        message: 'Item approved successfully'
+      });
+      
+      // Refresh data to update the UI
       refreshData();
       
-      // Clear success message after 3 seconds
+      // Clear status after a delay
       setTimeout(() => {
         setActionStatus(null);
-      }, 3000);
+      }, 5000);
     } catch (error) {
       console.error('Error approving item:', error);
-      setActionStatus({ 
-        type: 'error', 
-        message: error.response?.data?.message || 'Error approving item' 
+      setActionStatus({
+        type: 'error',
+        message: `Error approving item: ${error.message || 'Unknown error'}`
       });
+    } finally {
+      setActionLoading(false);
     }
   };
 
   const handleRejectItem = async (itemId) => {
     try {
-      setActionStatus({ type: 'loading', message: `Rejecting item ${itemId}...` });
-      await securityApi.rejectItem(itemId);
-      setActionStatus({ type: 'success', message: 'Item rejected successfully!' });
+      setActionLoading(true);
+      setActionStatus({
+        type: 'loading',
+        message: 'Rejecting item...'
+      });
+      
+      console.log(`Rejecting item ${itemId}...`);
+      const response = await securityApi.rejectItem(itemId);
+      console.log('Item rejection response:', response);
+      
+      setActionStatus({
+        type: 'success',
+        message: 'Item rejected successfully'
+      });
+      
+      // Refresh data to update the UI
       refreshData();
       
-      // Clear success message after 3 seconds
+      // Clear status after a delay
       setTimeout(() => {
         setActionStatus(null);
-      }, 3000);
+      }, 5000);
     } catch (error) {
       console.error('Error rejecting item:', error);
-      setActionStatus({ 
-        type: 'error', 
-        message: error.response?.data?.message || 'Error rejecting item' 
+      setActionStatus({
+        type: 'error',
+        message: `Error rejecting item: ${error.message || 'Unknown error'}`
       });
+    } finally {
+      setActionLoading(false);
     }
   };
 
@@ -221,21 +251,33 @@ const SecurityDashboard = () => {
 
   const handleClaimAction = async (claimId, action) => {
     try {
-      setActionStatus({ type: 'loading', message: `Processing claim ${claimId}...` });
       setActionLoading(true);
-      await securityApi.processClaim(claimId, action);
-      setActionStatus({ type: 'success', message: `Claim ${action}ed successfully!` });
+      setActionStatus({
+        type: 'loading',
+        message: `Processing claim ${action === 'approve' ? 'approval' : 'rejection'}...`
+      });
+      
+      console.log(`Processing claim ${claimId} with action: ${action}`);
+      const response = await securityApi.processClaim(claimId, action);
+      console.log('Claim processed response:', response);
+      
+      setActionStatus({
+        type: 'success',
+        message: `Claim ${action === 'approve' ? 'approved' : 'rejected'} successfully`
+      });
+      
+      // Refresh data
       refreshData();
       
-      // Clear success message after 3 seconds
+      // Clear status after a delay
       setTimeout(() => {
         setActionStatus(null);
-      }, 3000);
+      }, 5000);
     } catch (error) {
       console.error(`Error ${action}ing claim:`, error);
-      setActionStatus({ 
-        type: 'error', 
-        message: error.response?.data?.message || `Error ${action}ing claim` 
+      setActionStatus({
+        type: 'error',
+        message: `Error ${action}ing claim: ${error.message || 'Unknown error'}`
       });
     } finally {
       setActionLoading(false);

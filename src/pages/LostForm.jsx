@@ -252,6 +252,7 @@ const LostForm = ({ currentUserId }) => {
           </div>
           <div className="navigation-menu">
             <Link to="/" className="menu-link">Home</Link>
+            <Link to="/dashboard" className="menu-link">Dashboard</Link>
             <Link to="/items" className="menu-link">View All Items</Link>
             <Link to="/found" className="menu-link">Report Found Item</Link>
           </div>
@@ -276,6 +277,9 @@ const LostForm = ({ currentUserId }) => {
             >
               Report Another Item
             </button>
+            <Link to="/dashboard" className="view-items-link">
+              Go to Dashboard
+            </Link>
             <Link to="/items" className="view-items-link">
               View All Items
             </Link>
@@ -299,6 +303,7 @@ const LostForm = ({ currentUserId }) => {
         </div>
         <div className="navigation-menu">
           <Link to="/" className="menu-link">Home</Link>
+          <Link to="/dashboard" className="menu-link">Dashboard</Link>
           <Link to="/items" className="menu-link">View All Items</Link>
           <Link to="/found" className="menu-link">Report Found Item</Link>
         </div>

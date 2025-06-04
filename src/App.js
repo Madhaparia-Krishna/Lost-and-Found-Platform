@@ -14,6 +14,7 @@ import LostForm from './pages/LostForm.jsx';
 import ViewAllItems from './pages/ViewAllItems';
 import SecurityDashboard from './pages/SecurityDashboard';
 import ClaimForm from './pages/ClaimForm';
+import Dashboard from './pages/Dashboard';
 
 function App() {
   return (
@@ -91,6 +92,16 @@ function App() {
             element={
               <ProtectedRoute 
                 element={<ClaimForm />} 
+                allowedRoles={['user', 'admin', 'security']} 
+              />
+            } 
+          />
+
+          <Route 
+            path="/dashboard" 
+            element={
+              <ProtectedRoute 
+                element={<Dashboard />} 
                 allowedRoles={['user', 'admin', 'security']} 
               />
             } 
