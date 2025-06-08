@@ -1,0 +1,73 @@
+.admin-dashboard {
+  padding: 20px;
+}
+
+.admin-dashboard h1 {
+  margin-bottom: 30px;
+  color: #2c3e50;
+}
+
+.admin-dashboard h2 {
+  margin-bottom: 20px;
+  color: #34495e;
+}
+
+.admin-dashboard .card {
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  transition: all 0.3s ease;
+}
+
+.admin-dashboard .card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
+}
+
+.admin-dashboard .card-header {
+  font-weight: bold;
+}
+
+.admin-dashboard .card-title {
+  font-size: 2rem;
+  text-align: center;
+}
+
+.admin-dashboard .table {
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+}
+
+.admin-dashboard .table th {
+  background-color: #f8f9fa;
+}
+
+.admin-dashboard .loading-spinner {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 50vh;
+  font-size: 1.5rem;
+  color: #6c757d;
+}
+
+.admin-dashboard .nav-tabs .nav-link {
+  cursor: pointer;
+}
+
+.admin-dashboard .nav-tabs .nav-link.active {
+  font-weight: bold;
+  border-bottom: 3px solid #007bff;
+}
+
+.admin-dashboard .table-responsive {
+  margin-top: 20px;
+}
+
+.stats-section .row {
+  margin-bottom: 30px;
+}
+
+/* Ensure charts are responsive */
+.chart-container {
+  position: relative;
+  width: 100%;
+  height: 300px;
+} 

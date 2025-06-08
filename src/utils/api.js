@@ -1,810 +1,795 @@
 import axios from 'axios';
 
-// Create a base API URL that can be easily changed
-export const API_BASE_URL = 'http://localhost:5000'; // Server is running on port 5000 as shown in the logs
+// API base URL - connects to the lost_and_found_system database
+// We need to handle both ports 5000 and 5001 since the server may switch ports
+export const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
 
-// Create an axios instance with default configuration
-export const api = axios.create({
-  baseURL: API_BASE_URL,
-  timeout: 10000, // 10 seconds timeout
-  headers: {
-    'Accept': 'application/json',
-    'Content-Type': 'application/json'
+// Log the base URL being used
+console.log('Using API base URL:', API_BASE_URL);
+
+// Try to detect if we need to use a different port by checking server availability
+async function detectServerPort() {
+  try {
+    // First try port 5000
+    console.log('Trying to connect to port 5000...');
+    await axios.get('http://localhost:5000/health', { timeout: 1000 });
+    console.log('Successfully connected to port 5000');
+    axios.defaults.baseURL = 'http://localhost:5000';
+    return 'http://localhost:5000';
+  } catch (error) {
+    console.log('Failed to connect to port 5000:', error.message);
+    try {
+      // If 5000 fails, try 5001
+      console.log('Trying to connect to port 5001...');
+      await axios.get('http://localhost:5001/health', { timeout: 1000 });
+      console.log('Successfully connected to port 5001');
+      axios.defaults.baseURL = 'http://localhost:5001';
+      return 'http://localhost:5001';
+    } catch (innerError) {
+      console.log('Failed to connect to port 5001:', innerError.message);
+      // Default to 5000 if both fail
+      console.log('Defaulting to port 5000');
+      axios.defaults.baseURL = 'http://localhost:5000';
+      return 'http://localhost:5000';
+    }
   }
+}
+
+// Configure axios defaults
+axios.defaults.baseURL = API_BASE_URL;
+
+// Try to detect the correct port
+detectServerPort().catch(() => {});
+
+// Create axios instance with auth
+const api = axios.create({
+  baseURL: API_BASE_URL,
+  headers: {
+    'Content-Type': 'application/json'
+  },
+  timeout: 10000 // 10 seconds timeout
 });
 
-// Add request interceptor for authentication
-api.interceptors.request.use(
-  config => {
-    // Get the token from localStorage
-    let token = null;
+// Add auth token to requests if available
+api.interceptors.request.use(config => {
+  const user = localStorage.getItem('user');
+  if (user) {
     try {
-      const userData = localStorage.getItem('user');
-      if (userData) {
-        const user = JSON.parse(userData);
-        token = user.token;
+      const { token } = JSON.parse(user);
+      if (token) {
+        config.headers.Authorization = `Bearer ${token}`;
       }
     } catch (error) {
-      console.error('Error parsing user data from localStorage:', error);
+      // Error parsing user data
     }
-
-    // If token exists, add it to the headers
-    if (token) {
-      console.log('Adding auth token to request:', config.url);
-      config.headers.Authorization = `Bearer ${token}`;
-    } else {
-      console.warn('No auth token available for request:', config.url);
-    }
-    
-    return config;
-  },
-  error => {
-    console.error('Request interceptor error:', error);
-    return Promise.reject(error);
   }
-);
+  return config;
+}, error => {
+  return Promise.reject(error);
+});
 
 // Add response interceptor for error handling
 api.interceptors.response.use(
   response => response,
   error => {
-    // Handle authentication errors
-    if (error.response && error.response.status === 401) {
-      console.error('Authentication error (401):', error.response.data);
-      // You could trigger a logout or redirect to login here
-    }
-    
-    // Handle network errors
-    if (error.message === 'Network Error') {
-      console.error('Network error detected. Server may be down or unreachable.');
-    }
-    
-    // Handle timeout errors
-    if (error.code === 'ECONNABORTED') {
-      console.error('Request timed out. Server may be overloaded or unreachable.');
-    }
-    
     return Promise.reject(error);
   }
 );
 
-// Helper function to normalize API responses
-export const normalizeResponse = (data) => {
-  if (!data) return [];
-  
-  console.log('Normalizing API response:', data);
-  
-  // Handle case where data might be wrapped in an object
-  if (Array.isArray(data)) {
-    return data;
-  } else if (data.items && Array.isArray(data.items)) {
-    return data.items;
-  } else if (data.data && Array.isArray(data.data)) {
-    return data.data;
-  } else if (data.results && Array.isArray(data.results)) {
-    return data.results;
-  } else if (data.found_items && Array.isArray(data.found_items)) {
-    return data.found_items;
-  } else if (data.lost_items && Array.isArray(data.lost_items)) {
-    return data.lost_items;
-  } else if (typeof data === 'object') {
-    // If data is an object but doesn't have items array,
-    // check if it has any array properties we can use
-    const arrayProps = Object.keys(data).filter(key => 
-      Array.isArray(data[key]) && 
-      data[key].length > 0 && 
-      typeof data[key][0] === 'object'
-    );
-    
-    if (arrayProps.length > 0) {
-      // Use the first array property found
-      console.log(`Found array property in response: ${arrayProps[0]}`);
-      return data[arrayProps[0]];
+// Handle response data
+const handleResponse = (response) => {
+  if (response.data) {
+    // If the response is an array, return it directly
+    if (Array.isArray(response.data)) {
+      return response.data;
     }
-    
-    // If we still haven't found any arrays, check if the object itself is an item
-    if (data.id && (data.title || data.name)) {
-      console.log('Response appears to be a single item, wrapping in array');
-      return [data];
+    // If response has a specific property that is an array, return that
+    if (response.data.items && Array.isArray(response.data.items)) {
+      return response.data.items;
     }
+    return response.data;
   }
-  
-  console.warn('Could not normalize response data:', data);
-  // If we can't find any arrays, return empty array
-  return [];
+  return response;
 };
 
-// Helper function to generate mock items when API fails
-const generateMockItems = () => {
-  console.log('Generating mock items for demonstration');
+// Handle errors consistently
+const handleError = (error) => {
+  console.error('API Error:', error);
   
-  // Create dates for the items
-  const now = new Date();
-  const yesterday = new Date(now);
-  yesterday.setDate(yesterday.getDate() - 1);
-  const twoDaysAgo = new Date(now);
-  twoDaysAgo.setDate(twoDaysAgo.getDate() - 2);
-  const threeDaysAgo = new Date(now);
-  threeDaysAgo.setDate(threeDaysAgo.getDate() - 3);
-  
-  // Create a variety of mock items - all approved for public view
-  const mockItems = [
-    {
-      id: 1,
-      title: "MacBook Pro Laptop",
-      category: "Electronics",
-      description: "Silver MacBook Pro 13-inch found in the library study room. Has a sticker of a mountain on the lid.",
-      location: "Main Library, 2nd Floor",
-      date: threeDaysAgo.toISOString(),
-      reporter_name: "John Smith",
-      created_at: threeDaysAgo.toISOString(),
-      status: "found",
-      is_approved: true,
-      is_deleted: false,
-      is_received: true,
-      is_returned: false
-    },
-    {
-      id: 2,
-      title: "Blue Water Bottle",
-      category: "Bottle",
-      description: "Blue Hydro Flask water bottle found in the gym. Has some scratches on the bottom.",
-      location: "University Gym",
-      date: twoDaysAgo.toISOString(),
-      reporter_name: "Sarah Johnson",
-      created_at: twoDaysAgo.toISOString(),
-      status: "found",
-      is_approved: true,
-      is_deleted: false,
-      is_received: true,
-      is_returned: false
-    },
-    {
-      id: 3,
-      title: "Student ID Card",
-      category: "Documents",
-      description: "Student ID card found near the cafeteria entrance. Name starts with M.",
-      location: "Student Center",
-      date: yesterday.toISOString(),
-      reporter_name: "Michael Brown",
-      created_at: yesterday.toISOString(),
-      status: "found",
-      is_approved: true,
-      is_deleted: false,
-      is_received: false,
-      is_returned: false
-    },
-    {
-      id: 4,
-      title: "Black Umbrella",
-      category: "Other",
-      description: "Black folding umbrella with wooden handle found in classroom 101.",
-      location: "Science Building, Room 101",
-      date: yesterday.toISOString(),
-      reporter_name: "Emily Davis",
-      created_at: yesterday.toISOString(),
-      status: "found",
-      is_approved: true,
-      is_deleted: false,
-      is_received: false,
-      is_returned: false
-    },
-    {
-      id: 5,
-      title: "Textbook - Introduction to Psychology",
-      category: "Books",
-      description: "Psychology textbook found on a bench outside the library. Has some highlighting inside.",
-      location: "Library Courtyard",
-      date: now.toISOString(),
-      reporter_name: "Alex Wilson",
-      created_at: now.toISOString(),
-      status: "found",
-      is_approved: true,
-      is_deleted: false,
-      is_received: false,
-      is_returned: false
-    },
-    {
-      id: 6,
-      title: "Green Scarf",
-      category: "Clothing",
-      description: "Knitted green scarf found hanging on a chair in the cafeteria.",
-      location: "Main Cafeteria",
-      date: now.toISOString(),
-      reporter_name: "Jessica Lee",
-      created_at: now.toISOString(),
-      status: "found",
-      is_approved: true,
-      is_deleted: false,
-      is_received: false,
-      is_returned: false
-    },
-    {
-      id: 7,
-      title: "Car Keys with Red Keychain",
-      category: "Other",
-      description: "Set of car keys with a distinctive red keychain found in the parking lot.",
-      location: "North Parking Lot",
-      date: yesterday.toISOString(),
-      reporter_name: "Robert Johnson",
-      created_at: yesterday.toISOString(),
-      status: "found",
-      is_approved: true,
-      is_deleted: false,
-      is_received: true,
-      is_returned: true
-    },
-    {
-      id: 8,
-      title: "Black Leather Wallet",
-      category: "Bags",
-      description: "Small black leather wallet found near the ATM. No ID inside but contains some cash.",
-      location: "Student Union Building",
-      date: twoDaysAgo.toISOString(),
-      reporter_name: "Thomas Garcia",
-      created_at: twoDaysAgo.toISOString(),
-      status: "found",
-      is_approved: true,
-      is_deleted: false,
-      is_received: true,
-      is_returned: true
-    },
-    {
-      id: 9,
-      title: "Wireless Earbuds",
-      category: "Electronics",
-      description: "White wireless earbuds in charging case found in the computer lab.",
-      location: "Computer Science Building, Lab 3",
-      date: now.toISOString(),
-      reporter_name: "Olivia Martinez",
-      created_at: now.toISOString(),
-      status: "found",
-      is_approved: true,
-      is_deleted: false,
-      is_received: false,
-      is_returned: false
-    },
-    {
-      id: 10,
-      title: "Reading Glasses",
-      category: "Other",
-      description: "Tortoiseshell reading glasses in a blue case found in the quiet study area.",
-      location: "Library, 3rd Floor",
-      date: threeDaysAgo.toISOString(),
-      reporter_name: "William Taylor",
-      created_at: threeDaysAgo.toISOString(),
-      status: "found",
-      is_approved: true,
-      is_deleted: false,
-      is_received: false,
-      is_returned: false
-    }
-  ];
-  
-  // Ensure all items are properly marked as approved and not deleted
-  return mockItems.map(item => ({
-    ...item,
-    is_approved: true,
-    is_deleted: false
-  }));
+  if (error.response) {
+    // The server responded with a status code outside the 2xx range
+    const errorMessage = error.response.data?.message || 'An unknown error occurred';
+    console.error('Server error response:', error.response.data);
+    return Promise.reject(new Error(errorMessage));
+  } else if (error.request) {
+    // The request was made but no response was received
+    console.error('No response received:', error.request);
+    return Promise.reject(new Error('No response from server. Please check your connection.'));
+  } else {
+    // Something happened in setting up the request
+    return Promise.reject(new Error(error.message || 'An error occurred'));
+  }
 };
 
-// API methods for items
+// Items API
 export const itemsApi = {
   // Get all items
-  getAll: async () => {
+  getAll: async (status = null) => {
     try {
-      console.log('Calling API to get all items...');
+      console.log(`Getting items with status filter: ${status || 'none'}`);
       
-      // Try the correct endpoint first
+      // Try getting items directly from /items endpoint first
       try {
-        const response = await api.get('/items');
-        console.log('API response for all items:', response.status, response.statusText);
-        const items = normalizeResponse(response.data);
+        let url = '/items';
         
-        // Verify that we have items and they have the correct format
-        if (Array.isArray(items) && items.length > 0) {
-          console.log(`Received ${items.length} items from server`);
-          console.log('Sample item structure:', JSON.stringify(items[0]));
-          
-          // Normalize boolean values that might come as 0/1 from MySQL
-          return items.map(item => ({
-            ...item,
-            is_approved: item.is_approved === true || item.is_approved === 1 || item.is_approved === '1',
-            is_deleted: item.is_deleted === true || item.is_deleted === 1 || item.is_deleted === '1',
-            is_received: item.is_received === true || item.is_received === 1 || item.is_received === '1',
-            is_returned: item.is_returned === true || item.is_returned === 1 || item.is_returned === '1'
-          }));
+        // Add status query parameter if provided
+        if (status) {
+          url += `?status=${status}`;
         }
         
-        // If we got an empty array, try the security endpoint which returns all items
-        if (Array.isArray(items) && items.length === 0) {
-          console.log('API returned empty items array, trying security endpoint...');
-          try {
-            const securityResponse = await api.get('/api/security/all-items');
-            const securityItems = normalizeResponse(securityResponse.data);
-            if (Array.isArray(securityItems) && securityItems.length > 0) {
-              console.log(`Received ${securityItems.length} items from security endpoint`);
-              return securityItems.map(item => ({
-                ...item,
-                is_approved: item.is_approved === true || item.is_approved === 1 || item.is_approved === '1',
-                is_deleted: item.is_deleted === true || item.is_deleted === 1 || item.is_deleted === '1',
-                is_received: item.is_received === true || item.is_received === 1 || item.is_received === '1',
-                is_returned: item.is_returned === true || item.is_returned === 1 || item.is_returned === '1'
-              }));
-            }
-          } catch (securityErr) {
-            console.log('Security endpoint failed:', securityErr.message);
-          }
-          
-          // If security endpoint also failed, use mock data based on database screenshot
-          console.warn('Both endpoints returned empty arrays, using mock data based on database screenshot');
-          return generateMockItemsFromDatabase();
+        console.log(`Trying endpoint: ${url}`);
+        const response = await axios.get(url);
+        
+        let items = response.data;
+        
+        // Double check filtering by status if needed
+        if (status && Array.isArray(items)) {
+          console.log(`Filtering ${items.length} items for status: ${status}`);
+          items = items.filter(item => item.status === status);
+          console.log(`After filtering: ${items.length} items`);
         }
         
         return items;
       } catch (err) {
-        // If that fails, try a second endpoint
-        console.log('First endpoint failed, trying second endpoint...', err.message);
-        try {
-          const response = await api.get('/api/items');
-          console.log('API response from second endpoint:', response.status, response.statusText);
-          return normalizeResponse(response.data);
-        } catch (err2) {
-          // If that fails too, try a third endpoint
-          console.log('Second endpoint failed, trying third endpoint...', err2.message);
+        console.log('First endpoint failed, trying alternatives...', err);
+        
+        // If specifically requesting found items, use the dedicated endpoint
+        if (status === 'found') {
           try {
-            const response = await api.get('/api/security/all-items');
-            console.log('API response from third endpoint:', response.status, response.statusText);
-            return normalizeResponse(response.data);
-          } catch (err3) {
-            // If all endpoints fail, return mock data
-            console.log('All endpoints failed, returning mock data', err3.message);
-            return generateMockItemsFromDatabase();
+            console.log('Trying /items/found endpoint');
+            const response = await axios.get('/items/found');
+            return response.data;
+          } catch (err) {
+            console.log('Found items endpoint failed, falling back to regular endpoints');
+            // Fall through to regular endpoints
+          }
+        }
+        
+        // If specifically requesting lost items, use the dedicated endpoint
+        if (status === 'lost') {
+          try {
+            const response = await axios.get('/items/lost');
+            return response.data;
+          } catch (err) {
+            // Fall through to regular endpoints
+          }
+        }
+        
+        // Try the security endpoint if user is logged in
+        const token = localStorage.getItem('user') ? JSON.parse(localStorage.getItem('user')).token : null;
+        if (token) {
+          try {
+            const config = { headers: { Authorization: `Bearer ${token}` } };
+            // Add status filter if provided
+            if (status) {
+              config.params = { status };
+            }
+            const response = await axios.get('/api/items', config);
+            return response.data;
+          } catch (err) {
+            try {
+              const response = await api.get('/api/security/all-items');
+              
+              // Filter by status if needed
+              if (status && Array.isArray(response.data)) {
+                return response.data.filter(item => item.status === status);
+              }
+              
+              return response.data;
+            } catch (innerErr) {
+              // Last try with public endpoint
+              const response = await axios.get('/api/public/items');
+              
+              // Filter by status if needed
+              if (status && Array.isArray(response.data)) {
+                return response.data.filter(item => item.status === status);
+              }
+              
+              return response.data;
+            }
+          }
+        } else {
+          // Not logged in, try public endpoint
+          const response = await axios.get('/api/public/items');
+          
+          // Filter by status if needed
+          if (status && Array.isArray(response.data)) {
+            return response.data.filter(item => item.status === status);
+          }
+          
+          return response.data;
+        }
+      }
+    } catch (error) {
+      console.error('All getAll endpoints failed:', error);
+      return []; // Return empty array in case of error
+    }
+  },
+  
+  // Get item by ID
+  getItemById: async (itemId) => {
+    try {
+      const response = await axios.get(`/items/${itemId}`);
+      return handleResponse(response);
+    } catch (error) {
+      return handleError(error);
+    }
+  },
+  
+  // Alias for getItemById for backward compatibility
+  getById: async (itemId) => {
+    return itemsApi.getItemById(itemId);
+  },
+  
+  // Upload image
+  uploadImage: async (imageFile) => {
+    try {
+      // Create a FormData object to send the file
+      const formData = new FormData();
+      formData.append('image', imageFile);
+      
+      // Set the correct headers for file upload
+      const config = {
+        headers: {
+          'Content-Type': 'multipart/form-data'
+        }
+      };
+      
+      // Add auth token if available
+      const user = localStorage.getItem('user');
+      if (user) {
+        try {
+          const { token } = JSON.parse(user);
+          if (token) {
+            config.headers.Authorization = `Bearer ${token}`;
+          }
+        } catch (error) {
+          console.error('Error parsing user data:', error);
+        }
+      }
+      
+      const response = await axios.post('/api/upload', formData, config);
+      return handleResponse(response);
+    } catch (error) {
+      return handleError(error);
+    }
+  },
+  
+  // Report found item
+  reportFound: async (itemData, token) => {
+    try {
+      const config = token ? { headers: { Authorization: `Bearer ${token}` } } : {};
+      const response = await axios.post('/items/found', itemData, config);
+      return handleResponse(response);
+    } catch (error) {
+      return handleError(error);
+    }
+  },
+  
+  // Submit found item (alias for reportFound for backward compatibility)
+  submitFound: async (itemData, token) => {
+    try {
+      return await itemsApi.reportFound(itemData, token);
+    } catch (error) {
+      return handleError(error);
+    }
+  },
+  
+  // Report lost item
+  reportLost: async (itemData, token) => {
+    try {
+      const config = token ? { headers: { Authorization: `Bearer ${token}` } } : {};
+      const response = await axios.post('/items/lost', itemData, config);
+      return handleResponse(response);
+    } catch (error) {
+      return handleError(error);
+    }
+  },
+  
+  // Submit lost item (alias for reportLost for backward compatibility)
+  submitLost: async (itemData, token) => {
+    try {
+      return await itemsApi.reportLost(itemData, token);
+    } catch (error) {
+      return handleError(error);
+    }
+  },
+  
+  // Claim item
+  claimItem: async (itemId, claimData, token) => {
+    try {
+      const config = token ? { headers: { Authorization: `Bearer ${token}` } } : {};
+      const response = await axios.post(`/api/items/${itemId}/claim`, claimData, config);
+      return handleResponse(response);
+    } catch (error) {
+      return handleError(error);
+    }
+  },
+  
+  // Filter items
+  filterItems: async (params) => {
+    try {
+      const response = await axios.get('/items/filter', { params });
+      return handleResponse(response);
+    } catch (error) {
+      return handleError(error);
+    }
+  },
+  
+  // Create item
+  createItem: async (itemData, token) => {
+    try {
+      let config = {};
+      
+      // If token is provided, add it to headers
+      if (token) {
+        config.headers = {
+          'Authorization': `Bearer ${token}`
+        };
+      } else {
+        // Try to get token from localStorage if not provided
+        const user = localStorage.getItem('user');
+        if (user) {
+          try {
+            const userData = JSON.parse(user);
+            if (userData.token) {
+              config.headers = {
+                'Authorization': `Bearer ${userData.token}`
+              };
+            }
+          } catch (error) {
+            console.error('Error parsing user data:', error);
+          }
+        }
+      }
+      
+      // If itemData is FormData, don't set Content-Type (browser will set it with boundary)
+      if (!(itemData instanceof FormData)) {
+        config.headers = {
+          ...config.headers,
+          'Content-Type': 'application/json'
+        };
+      }
+      
+      console.log('Creating item with config:', config);
+      const response = await axios.post('/api/items', itemData, config);
+      return handleResponse(response);
+    } catch (error) {
+      return handleError(error);
+    }
+  },
+  
+  // Update item
+  updateItem: async (itemId, itemData, token) => {
+    try {
+      const config = token ? { headers: { Authorization: `Bearer ${token}` } } : {};
+      const response = await axios.put(`/items/${itemId}`, itemData, config);
+      return handleResponse(response);
+    } catch (error) {
+      return handleError(error);
+    }
+  },
+  
+  // Delete item
+  deleteItem: async (itemId, token) => {
+    try {
+      const config = token ? { headers: { Authorization: `Bearer ${token}` } } : {};
+      const response = await axios.delete(`/items/${itemId}`, config);
+      return handleResponse(response);
+    } catch (error) {
+      return handleError(error);
+    }
+  },
+  
+  // Request item (change status to requested)
+  requestItem: async (itemId) => {
+    try {
+      console.log(`Requesting item with ID: ${itemId}`);
+      
+      // Get token from localStorage
+      let token = null;
+      const user = localStorage.getItem('user');
+      if (user) {
+        try {
+          const userData = JSON.parse(user);
+          token = userData.token;
+          console.log('Token retrieved for authentication');
+        } catch (error) {
+          console.error('Error parsing user data:', error);
+        }
+      }
+      
+      const config = token ? { headers: { Authorization: `Bearer ${token}` } } : {};
+      console.log('Request config:', { hasToken: !!token });
+      
+      // Try PUT endpoint first
+      try {
+        console.log('Trying PUT endpoint...');
+        const response = await axios.put(`/items/${itemId}/request`, {}, config);
+        console.log('PUT request successful:', response.data);
+        return response.data;
+      } catch (error1) {
+        console.error('PUT endpoint failed:', error1.response?.status, error1.response?.data);
+        
+        // Try POST endpoint if PUT fails
+        try {
+          console.log('Trying POST endpoint...');
+          const response = await axios.post(`/items/request/${itemId}`, {}, config);
+          console.log('POST request successful:', response.data);
+          return response.data;
+        } catch (error2) {
+          console.error('POST endpoint failed:', error2.response?.status, error2.response?.data);
+          
+          // Get detailed error message
+          if (error2.response?.data?.message) {
+            throw new Error(error2.response.data.message);
+          } else if (error1.response?.data?.message) {
+            throw new Error(error1.response.data.message);
+          } else {
+            throw new Error('Failed to request item. Please try again later.');
           }
         }
       }
     } catch (error) {
-      console.error('Error fetching items:', error);
-      if (error.response) {
-        console.error('Response status:', error.response.status);
-        console.error('Response data:', error.response.data);
-      } else if (error.request) {
-        console.error('No response received:', error.request);
-      }
-      // Return mock data as a last resort
-      return generateMockItemsFromDatabase();
+      console.error('Error requesting item:', error);
+      return handleError(error);
     }
   },
   
-  // Get a specific item by ID
-  getById: async (id) => {
+  // Approve item (security staff only)
+  approveItem: async (itemId, token) => {
     try {
-      const response = await api.get(`/items/${id}`);
-      return response.data;
+      const config = token ? { headers: { Authorization: `Bearer ${token}` } } : {};
+      const response = await axios.put(`/security/items/${itemId}/approve`, {}, config);
+      return handleResponse(response);
     } catch (error) {
-      console.error(`Error fetching item ${id}:`, error);
-      throw error;
+      return handleError(error);
     }
   },
   
-  // Submit a found item
-  submitFound: async (formData) => {
+  // Reject item (security staff only)
+  rejectItem: async (itemId, reason = '') => {
     try {
-      console.log('Submitting found item with data:', formData);
-      // Get the auth token directly to check if it exists
-      const userData = localStorage.getItem('user');
-      if (!userData) {
-        throw new Error('Authentication required. Please log in.');
-      }
-      
-      const user = JSON.parse(userData);
-      if (!user.token) {
-        throw new Error('Invalid authentication. Please log in again.');
-      }
-      
-      const response = await api.post('/items/found', formData);
-      return response.data;
+      const response = await axios.put(`/security/items/${itemId}/reject`, { reason });
+      return handleResponse(response);
     } catch (error) {
-      console.error('Error submitting found item:', error);
-      if (error.response) {
-        console.error('Response data:', error.response.data);
-        console.error('Response status:', error.response.status);
-        console.error('Response headers:', error.response.headers);
-      }
-      throw error;
-    }
-  },
-  
-  // Submit a lost item
-  submitLost: async (formData) => {
-    try {
-      console.log('Submitting lost item with data:', formData);
-      
-      // Get the auth token directly to check if it exists
-      const userData = localStorage.getItem('user');
-      if (!userData) {
-        throw new Error('Authentication required. Please log in.');
-      }
-      
-      const user = JSON.parse(userData);
-      if (!user.token) {
-        throw new Error('Invalid authentication. Please log in again.');
-      }
-      
-      const response = await api.post('/items/lost', formData);
-      return response.data;
-    } catch (error) {
-      console.error('Error submitting lost item:', error);
-      if (error.response) {
-        console.error('Response data:', error.response.data);
-        console.error('Response status:', error.response.status);
-        console.error('Response headers:', error.response.headers);
-      }
-      throw error;
-    }
-  },
-  
-  // Submit a claim for an item
-  submitClaim: async (itemId, claimData) => {
-    try {
-      const response = await api.post(`/api/items/${itemId}/claim`, claimData);
-      return response.data;
-    } catch (error) {
-      console.error(`Error submitting claim for item ${itemId}:`, error);
-      throw error;
-    }
-  },
-  
-  // Upload an image
-  uploadImage: async (imageFile) => {
-    try {
-      const formData = new FormData();
-      formData.append('image', imageFile);
-      
-      // Get token directly from localStorage
-      let token = null;
-      try {
-        const userData = localStorage.getItem('user');
-        if (userData) {
-          const user = JSON.parse(userData);
-          token = user.token;
-        }
-      } catch (error) {
-        console.error('Error getting token for image upload:', error);
-        throw new Error('Authentication required for image upload');
-      }
-      
-      if (!token) {
-        throw new Error('No authentication token available');
-      }
-      
-      const response = await axios.post(`${API_BASE_URL}/api/upload`, formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-          'Authorization': `Bearer ${token}`
-        }
-      });
-      
-      return response.data;
-    } catch (error) {
-      console.error('Error uploading image:', error);
-      throw error;
+      return handleError(error);
     }
   }
 };
 
-// API methods for security operations
+// Authentication API
+export const authApi = {
+  // Login
+  login: async (credentials) => {
+    try {
+      const response = await axios.post('/api/login', credentials);
+      return handleResponse(response).user; // Extract user from response
+    } catch (error) {
+      return handleError(error);
+    }
+  },
+  
+  // Register
+  register: async (userData) => {
+    try {
+      const response = await axios.post('/api/register', userData);
+      return handleResponse(response).user; // Extract user from response
+    } catch (error) {
+      return handleError(error);
+    }
+  },
+  
+  // Get user profile
+  getProfile: async (token) => {
+    try {
+      const config = token ? { headers: { Authorization: `Bearer ${token}` } } : {};
+      const response = await axios.get('/api/profile', config);
+      return handleResponse(response);
+    } catch (error) {
+      return handleError(error);
+    }
+  },
+  
+  // Update user profile
+  updateProfile: async (profileData, token) => {
+    try {
+      const config = token ? { headers: { Authorization: `Bearer ${token}` } } : {};
+      const response = await axios.put('/api/profile', profileData, config);
+      return handleResponse(response);
+    } catch (error) {
+      return handleError(error);
+    }
+  },
+  
+  // Change password
+  changePassword: async (passwordData, token) => {
+    try {
+      const config = token ? { headers: { Authorization: `Bearer ${token}` } } : {};
+      const response = await axios.put('/api/change-password', passwordData, config);
+      return handleResponse(response);
+    } catch (error) {
+      return handleError(error);
+    }
+  }
+};
+
+// Notifications API
+export const notificationsApi = {
+  // Get all notifications
+  getAll: async (token) => {
+    try {
+      const config = token ? { headers: { Authorization: `Bearer ${token}` } } : {};
+      const response = await axios.get('/api/notifications', config);
+      return handleResponse(response);
+    } catch (error) {
+      return handleError(error);
+    }
+  },
+  
+  // Mark as read
+  markAsRead: async (notificationId, token) => {
+    try {
+      const config = token ? { headers: { Authorization: `Bearer ${token}` } } : {};
+      const response = await axios.put(`/api/notifications/${notificationId}/read`, {}, config);
+      return handleResponse(response);
+    } catch (error) {
+      return handleError(error);
+    }
+  }
+};
+
+// Security API for security staff operations
 export const securityApi = {
-  // Get pending found items awaiting approval
+  // Get pending items for approval
   getPendingItems: async () => {
     try {
-      console.log('Fetching pending items for security review...');
-      // Try the correct endpoint first
-      try {
-        const response = await api.get('/api/security/pending-items');
-        console.log('Pending items received:', response.data);
-        return normalizeResponse(response.data);
-      } catch (err) {
-        // If that fails, try an alternative endpoint
-        console.log('First endpoint failed, trying alternative endpoint...');
-        const response = await api.get('/security/pending-items');
-        console.log('Pending items received from alternative endpoint:', response.data);
-        return normalizeResponse(response.data);
-      }
+      const response = await api.get('/api/security/pending-items');
+      return handleResponse(response);
     } catch (error) {
       console.error('Error fetching pending items:', error);
-      if (error.response) {
-        console.error('Response status:', error.response.status);
-        console.error('Response data:', error.response.data);
-      } else if (error.request) {
-        console.error('No response received:', error.request);
-      }
-      throw error;
+      return [];
     }
   },
   
-  // Get pending claims awaiting approval
-  getPendingClaims: async () => {
-    try {
-      console.log('Fetching pending claims for security review...');
-      const response = await api.get('/api/security/pending-claims');
-      console.log('Pending claims received:', response.data);
-      return normalizeResponse(response.data);
-    } catch (error) {
-      console.error('Error fetching pending claims:', error);
-      if (error.response) {
-        console.error('Response status:', error.response.status);
-        console.error('Response data:', error.response.data);
-      } else if (error.request) {
-        console.error('No response received:', error.request);
-      }
-      throw error;
-    }
-  },
-  
-  // Approve a found item
-  approveItem: async (itemId) => {
-    try {
-      console.log(`Approving item ${itemId}...`);
-      const response = await api.put(`/api/security/items/${itemId}/approve`);
-      console.log(`Item ${itemId} approved successfully. Response:`, response.data);
-      return response.data;
-    } catch (error) {
-      console.error(`Error approving item ${itemId}:`, error);
-      if (error.response) {
-        console.error('Error details:', error.response.data);
-      }
-      throw error;
-    }
-  },
-  
-  // Mark an item as received by security
-  markItemReceived: async (itemId) => {
-    try {
-      console.log(`Marking item ${itemId} as received by security...`);
-      const response = await api.put(`/api/security/items/${itemId}/receive`);
-      console.log(`Item ${itemId} marked as received. Response:`, response.data);
-      return response.data;
-    } catch (error) {
-      console.error(`Error marking item ${itemId} as received:`, error);
-      if (error.response) {
-        console.error('Error details:', error.response.data);
-      }
-      throw error;
-    }
-  },
-  
-  // Mark an item as returned to owner
-  markItemReturned: async (itemId) => {
-    try {
-      console.log(`Marking item ${itemId} as returned to owner...`);
-      const response = await api.put(`/api/security/items/${itemId}/return`);
-      console.log(`Item ${itemId} marked as returned. Response:`, response.data);
-      return response.data;
-    } catch (error) {
-      console.error(`Error marking item ${itemId} as returned:`, error);
-      if (error.response) {
-        console.error('Error details:', error.response.data);
-      }
-      throw error;
-    }
-  },
-  
-  // Reject a found item
-  rejectItem: async (itemId) => {
-    try {
-      console.log(`Rejecting item ${itemId}...`);
-      const response = await api.put(`/api/security/items/${itemId}/reject`);
-      console.log(`Item ${itemId} rejected successfully. Response:`, response.data);
-      return response.data;
-    } catch (error) {
-      console.error(`Error rejecting item ${itemId}:`, error);
-      if (error.response) {
-        console.error('Error details:', error.response.data);
-      }
-      throw error;
-    }
-  },
-  
-  // Process a claim (approve or reject)
-  processClaim: async (claimId, action) => {
-    try {
-      console.log(`Processing claim ${claimId} with action: ${action}...`);
-      const response = await api.put(`/api/security/claims/${claimId}/${action}`);
-      console.log(`Claim ${claimId} ${action}ed successfully. Response:`, response.data);
-      return response.data;
-    } catch (error) {
-      console.error(`Error processing claim ${claimId}:`, error);
-      if (error.response) {
-        console.error('Error details:', error.response.data);
-      }
-      throw error;
-    }
-  },
-  
-  // Get all items regardless of approval status (for security/admin only)
+  // Get all items (for security staff)
   getAllItems: async () => {
     try {
-      console.log('Fetching all items for security/admin view...');
-      // Try multiple endpoints in sequence
-      try {
-        const response = await api.get('/api/security/all-items');
-        console.log('All items received from primary endpoint:', response.data);
-        return normalizeResponse(response.data);
-      } catch (err) {
-        console.log('First endpoint failed, trying second endpoint...');
-        try {
-          const response = await api.get('/security/all-items');
-          console.log('All items received from second endpoint:', response.data);
-          return normalizeResponse(response.data);
-        } catch (err2) {
-          console.log('Second endpoint failed, trying third endpoint...');
-          const response = await api.get('/items');
-          console.log('All items received from third endpoint:', response.data);
-          return normalizeResponse(response.data);
-        }
+      console.log('Fetching all items for security staff...');
+      const response = await api.get('/api/security/all-items');
+      const items = handleResponse(response);
+      
+      console.log('Items fetched successfully, total count:', items.length);
+      
+      // Log the counts of items by status
+      const statusCounts = {};
+      items.forEach(item => {
+        statusCounts[item.status] = (statusCounts[item.status] || 0) + 1;
+      });
+      console.log('Items by status:', statusCounts);
+      
+      // Log requested items specifically
+      const requestedItems = items.filter(item => item.status === 'requested');
+      console.log('Requested items count:', requestedItems.length);
+      if (requestedItems.length > 0) {
+        console.log('Sample requested item:', requestedItems[0]);
       }
+      
+      return items;
     } catch (error) {
       console.error('Error fetching all items:', error);
-      if (error.response) {
-        console.error('Response status:', error.response.status);
-        console.error('Response data:', error.response.data);
-      } else if (error.request) {
-        console.error('No response received:', error.request);
-      }
-      throw error;
-    }
-  }
-};
-
-export const notificationsApi = {
-  // Get all notifications for the current user
-  getAll: async () => {
-    try {
-      console.log('Fetching notifications...');
-      // Try the correct endpoint first
-      try {
-        const response = await api.get('/api/notifications');
-        console.log('Notifications received:', response.data);
-        const notifications = normalizeResponse(response.data);
-        return { notifications };
-      } catch (err) {
-        // If that fails, try an alternative endpoint
-        console.log('First endpoint failed, trying alternative endpoint...');
-        const response = await api.get('/notifications');
-        console.log('Notifications received from alternative endpoint:', response.data);
-        const notifications = normalizeResponse(response.data);
-        return { notifications };
-      }
-    } catch (error) {
-      console.error('Error fetching notifications:', error);
-      if (error.response) {
-        console.error('Response status:', error.response.status);
-        console.error('Response data:', error.response.data);
-      } else if (error.request) {
-        console.error('No response received:', error.request);
-      }
-      throw error;
+      return [];
     }
   },
   
-  // Mark a notification as read
-  markAsRead: async (notificationId) => {
+  // Get pending claims
+  getPendingClaims: async () => {
     try {
-      console.log(`Marking notification ${notificationId} as read...`);
-      // Try the correct endpoint first
-      try {
-        const response = await api.put(`/api/notifications/${notificationId}/read`);
-        console.log(`Notification ${notificationId} marked as read. Response:`, response.data);
-        return response.data;
-      } catch (err) {
-        // If that fails, try an alternative endpoint
-        console.log('First endpoint failed, trying alternative endpoint...');
-        const response = await api.put(`/notifications/${notificationId}/read`);
-        console.log(`Notification ${notificationId} marked as read from alternative endpoint. Response:`, response.data);
-        return response.data;
-      }
+      const response = await api.get('/api/security/pending-claims');
+      return handleResponse(response);
     } catch (error) {
-      console.error(`Error marking notification ${notificationId} as read:`, error);
-      if (error.response) {
-        console.error('Error details:', error.response.data);
-      }
-      throw error;
+      console.error('Error fetching pending claims:', error);
+      return [];
+    }
+  },
+  
+  // Approve an item
+  approveItem: async (itemId) => {
+    try {
+      const response = await api.put(`/api/security/items/${itemId}/approve`);
+      return handleResponse(response);
+    } catch (error) {
+      return handleError(error);
+    }
+  },
+  
+  // Reject an item
+  rejectItem: async (itemId, reason = '') => {
+    try {
+      const response = await api.put(`/api/security/items/${itemId}/reject`, { reason });
+      return handleResponse(response);
+    } catch (error) {
+      return handleError(error);
+    }
+  },
+  
+  // Approve a claim
+  approveClaim: async (claimId) => {
+    try {
+      const response = await api.put(`/api/security/claims/${claimId}/approve`);
+      return handleResponse(response);
+    } catch (error) {
+      return handleError(error);
+    }
+  },
+  
+  // Reject a claim
+  rejectClaim: async (claimId) => {
+    try {
+      const response = await api.put(`/api/security/claims/${claimId}/reject`);
+      return handleResponse(response);
+    } catch (error) {
+      return handleError(error);
+    }
+  },
+  
+  // Mark item as received
+  markItemReceived: async (itemId) => {
+    try {
+      const response = await api.put(`/api/security/items/${itemId}/receive`);
+      return handleResponse(response);
+    } catch (error) {
+      return handleError(error);
+    }
+  },
+  
+  // Mark item as returned
+  markItemReturned: async (itemId) => {
+    try {
+      const response = await api.put(`/api/security/items/${itemId}/return`);
+      return handleResponse(response);
+    } catch (error) {
+      return handleError(error);
+    }
+  },
+  
+  // Soft delete an item
+  softDeleteItem: async (itemId, reason) => {
+    try {
+      const response = await api.put(`/api/security/items/${itemId}/soft-delete`, { reason });
+      return handleResponse(response);
+    } catch (error) {
+      return handleError(error);
+    }
+  },
+  
+  // Revert item status
+  revertItemStatus: async (itemId, status) => {
+    try {
+      const response = await api.put(`/api/security/items/${itemId}/revert-status`, { status });
+      return handleResponse(response);
+    } catch (error) {
+      return handleError(error);
+    }
+  },
+  
+  // Ban a user
+  banUser: async (userId, reason) => {
+    try {
+      const response = await api.put(`/api/security/users/${userId}/ban`, { reason });
+      return handleResponse(response);
+    } catch (error) {
+      return handleError(error);
+    }
+  },
+  
+  // Get users
+  getUsers: async () => {
+    try {
+      const response = await api.get('/api/security/users');
+      return handleResponse(response);
+    } catch (error) {
+      console.error('Error fetching users:', error);
+      return [];
     }
   }
 };
 
-// Helper function to generate mock items based on the database screenshot
-const generateMockItemsFromDatabase = () => {
-  console.log('Generating mock items based on database screenshot');
-  
-  return [
-    {
-      id: 14,
-      title: "Eeshans ID card",
-      category: "Documents",
-      subcategory: null,
-      description: "An ID card with name EESHAN",
-      location: "stml",
-      status: "found",
-      is_approved: true,
-      is_deleted: false,
-      image: null,
-      date: new Date().toISOString(),
-      user_id: 1
-    },
-    {
-      id: 9,
-      title: "Diary",
-      category: "Books",
-      subcategory: null,
-      description: "A blue diary with white colored circles",
-      location: "stc",
-      status: "found",
-      is_approved: true,
-      is_deleted: false,
-      image: null,
-      date: new Date().toISOString(),
-      user_id: 1
-    },
-    {
-      id: 13,
-      title: "Bottle",
-      category: "Bottle",
-      subcategory: "Bottle",
-      description: "A green colored bottle",
-      location: "central building",
-      status: "found",
-      is_approved: true,
-      is_deleted: false,
-      image: null,
-      date: new Date().toISOString(),
-      user_id: 1
-    },
-    {
-      id: 15,
-      title: "Bottle",
-      category: "Bottle",
-      subcategory: "Bottle",
-      description: "A light green colored bottle",
-      location: "library",
-      status: "found",
-      is_approved: true,
-      is_deleted: false,
-      image: null,
-      date: new Date().toISOString(),
-      user_id: 1
-    },
-    {
-      id: 8,
-      title: "Lost Textbook",
-      category: "Books",
-      subcategory: null,
-      description: "Computer Science textbook",
-      location: "Engineering Building",
-      status: "lost",
-      is_approved: true,
-      is_deleted: false,
-      image: null,
-      date: new Date().toISOString(),
-      user_id: 1
-    },
-    {
-      id: 6,
-      title: "Found Phone",
-      category: "Electronics",
-      subcategory: null,
-      description: "iPhone 13 found in the cafeteria",
-      location: "Student Center",
-      status: "found",
-      is_approved: true,
-      is_deleted: false,
-      image: null,
-      date: new Date().toISOString(),
-      user_id: 1
+// Admin API for admin operations
+export const adminApi = {
+  // Get all users
+  getAllUsers: async () => {
+    try {
+      const response = await api.get('/api/admin/users');
+      return handleResponse(response);
+    } catch (error) {
+      console.error('Error fetching users:', error);
+      return [];
     }
-  ];
+  },
+  
+  // Get all items
+  getAllItems: async () => {
+    try {
+      const response = await api.get('/api/admin/items');
+      return handleResponse(response);
+    } catch (error) {
+      console.error('Error fetching items:', error);
+      return [];
+    }
+  },
+  
+  // Get system logs
+  getSystemLogs: async () => {
+    try {
+      const response = await api.get('/api/admin/logs');
+      return handleResponse(response);
+    } catch (error) {
+      console.error('Error fetching system logs:', error);
+      return [];
+    }
+  },
+  
+  // Unban a user
+  unbanUser: async (userId) => {
+    try {
+      const response = await api.put(`/api/admin/users/${userId}/unban`);
+      return handleResponse(response);
+    } catch (error) {
+      return handleError(error);
+    }
+  },
+  
+  // Ban a user
+  banUser: async (userId, reason) => {
+    try {
+      const response = await api.put(`/api/admin/users/${userId}/ban`, { reason });
+      return handleResponse(response);
+    } catch (error) {
+      return handleError(error);
+    }
+  },
+  
+  // Soft delete an item
+  softDeleteItem: async (itemId, reason) => {
+    try {
+      const response = await api.put(`/api/admin/items/${itemId}/soft-delete`, { reason });
+      return handleResponse(response);
+    } catch (error) {
+      return handleError(error);
+    }
+  },
+  
+  // Restore a deleted item
+  restoreItem: async (itemId) => {
+    try {
+      const response = await api.put(`/api/admin/items/${itemId}/restore`);
+      return handleResponse(response);
+    } catch (error) {
+      return handleError(error);
+    }
+  },
+  
+  // Get dashboard statistics
+  getDashboardStats: async () => {
+    try {
+      const response = await api.get('/api/admin/stats');
+      return handleResponse(response);
+    } catch (error) {
+      console.error('Error fetching dashboard statistics:', error);
+      return {};
+    }
+  }
 };
 
 export default api;

@@ -208,7 +208,7 @@ const ClaimForm = () => {
           <div className="form-actions">
             <button 
               type="button" 
-              onClick={() => navigate('/dashboard')}
+              onClick={() => navigate('/')}
               className="primary-button"
             >
               Go to Dashboard
@@ -231,7 +231,7 @@ const ClaimForm = () => {
       <div className="claim-form-header">
         <h1>Claim Item</h1>
         <div className="navigation-links">
-          <Link to="/dashboard" className="nav-link">Dashboard</Link>
+          <Link to="/" className="nav-link">Dashboard</Link>
           <Link to="/items" className="nav-link">View All Items</Link>
         </div>
       </div>

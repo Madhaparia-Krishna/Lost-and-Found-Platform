@@ -1,0 +1,245 @@
+/* ItemForms.css */
+
+.form-container {
+  max-width: 800px;
+  margin: 2rem auto;
+  padding: 2rem;
+  background-color: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+}
+
+.form-header {
+  margin-bottom: 2rem;
+  text-align: center;
+}
+
+.form-header h1 {
+  margin-bottom: 0.5rem;
+  color: #2c3e50;
+  font-size: 1.8rem;
+}
+
+.form-header p {
+  color: #7f8c8d;
+  line-height: 1.5;
+}
+
+.form-error {
+  background-color: #fdeded;
+  color: #e74c3c;
+  padding: 1rem;
+  border-radius: 4px;
+  margin-bottom: 1.5rem;
+  display: flex;
+  align-items: center;
+  font-weight: 500;
+}
+
+.form-error i {
+  margin-right: 0.5rem;
+  font-size: 1.1rem;
+}
+
+.item-form {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1.5rem;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+}
+
+.form-group label {
+  margin-bottom: 0.5rem;
+  font-weight: 600;
+  color: #2c3e50;
+}
+
+.form-group input,
+.form-group select,
+.form-group textarea {
+  padding: 0.75rem;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 1rem;
+  transition: border-color 0.2s;
+}
+
+.form-group input:focus,
+.form-group select:focus,
+.form-group textarea:focus {
+  border-color: #3498db;
+  outline: none;
+}
+
+.form-group textarea {
+  resize: vertical;
+  min-height: 100px;
+}
+
+.form-group small {
+  margin-top: 0.5rem;
+  color: #7f8c8d;
+  font-size: 0.85rem;
+}
+
+/* Image upload styling */
+.image-upload-container {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  margin-bottom: 0.5rem;
+}
+
+.image-upload-input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  overflow: hidden;
+}
+
+.image-upload-label {
+  padding: 0.75rem 1.25rem;
+  background-color: #f5f5f5;
+  border: 1px dashed #ddd;
+  border-radius: 4px;
+  color: #2c3e50;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  transition: all 0.2s;
+}
+
+.image-upload-label:hover {
+  background-color: #ebebeb;
+  border-color: #3498db;
+}
+
+.image-upload-label i {
+  margin-right: 0.5rem;
+  color: #3498db;
+}
+
+.image-preview-container {
+  margin-top: 1rem;
+  position: relative;
+  width: 100%;
+  max-width: 300px;
+}
+
+.image-preview {
+  width: 100%;
+  border-radius: 4px;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+}
+
+.remove-image-btn {
+  position: absolute;
+  top: -10px;
+  right: -10px;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background-color: #e74c3c;
+  color: white;
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+}
+
+.form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.cancel-btn {
+  padding: 0.75rem 1.5rem;
+  background-color: #f5f5f5;
+  color: #2c3e50;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.cancel-btn:hover {
+  background-color: #ebebeb;
+}
+
+.submit-btn {
+  padding: 0.75rem 1.5rem;
+  background-color: #3498db;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+}
+
+.submit-btn:hover {
+  background-color: #2980b9;
+}
+
+.submit-btn:disabled {
+  background-color: #bdc3c7;
+  cursor: not-allowed;
+}
+
+.btn-spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-radius: 50%;
+  border-top-color: white;
+  animation: spin 1s linear infinite;
+  margin-right: 0.5rem;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Responsive adjustments */
+@media (min-width: 768px) {
+  .item-form {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .form-group:nth-child(3),
+  .form-group:nth-child(5),
+  .form-group:nth-child(6) {
+    grid-column: span 2;
+  }
+}
+
+@media (max-width: 767px) {
+  .form-container {
+    padding: 1.5rem;
+    margin: 1rem;
+  }
+  
+  .form-actions {
+    flex-direction: column;
+  }
+  
+  .cancel-btn,
+  .submit-btn {
+    width: 100%;
+    justify-content: center;
+  }
+} 

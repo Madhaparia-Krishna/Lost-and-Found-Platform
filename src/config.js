@@ -4,7 +4,10 @@ const emailConfig = {
   publicKey: "pDF979lgKSH6M7p8y", // EmailJS public key
   templates: {
     matchNotification: "template_cnjtyil", // Match notification template
-    passwordReset: "template_fqz7o43"     // Password reset template
+    passwordReset: "template_fqz7o43",    // Password reset template
+    accountBlocked: "template_cnjtyil",   // Account blocked template (using match template for now)
+    itemReturned: "template_cnjtyil",     // Item returned template (using match template for now)
+    requestApproved: "template_cnjtyil"   // Request approved template (using match template for now)
   }
 };
 

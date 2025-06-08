@@ -120,9 +120,129 @@ export const sendClaimNotification = async (userEmail, userName, itemTitle, stat
   }
 };
 
+// Send account blocked notification
+export const sendAccountBlockedNotification = async (userEmail, userName, reason) => {
+  try {
+    // Make sure EmailJS is initialized
+    initEmailJS();
+    
+    // Format current time
+    const now = new Date();
+    const formattedTime = now.toLocaleString();
+    
+    // Build parameters for template
+    const templateParams = {
+      to_email: userEmail,
+      name: "Lost & Found System",
+      user_name: userName,
+      time: formattedTime,
+      message: `Your account has been blocked. Reason: ${reason || 'Policy violation'}`,
+      item_title: "Account Status Update",
+      category: "Account",
+      date: now.toLocaleDateString(),
+      match_link: `mailto:support@university.edu?subject=Account%20Block%20Appeal`
+    };
+
+    console.log('Sending account blocked notification with params:', templateParams);
+
+    const response = await emailjs.send(
+      emailConfig.serviceId,
+      emailConfig.templates.matchNotification, // Reusing the match template
+      templateParams
+    );
+    
+    console.log('Account blocked notification email sent!', response);
+    return { success: true, response };
+  } catch (error) {
+    console.error('Error sending account blocked notification:', error);
+    return { success: false, error };
+  }
+};
+
+// Send item returned notification
+export const sendItemReturnedNotification = async (userEmail, userName, itemTitle, itemId) => {
+  try {
+    // Make sure EmailJS is initialized
+    initEmailJS();
+    
+    // Format current time
+    const now = new Date();
+    const formattedTime = now.toLocaleString();
+    
+    // Build parameters for template
+    const templateParams = {
+      to_email: userEmail,
+      name: "Lost & Found System",
+      user_name: userName,
+      time: formattedTime,
+      message: `Your item "${itemTitle}" has been returned to its owner.`,
+      item_title: itemTitle,
+      category: "Returned Items",
+      date: now.toLocaleDateString(),
+      match_link: `${window.location.origin}/items/${itemId}`
+    };
+
+    console.log('Sending item returned notification with params:', templateParams);
+
+    const response = await emailjs.send(
+      emailConfig.serviceId,
+      emailConfig.templates.matchNotification, // Reusing the match template
+      templateParams
+    );
+    
+    console.log('Item returned notification email sent!', response);
+    return { success: true, response };
+  } catch (error) {
+    console.error('Error sending item returned notification:', error);
+    return { success: false, error };
+  }
+};
+
+// Send request approved notification
+export const sendRequestApprovedNotification = async (userEmail, userName, itemTitle, itemId) => {
+  try {
+    // Make sure EmailJS is initialized
+    initEmailJS();
+    
+    // Format current time
+    const now = new Date();
+    const formattedTime = now.toLocaleString();
+    
+    // Build parameters for template
+    const templateParams = {
+      to_email: userEmail,
+      name: "Lost & Found System",
+      user_name: userName,
+      time: formattedTime,
+      message: `Your request for item "${itemTitle}" has been approved. Please visit the security office to claim it.`,
+      item_title: itemTitle,
+      category: "Approved Requests",
+      date: now.toLocaleDateString(),
+      match_link: `${window.location.origin}/items/${itemId}`
+    };
+
+    console.log('Sending request approved notification with params:', templateParams);
+
+    const response = await emailjs.send(
+      emailConfig.serviceId,
+      emailConfig.templates.matchNotification, // Reusing the match template
+      templateParams
+    );
+    
+    console.log('Request approved notification email sent!', response);
+    return { success: true, response };
+  } catch (error) {
+    console.error('Error sending request approved notification:', error);
+    return { success: false, error };
+  }
+};
+
 export default {
   initEmailJS,
   sendMatchNotification,
   sendPasswordResetEmail,
-  sendClaimNotification
+  sendClaimNotification,
+  sendAccountBlockedNotification,
+  sendItemReturnedNotification,
+  sendRequestApprovedNotification
 };

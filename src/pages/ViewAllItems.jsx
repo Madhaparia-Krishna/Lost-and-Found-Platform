@@ -3,6 +3,9 @@ import { Link } from 'react-router-dom';
 import { AuthContext } from '../context/AuthContext';
 import { itemsApi, API_BASE_URL } from '../utils/api';
 import '../styles/ViewAllItems.css';
+import { Modal, Button, Card, Container, Row, Col, Badge, Form, Alert, Spinner } from 'react-bootstrap';
+import axios from 'axios';
+import ItemModal from '../components/ItemModal';
 
 const ViewAllItems = () => {
   const { currentUser } = useContext(AuthContext);
@@ -17,6 +20,8 @@ const ViewAllItems = () => {
   const [activeTab, setActiveTab] = useState('all');
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [actionStatus, setActionStatus] = useState(null);
+  const [showModal, setShowModal] = useState(false);
+  const [selectedItemId, setSelectedItemId] = useState(null);
   
   // Fallback image for when image loading fails
   const fallbackImageSrc = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' fill='%23f0f0f0'/%3E%3Cpath d='M30,40 L70,40 L70,60 L30,60 Z' fill='%23d0d0d0'/%3E%3Ctext x='50' y='50' font-family='Arial' font-size='12' text-anchor='middle' alignment-baseline='middle' fill='%23909090'%3ENo Image%3C/text%3E%3C/svg%3E";
@@ -49,6 +54,10 @@ const ViewAllItems = () => {
       if (!itemsArray || itemsArray.length === 0) {
         console.log('No items received from server');
         setItems([]);
+        setActionStatus({
+          type: 'info',
+          message: 'No approved items found. Items must be approved by security staff before appearing here.'
+        });
         return;
       }
       
@@ -91,8 +100,7 @@ const ViewAllItems = () => {
       
       setItems(filteredItems);
       
-      // Check if we're using mock data by looking at the first item's ID
-      // Real data from the database would likely have different ID patterns
+      // Show message if no items match the criteria
       if (filteredItems.length === 0) {
         setActionStatus({
           type: 'info',
@@ -162,208 +170,287 @@ const ViewAllItems = () => {
       );
     }
   };
+
+  // Handle opening the modal with the selected item
+  const openItemModal = (itemId) => {
+    setSelectedItemId(itemId);
+    setShowModal(true);
+  };
+
+  // Handle closing the modal
+  const closeItemModal = () => {
+    setShowModal(false);
+    setSelectedItemId(null);
+  };
+
+  // Handle requesting an item (callback for ItemModal)
+  const handleRequestItem = async (itemId) => {
+    // Update the item status locally
+    setItems(prevItems => 
+      prevItems.map(item => 
+        item.id === itemId 
+          ? { ...item, status: 'requested' } 
+          : item
+      )
+    );
+    
+    // Refresh data after a short delay
+    setTimeout(() => {
+      handleRefresh();
+    }, 2000);
+  };
   
   // Get filtered items based on active tab
   const filteredItems = getFilteredItems();
 
-  // Render error message
-  const renderErrorMessage = (errorMsg) => {
-    if (!errorMsg) return null;
-    
-    return (
-      <div className="section-error">
-        <p>{errorMsg}</p>
-        <button onClick={handleRefresh}>Retry</button>
-      </div>
-    );
-  };
-
   if (loading) {
-    return <div className="loading">Loading items...</div>;
+    return (
+      <Container className="d-flex justify-content-center align-items-center" style={{ minHeight: '50vh' }}>
+        <div className="text-center">
+          <Spinner animation="border" variant="primary" />
+          <p className="mt-3">Loading items...</p>
+        </div>
+      </Container>
+    );
   }
 
   if (error && !error.includes('Using sample data')) {
     return (
-      <div className="error-container">
-        <div className="error-message">{error}</div>
-        <button className="refresh-btn" onClick={handleRefresh}>Try Again</button>
-        <div className="error-help">
-          <p>Troubleshooting tips:</p>
+      <Container className="py-4">
+        <Alert variant="danger">
+          <Alert.Heading>Error Loading Items</Alert.Heading>
+          <p>{error}</p>
+          <hr />
+          <div className="d-flex justify-content-end">
+            <Button variant="outline-danger" onClick={handleRefresh}>Try Again</Button>
+          </div>
+        </Alert>
+        <div className="mt-4">
+          <h5>Troubleshooting tips:</h5>
           <ul>
             <li>Check if the server is running</li>
             <li>Ensure you're connected to the internet</li>
             <li>The server might be using a different port (currently trying port 5000)</li>
           </ul>
         </div>
-      </div>
+      </Container>
     );
   }
 
   return (
-    <div className="view-all-items-container">
-      <div className="page-header">
-        <h1>Found Items</h1>
-        {currentUser && (
-          <div className="user-info">
-            <span>Logged in as: {currentUser.name || currentUser.email}</span>
-            <span className="role-badge">{currentUser.role}</span>
-          </div>
-        )}
-        <div className="navigation-menu">
-          <Link to="/" className="menu-link">Home</Link>
-          <Link to="/found" className="menu-link">Report Found Item</Link>
-          <Link to="/lost" className="menu-link">Report Lost Item</Link>
-          {currentUser && currentUser.role === 'security' && (
-            <Link to="/security" className="menu-link">Security Dashboard</Link>
-          )}
-          {currentUser && currentUser.role === 'admin' && (
-            <Link to="/admin" className="menu-link admin-link">Admin Panel</Link>
-          )}
-        </div>
-      </div>
-      
-      <div className="info-banner">
-        <p>This page displays only items that have been approved by security staff. If you've reported an item that's not visible here, it may still be pending approval.</p>
-        {currentUser && currentUser.role === 'security' && (
-          <p>Security staff: To approve pending items, please visit the <Link to="/security">Security Dashboard</Link>.</p>
-        )}
-      </div>
-      
-      {actionStatus && (
-        <div className={`action-status ${actionStatus.type}`}>
-          {actionStatus.message}
-        </div>
-      )}
-      
-      <div className="search-form-container">
-        <form className="search-form" onSubmit={handleSearch}>
-          <input 
-            type="text" 
-            name="search" 
-            placeholder="Search items..." 
-            defaultValue={searchParams.search}
-          />
-          <select 
-            name="category" 
-            defaultValue={searchParams.category}
-          >
-            <option value="">All Categories</option>
-            <option value="Electronics">Electronics</option>
-            <option value="Clothing">Clothing</option>
-            <option value="Books">Books</option>
-            <option value="Bags">Bags</option>
-            <option value="Documents">Documents</option>
-            <option value="Bottle">Bottle</option>
-            <option value="Other">Other</option>
-          </select>
-          <button type="submit">Search</button>
-          <button type="button" className="refresh-btn" onClick={handleRefresh}>Refresh</button>
-        </form>
-      </div>
-      
-      <div className="filter-tabs">
-        <button
-          className={`filter-tab ${activeTab === 'all' ? 'active' : ''}`}
-          onClick={() => setActiveTab('all')}
-        >
-          All Items ({items.length})
-        </button>
-        <button
-          className={`filter-tab ${activeTab === 'electronics' ? 'active' : ''}`}
-          onClick={() => setActiveTab('electronics')}
-        >
-          Electronics ({items.filter(item => item.category === 'Electronics').length})
-        </button>
-        <button
-          className={`filter-tab ${activeTab === 'documents' ? 'active' : ''}`}
-          onClick={() => setActiveTab('documents')}
-        >
-          Documents ({items.filter(item => item.category === 'Documents').length})
-        </button>
-        <button
-          className={`filter-tab ${activeTab === 'clothing' ? 'active' : ''}`}
-          onClick={() => setActiveTab('clothing')}
-        >
-          Clothing ({items.filter(item => item.category === 'Clothing').length})
-        </button>
-        <button
-          className={`filter-tab ${activeTab === 'other' ? 'active' : ''}`}
-          onClick={() => setActiveTab('other')}
-        >
-          Other ({items.filter(item => 
-            item.category !== 'Electronics' && 
-            item.category !== 'Documents' && 
-            item.category !== 'Clothing'
-          ).length})
-        </button>
-      </div>
-      
-      {filteredItems.length === 0 ? (
-        <div className="no-items-message">
-          {searchParams.search || searchParams.category ? 
-            "No items match your search criteria" : 
-            "No approved items available at the moment. Check back later."}
-        </div>
-      ) : (
-        <div className="items-grid">
-          {filteredItems.map(item => (
-            <div key={item.id || Math.random()} className="item-card approved-item-card">
-              {item.image && !imageErrors[item.id] ? (
-                <div className="item-image">
-                  <img 
-                    src={`${API_BASE_URL}/uploads/${item.image}`} 
-                    alt={item.title || 'Found Item'}
-                    onError={(e) => {
-                      e.target.onerror = null;
-                      e.target.src = fallbackImageSrc;
-                      handleImageError(item.id);
-                    }}
-                  />
-                </div>
-              ) : (
-                <div className="item-image">
-                  <img 
-                    src={fallbackImageSrc}
-                    alt={item.title || 'Found Item'}
-                  />
-                </div>
-              )}
-              <div className="item-details">
-                <div className="status-badge found">{item.status === 'found' ? 'Found' : item.status === 'requested' ? 'Requested' : item.status === 'received' ? 'Received' : 'Unknown'}</div>
-                <h3>{item.title || 'Untitled Item'}</h3>
-                <p className="category">{item.category || 'Uncategorized'}</p>
-                <p className="description">{item.description || 'No description provided'}</p>
-                <p className="reporter">Reported by: {item.reporter_name || 'Anonymous'}</p>
-                <p className="report-date">Date: {item.created_at ? new Date(item.created_at).toLocaleDateString() : 'Unknown'}</p>
-                
-                {/* Only security and admin users can see location and specific date */}
-                {hasSecurityAccess && (
-                  <div className="security-details">
-                    <p className="location"><strong>Location:</strong> {item.location || 'Not specified'}</p>
-                    {item.date && (
-                      <p className="found-date">
-                        <strong>Found on:</strong> {new Date(item.date).toLocaleDateString()}
-                      </p>
-                    )}
-                  </div>
-                )}
-                
-                <div className="item-actions">
-                  {currentUser && (
-                    <button 
-                      className="claim-button"
-                      onClick={() => window.location.href = `/claim/${item.id}`}
-                    >
-                      Request This Item
-                    </button>
-                  )}
-                </div>
+    <Container fluid className="py-4">
+      {/* Header Section */}
+      <div className="bg-light p-4 rounded-3 mb-4 shadow-sm">
+        <Container>
+          <div className="d-flex justify-content-between align-items-center flex-wrap">
+            <h1 className="display-5">Found Items</h1>
+            {currentUser && (
+              <div className="d-flex align-items-center">
+                <span className="me-2">Logged in as: {currentUser.name || currentUser.email}</span>
+                <Badge bg={currentUser.role === 'admin' ? 'danger' : currentUser.role === 'security' ? 'warning' : 'info'}>
+                  {currentUser.role}
+                </Badge>
               </div>
-            </div>
-          ))}
+            )}
+          </div>
+          
+          <div className="mt-3">
+            <Link to="/" className="btn btn-outline-secondary me-2">Home</Link>
+            <Link to="/found" className="btn btn-outline-primary me-2">Report Found Item</Link>
+            <Link to="/lost" className="btn btn-outline-primary me-2">Report Lost Item</Link>
+            {currentUser && currentUser.role === 'security' && (
+              <Link to="/security" className="btn btn-outline-warning me-2">Security Dashboard</Link>
+            )}
+            {currentUser && currentUser.role === 'admin' && (
+              <Link to="/admin" className="btn btn-outline-danger me-2">Admin Panel</Link>
+            )}
+          </div>
+        </Container>
+      </div>
+      
+      <Container>
+        {/* Info Banner */}
+        <Alert variant="info" className="mb-4">
+          <p className="mb-0">This page displays only items that have been approved by security staff. If you've reported an item that's not visible here, it may still be pending approval.</p>
+          {currentUser && currentUser.role === 'security' && (
+            <p className="mb-0 mt-2">Security staff: To approve pending items, please visit the <Link to="/security">Security Dashboard</Link>.</p>
+          )}
+        </Alert>
+        
+        {/* Action Status */}
+        {actionStatus && (
+          <Alert variant={actionStatus.type === 'error' ? 'danger' : actionStatus.type === 'success' ? 'success' : 'info'} 
+                 className="mb-4" dismissible>
+            {actionStatus.message}
+          </Alert>
+        )}
+        
+        {/* Search Form */}
+        <Card className="mb-4 shadow-sm">
+          <Card.Body>
+            <Form onSubmit={handleSearch}>
+              <Row className="g-3">
+                <Col md={6}>
+                  <Form.Control
+                    type="text"
+                    name="search"
+                    placeholder="Search items..."
+                    defaultValue={searchParams.search}
+                  />
+                </Col>
+                <Col md={3}>
+                  <Form.Select name="category" defaultValue={searchParams.category}>
+                    <option value="">All Categories</option>
+                    <option value="Electronics">Electronics</option>
+                    <option value="Clothing">Clothing</option>
+                    <option value="Books">Books</option>
+                    <option value="Bags">Bags</option>
+                    <option value="Documents">Documents</option>
+                    <option value="Bottle">Bottle</option>
+                    <option value="Other">Other</option>
+                  </Form.Select>
+                </Col>
+                <Col md={3} className="d-flex">
+                  <Button type="submit" variant="primary" className="me-2">Search</Button>
+                  <Button type="button" variant="outline-secondary" onClick={handleRefresh}>
+                    <i className="fas fa-sync-alt"></i> Refresh
+                  </Button>
+                </Col>
+              </Row>
+            </Form>
+          </Card.Body>
+        </Card>
+        
+        {/* Filter Tabs */}
+        <div className="mb-4">
+          <div className="d-flex flex-wrap gap-2">
+            <Button 
+              variant={activeTab === 'all' ? 'primary' : 'outline-primary'}
+              onClick={() => setActiveTab('all')}
+            >
+              All Items ({items.length})
+            </Button>
+            <Button 
+              variant={activeTab === 'electronics' ? 'primary' : 'outline-primary'}
+              onClick={() => setActiveTab('electronics')}
+            >
+              Electronics ({items.filter(item => item.category === 'Electronics').length})
+            </Button>
+            <Button 
+              variant={activeTab === 'documents' ? 'primary' : 'outline-primary'}
+              onClick={() => setActiveTab('documents')}
+            >
+              Documents ({items.filter(item => item.category === 'Documents').length})
+            </Button>
+            <Button 
+              variant={activeTab === 'clothing' ? 'primary' : 'outline-primary'}
+              onClick={() => setActiveTab('clothing')}
+            >
+              Clothing ({items.filter(item => item.category === 'Clothing').length})
+            </Button>
+            <Button 
+              variant={activeTab === 'other' ? 'primary' : 'outline-primary'}
+              onClick={() => setActiveTab('other')}
+            >
+              Other ({items.filter(item => 
+                item.category !== 'Electronics' && 
+                item.category !== 'Documents' && 
+                item.category !== 'Clothing'
+              ).length})
+            </Button>
+          </div>
         </div>
+        
+        {/* Items Grid */}
+        {filteredItems.length === 0 ? (
+          <Alert variant="light" className="text-center py-5">
+            <i className="fas fa-search fa-3x mb-3 text-muted"></i>
+            <h4>No Items Found</h4>
+            <p className="mb-0">
+              {searchParams.search || searchParams.category ? 
+                "No items match your search criteria" : 
+                "No approved items available at the moment. Check back later."}
+            </p>
+          </Alert>
+        ) : (
+          <Row xs={1} md={2} lg={3} className="g-4">
+            {filteredItems.map(item => (
+              <Col key={item.id || Math.random()}>
+                <Card className="h-100 shadow-sm hover-effect">
+                  <div className="position-relative">
+                    {item.image && !imageErrors[item.id] ? (
+                      <Card.Img 
+                        variant="top" 
+                        src={`${API_BASE_URL}/uploads/${item.image}`}
+                        alt={item.title || 'Found Item'}
+                        className="item-image"
+                        style={{ height: '200px', objectFit: 'cover' }}
+                        onError={(e) => {
+                          e.target.onerror = null;
+                          e.target.src = fallbackImageSrc;
+                          handleImageError(item.id);
+                        }}
+                      />
+                    ) : (
+                      <div className="bg-light d-flex justify-content-center align-items-center" style={{ height: '200px' }}>
+                        <i className="fas fa-image fa-3x text-muted"></i>
+                      </div>
+                    )}
+                    <Badge 
+                      bg={
+                        item.status === 'found' ? 'success' : 
+                        item.status === 'requested' ? 'warning' : 
+                        item.status === 'received' ? 'primary' : 
+                        'secondary'
+                      }
+                      className="position-absolute top-0 end-0 m-2"
+                    >
+                      {item.status === 'found' ? 'Found' : 
+                       item.status === 'requested' ? 'Requested' : 
+                       item.status === 'received' ? 'Received' : 
+                       'Unknown'}
+                    </Badge>
+                  </div>
+                  <Card.Body>
+                    <Card.Title>{item.title || 'Untitled Item'}</Card.Title>
+                    <Card.Subtitle className="mb-2 text-muted">
+                      <Badge bg="light" text="dark" className="me-2">
+                        {item.category || 'Uncategorized'}
+                      </Badge>
+                    </Card.Subtitle>
+                    <Card.Text className="text-truncate">
+                      {item.description || 'No description provided'}
+                    </Card.Text>
+                    <div className="text-muted small mb-3">
+                      <div>Reported by: {item.reporter_name || 'Anonymous'}</div>
+                      <div>Date: {item.created_at ? new Date(item.created_at).toLocaleDateString() : 'Unknown'}</div>
+                    </div>
+                    <div className="d-grid">
+                      <Button 
+                        variant="outline-primary" 
+                        onClick={() => openItemModal(item.id)}
+                      >
+                        <i className="fas fa-search me-1"></i> View Details
+                      </Button>
+                    </div>
+                  </Card.Body>
+                </Card>
+              </Col>
+            ))}
+          </Row>
+        )}
+      </Container>
+      
+      {/* Item Detail Modal using the enhanced ItemModal component */}
+      {showModal && selectedItemId && (
+        <ItemModal
+          itemId={selectedItemId}
+          onClose={closeItemModal}
+          onRequestItem={handleRequestItem}
+          refreshItems={handleRefresh}
+        />
       )}
-    </div>
+    </Container>
   );
 };
 

@@ -3,6 +3,8 @@ import { Navigate, useLocation } from 'react-router-dom';
 import { AuthContext } from '../context/AuthContext';
 import { cloneElement } from 'react';
 
+// DEPRECATED: This component is being replaced by PrivateRoute in src/components/routes/PrivateRoute.jsx
+// Keeping for compatibility with existing code
 const ProtectedRoute = ({ element, allowedRoles = [] }) => {
   const { currentUser } = useContext(AuthContext);
   const location = useLocation();
@@ -11,6 +13,7 @@ const ProtectedRoute = ({ element, allowedRoles = [] }) => {
     console.log('ProtectedRoute at', location.pathname);
     console.log('Current user:', currentUser);
     console.log('Allowed roles:', allowedRoles);
+    console.warn('ProtectedRoute is deprecated. Use PrivateRoute from src/components/routes/PrivateRoute.jsx');
     
     if (!currentUser) {
       console.log('Access denied: User not logged in');
@@ -25,6 +28,16 @@ const ProtectedRoute = ({ element, allowedRoles = [] }) => {
   if (!currentUser) {
     console.log('Redirecting to login from', location.pathname);
     return <Navigate to="/login" replace state={{ from: location }} />;
+  }
+
+  // If admin, allow access to everything
+  if (currentUser.role === 'admin') {
+    return cloneElement(element, { currentUserId: currentUser.id });
+  }
+
+  // If security staff, allow access to all but admin routes
+  if (currentUser.role === 'security' && !allowedRoles.includes('admin')) {
+    return cloneElement(element, { currentUserId: currentUser.id });
   }
 
   // If roles specified and user doesn't have permission

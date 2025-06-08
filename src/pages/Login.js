@@ -1,64 +1,45 @@
-import React, { useState, useContext, useEffect } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import React, { useState, useContext } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import { AuthContext } from '../context/AuthContext';
 import '../styles/Auth.css';
 
 const Login = () => {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
+  const [formData, setFormData] = useState({
+    email: '',
+    password: ''
+  });
   const [isLoading, setIsLoading] = useState(false);
-  const { login, currentUser } = useContext(AuthContext);
+  const [error, setError] = useState('');
+  const { login } = useContext(AuthContext);
   const navigate = useNavigate();
 
-  // Monitor authentication state changes
-  useEffect(() => {
-    if (currentUser) {
-      // Redirect based on role if already logged in
-      if (currentUser.role === 'admin') {
-        navigate('/admin');
-      } else if (currentUser.role === 'security') {
-        navigate('/security');
-      } else {
-        navigate('/');
-      }
-    }
-  }, [currentUser, navigate]);
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setFormData({
+      ...formData,
+      [name]: value
+    });
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setError('');
     setIsLoading(true);
-
-    // Basic validation
-    if (!email || !password) {
-      setError('Email and password are required');
-      setIsLoading(false);
-      return;
-    }
+    setError('');
 
     try {
-      // Call backend API
-      const response = await fetch('/api/login', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ email, password }),
-      });
-
-      const data = await response.json();
-
-      if (response.ok) {
-        // Successfully authenticated
-        login(data.user);
-        // Navigation will happen in the useEffect hook when currentUser changes
+      const userData = await login(formData.email, formData.password);
+      
+      // Redirect based on user role
+      if (userData.role === 'admin') {
+        navigate('/admin');
+      } else if (userData.role === 'security') {
+        navigate('/security');
       } else {
-        setError(data.message || 'Invalid email or password');
+        navigate('/dashboard');
       }
     } catch (err) {
       console.error('Login error:', err);
-      setError('Connection error. Please check if the server is running.');
+      setError(err.message || 'Failed to login. Please check your credentials.');
     } finally {
       setIsLoading(false);
     }
@@ -67,43 +48,63 @@ const Login = () => {
   return (
     <div className="auth-container">
       <div className="auth-card">
-        <h2>Login</h2>
-        {error && <div className="error-message">{error}</div>}
-        
+        <div className="auth-header">
+          <h1>Login</h1>
+          <p>Sign in to your Lost & Found account</p>
+        </div>
+
+        {error && (
+          <div className="auth-error">
+            <i className="fas fa-exclamation-circle"></i> {error}
+          </div>
+        )}
+
         <form onSubmit={handleSubmit}>
-          <div className="input-group">
+          <div className="form-group">
             <label htmlFor="email">Email</label>
             <input
               type="email"
               id="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              name="email"
+              value={formData.email}
+              onChange={handleChange}
               required
+              placeholder="Enter your email"
             />
           </div>
-          
-          <div className="input-group">
+
+          <div className="form-group">
             <label htmlFor="password">Password</label>
             <input
               type="password"
               id="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
+              name="password"
+              value={formData.password}
+              onChange={handleChange}
               required
+              placeholder="Enter your password"
             />
           </div>
-          
+
           <button 
             type="submit" 
             className="auth-button"
             disabled={isLoading}
           >
-            {isLoading ? 'Logging in...' : 'Login'}
+            {isLoading ? (
+              <>
+                <div className="button-spinner"></div> Logging in...
+              </>
+            ) : (
+              'Login'
+            )}
           </button>
         </form>
-        
+
         <div className="auth-footer">
-          <p>Don't have an account? <Link to="/register">Register</Link></p>
+          <p>
+            Don't have an account? <Link to="/register">Register</Link>
+          </p>
         </div>
       </div>
     </div>

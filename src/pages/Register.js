@@ -18,7 +18,7 @@ const Register = () => {
   useEffect(() => {
     if (currentUser) {
       // Redirect if already logged in
-      navigate('/');
+      navigate('/dashboard');
     }
   }, [currentUser, navigate]);
 
@@ -47,31 +47,12 @@ const Register = () => {
     }
 
     try {
-      // API call to your backend
-      const response = await fetch('/api/register', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          name,
-          email,
-          password
-        }),
-      });
-
-      const data = await response.json();
-
-      if (response.ok) {
-        // Registration successful, log the user in
-        register(data.user);
-        // Navigation will happen in useEffect when currentUser changes
-      } else {
-        setError(data.message || 'Registration failed. Please try again.');
-      }
+      // Use our AuthContext register function directly
+      await register(name, email, password);
+      // Navigation will happen in useEffect when currentUser changes
     } catch (err) {
       console.error('Registration error:', err);
-      setError('Connection error. Please check if the server is running.');
+      setError(err.message || 'Registration failed. Please try again.');
     } finally {
       setIsLoading(false);
     }

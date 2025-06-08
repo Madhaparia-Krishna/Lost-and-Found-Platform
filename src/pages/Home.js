@@ -1,215 +1,131 @@
-import React, { useContext, useEffect, useState } from 'react';
+import React, { useContext } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { AuthContext } from '../context/AuthContext';
-import ProfileDropdown from '../components/ProfileDropdown';
-import { itemsApi } from '../utils/api';
-import '../index.css';
-import '../styles/Navbar.css';
 import '../styles/Home.css';
 
-// Create a base API URL that can be easily changed
-const API_BASE_URL = 'http://localhost:5000';
-
-function Home() {
-  const { currentUser, logout } = useContext(AuthContext);
+const Home = () => {
+  const { currentUser } = useContext(AuthContext);
   const navigate = useNavigate();
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [recentItems, setRecentItems] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState('');
 
-  const toggleMobileMenu = () => {
-    setMobileMenuOpen(!mobileMenuOpen);
+  const handleReportLost = () => {
+    navigate('/report-lost');
   };
 
-  useEffect(() => {
-    fetchRecentItems();
-  }, []);
-
-  const fetchRecentItems = async () => {
-    try {
-      // Use the API utility for better error handling
-      const data = await itemsApi.getAll();
-      
-      // Filter to only show approved found items
-      const foundItems = data.filter(item => 
-        item.status === 'found' && item.is_approved === true
-      );
-      
-      // Get most recent 6 items
-      setRecentItems(foundItems.slice(0, 6));
-    } catch (error) {
-      console.error('Error fetching recent items:', error);
-    } finally {
-      setLoading(false);
-    }
+  const handleReportFound = () => {
+    navigate('/report-found');
   };
 
-  const handleSearch = () => {
-    // Navigate to items page with search parameters
-    navigate(`/items?search=${searchTerm}&category=${selectedCategory}`);
+  const handleViewItems = () => {
+    navigate('/dashboard/found-items');
   };
 
   return (
     <div className="home-container">
-      <nav className="navbar">
-        <div className="nav-left">
-          <h1>Lost@Campus</h1>
-          <p className="subheading">Your go-to place when things go missing</p>
-        </div>
-        
-        {/* Hamburger menu for mobile */}
-        <div className="menu-toggle d-md-none" onClick={toggleMobileMenu}>
-          ☰
-        </div>
-        
-        <div className={`nav-right ${mobileMenuOpen ? 'active' : ''}`}>
-          <div className="action-buttons">
-            <button className="nav-btn" onClick={() => navigate('/lost')}>
-              Submit Lost Item
-            </button>
-            <button className="nav-btn" onClick={() => navigate('/found')}>
-              Submit Found Item
-            </button>
-            <button className="nav-btn" onClick={() => navigate('/items')}>
-              View All Items
-            </button>
+      <header className="home-header">
+        <div className="home-navbar">
+          <div className="home-logo">
+            <i className="fas fa-box-open"></i>
+            <span>Lost & Found</span>
           </div>
-          
-          {/* Authentication components */}
-          {!currentUser ? (
-            <div className="auth-section">
-              <Link to="/login" className="nav-btn">Log In</Link>
-              <Link to="/register" className="nav-btn">Register</Link>
-            </div>
-          ) : (
-            <div className="auth-section">
-              <ProfileDropdown user={currentUser} logout={logout} />
-            </div>
-          )}
+          <nav className="home-nav">
+            {currentUser ? (
+              <Link to="/dashboard" className="home-nav-link dashboard-link">
+                <i className="fas fa-columns"></i> Dashboard
+              </Link>
+            ) : (
+              <>
+                <Link to="/login" className="home-nav-link">Login</Link>
+                <Link to="/register" className="home-nav-link signup-link">Register</Link>
+              </>
+            )}
+          </nav>
         </div>
-      </nav>
 
-      <main className="main-content">
         <div className="hero-section">
-          <h2>University Lost & Found Service</h2>
-          <p>Find what you've lost or help others find their belongings</p>
-        </div>
-
-        <section className="search-section">
-          <div className="search-container">
-            <input 
-              type="text" 
-              placeholder="Search lost or found items..." 
-              className="search-input" 
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
-            />
-            <select 
-              className="category-select"
-              value={selectedCategory}
-              onChange={(e) => setSelectedCategory(e.target.value)}
-            >
-              <option value="">All Categories</option>
-              <option value="Electronics">Electronics</option>
-              <option value="Clothing">Clothing</option>
-              <option value="Books">Books</option>
-              <option value="Bags">Bags</option>
-              <option value="Documents">Documents</option>
-              <option value="Bottle">Bottle</option>
-              <option value="Other">Other</option>
-            </select>
-            <button className="search-btn" onClick={handleSearch}>Search</button>
-          </div>
-        </section>
-
-        <section className="features-section">
-          <div className="feature">
-            <div className="feature-icon">📝</div>
-            <h3>Report Lost Items</h3>
-            <p>Submit details about items you've lost on campus</p>
-          </div>
-          <div className="feature">
-            <div className="feature-icon">🔍</div>
-            <h3>Report Found Items</h3>
-            <p>Help others by reporting items you've found</p>
-          </div>
-          <div className="feature">
-            <div className="feature-icon">🔔</div>
-            <h3>Get Notified</h3>
-            <p>Receive alerts when potential matches are found</p>
-          </div>
-        </section>
-
-        <section className="recent-items-section">
-          <h2>Recently Found Items</h2>
-          {loading ? (
-            <div className="loading">Loading recent items...</div>
-          ) : recentItems.length === 0 ? (
-            <p className="no-items">No items to display at the moment</p>
-          ) : (
-            <div className="items-grid">
-              {recentItems.map(item => (
-                <div key={item.id} className="item-card" onClick={() => navigate(`/items/${item.id}`)}>
-                  <div className="item-image">
-                    {item.image ? (
-                      <img 
-                        src={`${API_BASE_URL}/uploads/${item.image}`} 
-                        alt={item.title}
-                        onError={(e) => {
-                          e.target.onerror = null;
-                          e.target.src = '/placeholder-image.png';
-                        }}
-                      />
-                    ) : (
-                      <div className="no-image">No Image</div>
-                    )}
-                  </div>
-                  <div className="item-details">
-                    <h3>{item.title}</h3>
-                    <p className="item-category">{item.category}</p>
-                    <p className="item-date">
-                      {new Date(item.created_at).toLocaleDateString()}
-                    </p>
-                  </div>
-                </div>
-              ))}
+          <div className="hero-content">
+            <h1>Campus Lost & Found System</h1>
+            <p>A simple and effective way to report lost items and find what you're looking for on campus.</p>
+            
+            <div className="hero-buttons">
+              {currentUser ? (
+                <>
+                  <button className="hero-button primary" onClick={handleReportLost}>
+                    <i className="fas fa-exclamation-circle"></i> Report Lost Item
+                  </button>
+                  <button className="hero-button secondary" onClick={handleReportFound}>
+                    <i className="fas fa-search"></i> Report Found Item
+                  </button>
+                </>
+              ) : (
+                <>
+                  <Link to="/login" className="hero-button primary">
+                    <i className="fas fa-sign-in-alt"></i> Login to Report
+                  </Link>
+                  <Link to="/register" className="hero-button secondary">
+                    <i className="fas fa-user-plus"></i> Register Now
+                  </Link>
+                </>
+              )}
             </div>
-          )}
-          <div className="view-all-link">
-            <Link to="/items">View All Found Items</Link>
           </div>
-        </section>
-      </main>
-
-      <footer className="footer">
-        <div className="footer-content">
-          <div className="footer-section">
-            <h3>Lost@Campus</h3>
-            <p>A platform to help university students and staff find their lost belongings.</p>
-          </div>
-          <div className="footer-section">
-            <h3>Quick Links</h3>
-            <ul>
-              <li><Link to="/items">Browse Items</Link></li>
-              <li><Link to="/lost">Report Lost Item</Link></li>
-              <li><Link to="/found">Report Found Item</Link></li>
-            </ul>
-          </div>
-          <div className="footer-section">
-            <h3>Contact</h3>
-            <p>Email: support@lostcampus.edu</p>
-            <p>Phone: (123) 456-7890</p>
+          <div className="hero-image">
+            <img src="/images/lost-and-found.svg" alt="Lost and Found Illustration" />
           </div>
         </div>
-        <div className="footer-bottom">
-          <p>&copy; {new Date().getFullYear()} Lost@Campus. All rights reserved.</p>
+      </header>
+
+      <section className="features-section">
+        <h2>How It Works</h2>
+        <div className="features-grid">
+          <div className="feature-card">
+            <div className="feature-icon">
+              <i className="fas fa-clipboard-list"></i>
+            </div>
+            <h3>Report Lost Items</h3>
+            <p>Quickly submit details about items you've lost on campus.</p>
+          </div>
+          <div className="feature-card">
+            <div className="feature-icon">
+              <i className="fas fa-hand-holding"></i>
+            </div>
+            <h3>Submit Found Items</h3>
+            <p>Help others by reporting items you've found around campus.</p>
+          </div>
+          <div className="feature-card">
+            <div className="feature-icon">
+              <i className="fas fa-search"></i>
+            </div>
+            <h3>Search the Database</h3>
+            <p>Browse the collection of found items to locate what you've lost.</p>
+          </div>
+          <div className="feature-card">
+            <div className="feature-icon">
+              <i className="fas fa-exchange-alt"></i>
+            </div>
+            <h3>Get Items Back</h3>
+            <p>Arrange to collect your items once they've been found.</p>
+          </div>
+        </div>
+        <div className="view-all-button">
+          <button className="primary-button" onClick={handleViewItems}>
+            <i className="fas fa-list"></i> View All Found Items
+          </button>
+        </div>
+      </section>
+
+      <footer className="home-footer">
+        <div className="footer-content">
+          <p>&copy; {new Date().getFullYear()} Campus Lost & Found System</p>
+          <div className="footer-links">
+            <a href="#about">About</a>
+            <a href="#privacy">Privacy Policy</a>
+            <a href="#terms">Terms of Service</a>
+            <a href="#contact">Contact</a>
+          </div>
         </div>
       </footer>
     </div>
   );
-}
+};
 
 export default Home;

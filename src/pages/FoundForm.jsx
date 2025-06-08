@@ -260,7 +260,7 @@ const FoundForm = ({ currentUserId }) => {
         <h1>Report Found Item</h1>
         <div className="navigation-menu">
           <Link to="/" className="menu-link">Home</Link>
-          <Link to="/dashboard" className="menu-link">Dashboard</Link>
+          <Link to="/" className="menu-link">Dashboard</Link>
         </div>
       </div>
 
@@ -280,7 +280,7 @@ const FoundForm = ({ currentUserId }) => {
               >
                 Report Another Item
               </button>
-              <Link to="/dashboard" className="btn secondary-btn">
+              <Link to="/" className="btn secondary-btn">
                 Go to Dashboard
               </Link>
             </div>
