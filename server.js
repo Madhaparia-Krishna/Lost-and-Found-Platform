@@ -252,6 +252,14 @@ app.post('/api/login', async (req, res) => {
         'INSERT INTO Logs (action, by_user) VALUES (?, ?)',
         [`User login`, user.id]
       );
+      
+      // Track user activity with IP and user agent
+      await trackUserActivity(
+        user.id, 
+        'login', 
+        'User logged in successfully', 
+        req
+      );
     } catch (logError) {
       console.error('Error logging login:', logError);
       // Don't fail the login if logging fails
@@ -1354,6 +1362,41 @@ app.get('/api/admin/logs', authenticateToken, async (req, res) => {
   }
 });
 
+// Get detailed system logs (admin only)
+app.get('/api/admin/system-logs', authenticateToken, async (req, res) => {
+  try {
+    // Check if user is admin
+    if (req.user.role !== 'admin') {
+      return res.status(403).json({ message: 'Unauthorized access' });
+    }
+
+    const { limit = 100, offset = 0 } = req.query;
+    
+    // Get system logs with user information
+    const [logs] = await pool.query(
+      `SELECT sl.*, u.name as user_name, u.email as user_email 
+       FROM SystemLogs sl
+       LEFT JOIN Users u ON sl.user_id = u.id 
+       ORDER BY sl.created_at DESC 
+       LIMIT ? OFFSET ?`,
+      [parseInt(limit), parseInt(offset)]
+    );
+
+    // Get total count for pagination
+    const [countResult] = await pool.query('SELECT COUNT(*) as total FROM SystemLogs');
+    
+    res.json({
+      logs,
+      total: countResult[0].total,
+      limit: parseInt(limit),
+      offset: parseInt(offset)
+    });
+  } catch (error) {
+    console.error('Error fetching system logs:', error);
+    res.status(500).json({ message: 'Error fetching system logs' });
+  }
+});
+
 // Helper function to log system actions
 async function logSystemAction(action, details, userId = null) {
   try {
@@ -1363,6 +1406,21 @@ async function logSystemAction(action, details, userId = null) {
     );
   } catch (error) {
     console.error('Error logging system action:', error);
+  }
+}
+
+// Helper function to track user activity
+async function trackUserActivity(userId, actionType, actionDetails, req) {
+  try {
+    const ipAddress = req.ip || req.connection.remoteAddress;
+    const userAgent = req.headers['user-agent'];
+    
+    await pool.query(
+      'INSERT INTO UserActivity (user_id, action_type, action_details, ip_address, user_agent) VALUES (?, ?, ?, ?, ?)',
+      [userId, actionType, actionDetails, ipAddress, userAgent]
+    );
+  } catch (error) {
+    console.error('Error tracking user activity:', error);
   }
 }
 
@@ -2824,6 +2882,59 @@ app.get('/api/admin/stats', authenticateToken, async (req, res) => {
   } catch (error) {
     console.error('Error fetching admin statistics:', error);
     res.status(500).json({ message: 'Error fetching admin statistics' });
+  }
+});
+
+// Get user activity - admin only
+app.get('/api/admin/user-activity', authenticateToken, async (req, res) => {
+  try {
+    // Check if user is admin
+    if (req.user.role !== 'admin') {
+      return res.status(403).json({ message: 'Unauthorized access' });
+    }
+
+    const { userId, limit = 100, offset = 0 } = req.query;
+    
+    let query = `
+      SELECT ua.*, u.name as user_name, u.email as user_email
+      FROM UserActivity ua
+      LEFT JOIN Users u ON ua.user_id = u.id
+      WHERE 1=1
+    `;
+    
+    const queryParams = [];
+    
+    // Filter by user if specified
+    if (userId) {
+      query += ' AND ua.user_id = ?';
+      queryParams.push(userId);
+    }
+    
+    // Add ordering and pagination
+    query += ' ORDER BY ua.created_at DESC LIMIT ? OFFSET ?';
+    queryParams.push(parseInt(limit), parseInt(offset));
+    
+    const [activities] = await pool.query(query, queryParams);
+    
+    // Get total count for pagination
+    const countQuery = `
+      SELECT COUNT(*) as total
+      FROM UserActivity
+      WHERE ${userId ? 'user_id = ?' : '1=1'}
+    `;
+    
+    const countParams = userId ? [userId] : [];
+    const [countResult] = await pool.query(countQuery, countParams);
+    
+    res.json({
+      activities,
+      total: countResult[0].total,
+      limit: parseInt(limit),
+      offset: parseInt(offset)
+    });
+  } catch (error) {
+    console.error('Error fetching user activity:', error);
+    res.status(500).json({ message: 'Error fetching user activity' });
   }
 });
 

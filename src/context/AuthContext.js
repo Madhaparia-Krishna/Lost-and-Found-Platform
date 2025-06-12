@@ -15,10 +15,12 @@ export const useAuth = () => {
 
 export const AuthProvider = ({ children }) => {
   const [currentUser, setCurrentUser] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false); // Set to false initially
   const [authError, setAuthError] = useState(null);
 
-  // Check for saved user on init
+  // No automatic login on initialization - commenting out the useEffect
+  // This ensures the app always starts with no user logged in
+  /*
   useEffect(() => {
     const initAuth = async () => {
       console.log('Initializing AuthContext, stored user:', localStorage.getItem('user'));
@@ -72,6 +74,7 @@ export const AuthProvider = ({ children }) => {
     
     initAuth();
   }, []);
+  */
   
   // Add a separate effect to log the current value
   useEffect(() => {

@@ -87,6 +87,30 @@ CREATE TABLE Logs (
     FOREIGN KEY (by_user) REFERENCES Users(id) ON DELETE CASCADE
 );
 
+-- SYSTEM LOGS TABLE
+DROP TABLE IF EXISTS SystemLogs;
+CREATE TABLE SystemLogs (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    action VARCHAR(255) NOT NULL,
+    details TEXT,
+    user_id INT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES Users(id) ON DELETE SET NULL
+);
+
+-- USER ACTIVITY TABLE
+DROP TABLE IF EXISTS UserActivity;
+CREATE TABLE UserActivity (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    user_id INT NOT NULL,
+    action_type VARCHAR(50) NOT NULL,
+    action_details TEXT,
+    ip_address VARCHAR(45),
+    user_agent TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES Users(id) ON DELETE CASCADE
+);
+
 -- ITEM MATCHES TABLE
 DROP TABLE IF EXISTS ItemMatches;
 CREATE TABLE ItemMatches (
@@ -99,42 +123,6 @@ CREATE TABLE ItemMatches (
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     FOREIGN KEY (lost_item_id) REFERENCES Items(id) ON DELETE CASCADE,
     FOREIGN KEY (found_item_id) REFERENCES Items(id) ON DELETE CASCADE
-);
-
--- CHAT ROOMS TABLE
-DROP TABLE IF EXISTS ChatRooms;
-CREATE TABLE ChatRooms (
-    id INT PRIMARY KEY AUTO_INCREMENT,
-    name VARCHAR(100),
-    created_by INT,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (created_by) REFERENCES Users(id) ON DELETE CASCADE
-);
-
--- CHAT ROOM PARTICIPANTS TABLE
-DROP TABLE IF EXISTS ChatRoomParticipants;
-CREATE TABLE ChatRoomParticipants (
-    id INT PRIMARY KEY AUTO_INCREMENT,
-    room_id INT,
-    user_id INT,
-    joined_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (room_id) REFERENCES ChatRooms(id) ON DELETE CASCADE,
-    FOREIGN KEY (user_id) REFERENCES Users(id) ON DELETE CASCADE,
-    UNIQUE (room_id, user_id)
-);
-
--- CHAT MESSAGES TABLE
-DROP TABLE IF EXISTS ChatMessages;
-CREATE TABLE ChatMessages (
-    id INT PRIMARY KEY AUTO_INCREMENT,
-    room_id INT,
-    sender_id INT,
-    message TEXT,
-    sender_name VARCHAR(100),
-    sender_role VARCHAR(50),
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (room_id) REFERENCES ChatRooms(id) ON DELETE CASCADE,
-    FOREIGN KEY (sender_id) REFERENCES Users(id) ON DELETE CASCADE
 );
 
 -- Insert default admin user

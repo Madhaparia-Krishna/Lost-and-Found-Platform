@@ -1,172 +1,136 @@
 import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { Navbar as BootstrapNavbar, Nav, Container, NavDropdown, Badge } from 'react-bootstrap';
-import ProfileDropdown from './ProfileDropdown';
-import Notification from './Notification';
 import '../styles/Navbar.css';
 
 const Navbar = () => {
   const { currentUser, logout } = useAuth();
   const location = useLocation();
-  const [expanded, setExpanded] = useState(false);
-
-  // Handle navbar toggle for mobile
-  const toggleNavbar = () => setExpanded(!expanded);
-  const closeNavbar = () => setExpanded(false);
-
-  // Check if the link is active
-  const isActive = (path) => location.pathname === path;
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  
+  const toggleMenu = () => {
+    setIsMenuOpen(!isMenuOpen);
+  };
+  
+  const closeMenu = () => {
+    setIsMenuOpen(false);
+  };
 
   return (
-    <BootstrapNavbar 
-      bg="white" 
-      expand="lg" 
-      fixed="top" 
-      className="shadow-sm py-2" 
-      expanded={expanded}
-    >
-      <Container>
-        <BootstrapNavbar.Brand as={Link} to="/" className="fw-bold">
-          <i className="fas fa-search me-2"></i>
-          Lost & Found
-        </BootstrapNavbar.Brand>
-        
-        <BootstrapNavbar.Toggle 
-          aria-controls="navbar-nav" 
-          onClick={toggleNavbar} 
-        />
-        
-        <BootstrapNavbar.Collapse id="navbar-nav">
-          <Nav className="me-auto">
-            <Nav.Link 
-              as={Link} 
-              to="/" 
-              active={isActive('/')}
-              onClick={closeNavbar}
-            >
-              Home
-            </Nav.Link>
-            
-            <Nav.Link 
-              as={Link} 
-              to="/items" 
-              active={isActive('/items')}
-              onClick={closeNavbar}
-            >
-              Browse Items
-            </Nav.Link>
-            
-            {currentUser && (
-              <>
-                <Nav.Link 
-                  as={Link} 
-                  to="/found" 
-                  active={isActive('/found')}
-                  onClick={closeNavbar}
-                >
-                  Report Found
-                </Nav.Link>
-                
-                <Nav.Link 
-                  as={Link} 
-                  to="/lost" 
-                  active={isActive('/lost')}
-                  onClick={closeNavbar}
+    <nav className="navbar">
+      <Link to="/" className="navbar-brand">
+        <i className="fas fa-map-marker-alt"></i>
+        Lost@Campus
+      </Link>
+      
+      <div className="navbar-search">
+        <i className="fas fa-search"></i>
+      </div>
+      
+      <button 
+        className="navbar-toggle" 
+        onClick={toggleMenu}
+        aria-label="Toggle navigation"
+      >
+        <i className={`fas ${isMenuOpen ? 'fa-times' : 'fa-bars'}`}></i>
+      </button>
+      
+      <div className={`navbar-collapse ${isMenuOpen ? 'show' : ''}`}>
+        <ul className="navbar-nav">
+          {currentUser && (
+            <>
+              <li className="nav-item">
+                <Link 
+                  to="/report-lost" 
+                  className={`nav-link ${location.pathname === '/report-lost' ? 'active' : ''}`}
+                  onClick={closeMenu}
                 >
                   Report Lost
-                </Nav.Link>
-              </>
-            )}
-          </Nav>
-          
-          <Nav>
-            {/* Role-specific links */}
-            {currentUser && currentUser.role === 'admin' && (
-              <Nav.Link 
-                as={Link} 
-                to="/admin" 
-                className="text-danger me-2"
-                onClick={closeNavbar}
-              >
-                <i className="fas fa-shield-alt me-1"></i>
-                Admin
-              </Nav.Link>
-            )}
-            
-            {currentUser && currentUser.role === 'security' && (
-              <Nav.Link 
-                as={Link} 
-                to="/security" 
-                className="text-warning me-2"
-                onClick={closeNavbar}
-              >
-                <i className="fas fa-user-shield me-1"></i>
-                Security
-              </Nav.Link>
-            )}
-            
-            {/* Authentication links */}
-            {currentUser ? (
-              <NavDropdown 
-                title={
-                  <span>
-                    <i className="fas fa-user-circle me-1"></i>
-                    {currentUser.name || currentUser.email}
-                    <Badge 
-                      bg={currentUser.role === 'admin' ? 'danger' : 
-                          currentUser.role === 'security' ? 'warning' : 'info'}
-                      className="ms-2"
-                    >
-                      {currentUser.role}
-                    </Badge>
+                </Link>
+              </li>
+              <li className="nav-item">
+                <Link 
+                  to="/report-found" 
+                  className={`nav-link ${location.pathname === '/report-found' ? 'active' : ''}`}
+                  onClick={closeMenu}
+                >
+                  Report Found
+                </Link>
+              </li>
+            </>
+          )}
+          <li className="nav-item">
+            <Link 
+              to="/dashboard/found-items" 
+              className={`nav-link ${location.pathname.includes('/dashboard') ? 'active' : ''}`}
+              onClick={closeMenu}
+            >
+              View Items
+            </Link>
+          </li>
+        </ul>
+        
+        <div className="nav-right">
+          {currentUser ? (
+            <div className="user-menu">
+              <button className="user-button" onClick={() => setIsMenuOpen(!isMenuOpen)}>
+                <div className="user-avatar">
+                  {currentUser.name ? currentUser.name.charAt(0).toUpperCase() : 'U'}
+                </div>
+                <span className="user-name">{currentUser.name || currentUser.email}</span>
+                {currentUser.role && (
+                  <span className={`user-role role-${currentUser.role}`}>
+                    {currentUser.role}
                   </span>
-                } 
-                id="user-dropdown"
-                align="end"
-              >
-                <NavDropdown.Item as={Link} to="/profile" onClick={closeNavbar}>
-                  <i className="fas fa-id-card me-2"></i>
-                  Profile
-                </NavDropdown.Item>
+                )}
+              </button>
+              
+              <div className={`dropdown-menu ${isMenuOpen ? 'active' : ''}`}>
+                <Link to="/profile" className="dropdown-item" onClick={closeMenu}>
+                  <i className="fas fa-user"></i> Profile
+                </Link>
+                <Link to="/dashboard" className="dropdown-item" onClick={closeMenu}>
+                  <i className="fas fa-columns"></i> Dashboard
+                </Link>
                 
-                <NavDropdown.Item as={Link} to="/dashboard" onClick={closeNavbar}>
-                  <i className="fas fa-tachometer-alt me-2"></i>
-                  Dashboard
-                </NavDropdown.Item>
+                {currentUser.role === 'admin' && (
+                  <Link to="/admin" className="dropdown-item" onClick={closeMenu}>
+                    <i className="fas fa-shield-alt"></i> Admin Panel
+                  </Link>
+                )}
                 
-                <NavDropdown.Divider />
+                {currentUser.role === 'security' && (
+                  <Link to="/security" className="dropdown-item" onClick={closeMenu}>
+                    <i className="fas fa-user-shield"></i> Security Panel
+                  </Link>
+                )}
                 
-                <NavDropdown.Item onClick={() => { logout(); closeNavbar(); }}>
-                  <i className="fas fa-sign-out-alt me-2"></i>
-                  Logout
-                </NavDropdown.Item>
-              </NavDropdown>
-            ) : (
-              <>
-                <Nav.Link 
-                  as={Link} 
-                  to="/login" 
-                  className="me-2"
-                  onClick={closeNavbar}
+                <div className="dropdown-divider"></div>
+                
+                <button 
+                  className="dropdown-item" 
+                  onClick={() => {
+                    logout();
+                    closeMenu();
+                  }}
                 >
-                  Login
-                </Nav.Link>
-                
-                <Nav.Link 
-                  as={Link} 
-                  to="/register" 
-                  className="btn btn-primary text-white"
-                  onClick={closeNavbar}
-                >
-                  Register
-                </Nav.Link>
-              </>
-            )}
-          </Nav>
-        </BootstrapNavbar.Collapse>
-      </Container>
-    </BootstrapNavbar>
+                  <i className="fas fa-sign-out-alt"></i> Logout
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="auth-buttons">
+              <Link to="/login" className="login-button" onClick={closeMenu}>
+                Login
+              </Link>
+              <Link to="/register" className="signup-button" onClick={closeMenu}>
+                Sign Up
+              </Link>
+            </div>
+          )}
+        </div>
+      </div>
+    </nav>
   );
 };
 

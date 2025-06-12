@@ -47,21 +47,21 @@ const Login = () => {
 
   return (
     <div className="auth-container">
-      <div className="auth-card">
+      {/* Left side - Form */}
+      <div className="auth-form-side">
         <div className="auth-header">
-          <h1>Login</h1>
-          <p>Sign in to your Lost & Found account</p>
+          <h1>Sign In</h1>
         </div>
 
         {error && (
           <div className="auth-error">
-            <i className="fas fa-exclamation-circle"></i> {error}
+            {error}
           </div>
         )}
 
         <form onSubmit={handleSubmit}>
           <div className="form-group">
-            <label htmlFor="email">Email</label>
+            <label htmlFor="email">EMAIL ADDRESS</label>
             <input
               type="email"
               id="email"
@@ -69,12 +69,11 @@ const Login = () => {
               value={formData.email}
               onChange={handleChange}
               required
-              placeholder="Enter your email"
             />
           </div>
 
           <div className="form-group">
-            <label htmlFor="password">Password</label>
+            <label htmlFor="password">PASSWORD</label>
             <input
               type="password"
               id="password"
@@ -82,7 +81,6 @@ const Login = () => {
               value={formData.password}
               onChange={handleChange}
               required
-              placeholder="Enter your password"
             />
           </div>
 
@@ -93,22 +91,25 @@ const Login = () => {
           >
             {isLoading ? (
               <>
-                <div className="button-spinner"></div> Logging in...
+                <span className="button-spinner"></span> SIGNING IN...
               </>
             ) : (
-              'Login'
+              'SIGN IN'
             )}
           </button>
         </form>
+      </div>
 
-        <div className="auth-footer">
-          <p>
-            Don't have an account? <Link to="/register">Register</Link>
-          </p>
-        </div>
+      {/* Right side - Info panel */}
+      <div className="auth-info-side">
+        <h2 className="info-title">New here?</h2>
+        <p className="info-text">Sign up and discover</p>
+        <Link to="/register" className="signup-button">
+          SIGN UP
+        </Link>
       </div>
     </div>
   );
 };
 
-export default Login; 
+export default Login;

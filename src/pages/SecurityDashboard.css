@@ -1,0 +1,14 @@
+import React, { useState, useEffect, useContext, useCallback } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { securityApi, API_BASE_URL, notificationsApi } from '../utils/api';
+import emailService from '../utils/emailService';
+import { AuthContext } from '../context/AuthContext';
+import { Alert, Spinner, Form, Modal, Button, Badge, ButtonGroup, InputGroup } from 'react-bootstrap';
+import '../styles/SecurityDashboard.css';
+
+const SecurityDashboard = () => {
+  const { currentUser } = useContext(AuthContext);
+  const navigate = useNavigate();
+  const [pendingItems, setPendingItems] = useState([]);
+// ... existing code ...
+} 

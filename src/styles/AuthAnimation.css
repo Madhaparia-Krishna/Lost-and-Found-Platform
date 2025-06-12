@@ -1,0 +1,182 @@
+/* Enhanced animations for auth forms */
+.auth-container {
+  perspective: 1000px;
+}
+
+.auth-form-container {
+  transform-style: preserve-3d;
+  backface-visibility: hidden;
+}
+
+.auth-form-side {
+  backface-visibility: hidden;
+}
+
+/* Enhanced transitions */
+.auth-container.login-active .auth-form-side.login,
+.auth-container.register-active .auth-form-side.register {
+  animation: formSlideIn 0.6s cubic-bezier(0.68, -0.55, 0.265, 1.55) forwards;
+}
+
+.auth-container.login-active .auth-form-side.register,
+.auth-container.register-active .auth-form-side.login {
+  animation: formSlideOut 0.6s cubic-bezier(0.68, -0.55, 0.265, 1.55) forwards;
+}
+
+.auth-container.login-active .auth-info-content.login,
+.auth-container.register-active .auth-info-content.register {
+  animation: infoSlideIn 0.6s cubic-bezier(0.68, -0.55, 0.265, 1.55) forwards;
+}
+
+.auth-container.login-active .auth-info-content.register,
+.auth-container.register-active .auth-info-content.login {
+  animation: infoSlideOut 0.6s cubic-bezier(0.68, -0.55, 0.265, 1.55) forwards;
+}
+
+/* Form animations */
+@keyframes formSlideIn {
+  0% {
+    opacity: 0;
+    transform: translateX(50px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes formSlideOut {
+  0% {
+    opacity: 1;
+    transform: translateX(0);
+  }
+  100% {
+    opacity: 0;
+    transform: translateX(-50px);
+  }
+}
+
+/* Info panel animations */
+@keyframes infoSlideIn {
+  0% {
+    opacity: 0;
+    transform: translateX(-50px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes infoSlideOut {
+  0% {
+    opacity: 1;
+    transform: translateX(0);
+  }
+  100% {
+    opacity: 0;
+    transform: translateX(50px);
+  }
+}
+
+/* Button animations */
+.signup-button {
+  position: relative;
+  overflow: hidden;
+  transition: all 0.3s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+}
+
+/* Button effect for both buttons */
+.auth-info-content.login .signup-button,
+.auth-info-content.register .signup-button {
+  animation: buttonAppear 0.6s cubic-bezier(0.68, -0.55, 0.265, 1.55) both;
+  animation-delay: 0.3s;
+}
+
+@keyframes buttonAppear {
+  0% {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.signup-button:after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(255, 255, 255, 0.1);
+  transform: translateX(-100%);
+  transition: transform 0.3s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+}
+
+.signup-button:hover:after {
+  transform: translateX(0);
+}
+
+.signup-button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+}
+
+.signup-button:active {
+  transform: translateY(0);
+  box-shadow: none;
+}
+
+/* Input focus effect */
+.form-group input {
+  position: relative;
+}
+
+.form-group input:focus {
+  border-bottom: 2px solid #666;
+}
+
+/* Container shadow effect during transition */
+.auth-container.animating {
+  animation: containerPulse 0.6s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+}
+
+@keyframes containerPulse {
+  0% {
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+  }
+  50% {
+    box-shadow: 0 15px 40px rgba(0, 0, 0, 0.15);
+  }
+  100% {
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+  }
+}
+
+/* Media queries for responsive animations */
+@media (max-width: 768px) {
+  @keyframes formSlideIn {
+    0% {
+      opacity: 0;
+      transform: translateY(20px);
+    }
+    100% {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+  
+  @keyframes formSlideOut {
+    0% {
+      opacity: 1;
+      transform: translateY(0);
+    }
+    100% {
+      opacity: 0;
+      transform: translateY(-20px);
+    }
+  }
+} 

@@ -60,13 +60,30 @@ const Register = () => {
 
   return (
     <div className="auth-container">
-      <div className="auth-card">
-        <h2>Register</h2>
-        {error && <div className="error-message">{error}</div>}
+      {/* Left side - Info panel */}
+      <div className="auth-info-side">
+        <h2 className="info-title">Welcome!</h2>
+        <p className="info-text">Sign in and discover</p>
+        <Link to="/login" className="signup-button">
+          SIGN IN
+        </Link>
+      </div>
+
+      {/* Right side - Form */}
+      <div className="auth-form-side">
+        <div className="auth-header">
+          <h1>Sign Up</h1>
+        </div>
+        
+        {error && (
+          <div className="auth-error">
+            {error}
+          </div>
+        )}
         
         <form onSubmit={handleSubmit}>
-          <div className="input-group">
-            <label htmlFor="name">Full Name</label>
+          <div className="form-group">
+            <label htmlFor="name">FULL NAME</label>
             <input
               type="text"
               id="name"
@@ -76,8 +93,8 @@ const Register = () => {
             />
           </div>
           
-          <div className="input-group">
-            <label htmlFor="email">Email</label>
+          <div className="form-group">
+            <label htmlFor="email">EMAIL ADDRESS</label>
             <input
               type="email"
               id="email"
@@ -87,8 +104,8 @@ const Register = () => {
             />
           </div>
           
-          <div className="input-group">
-            <label htmlFor="password">Password (min. 8 characters)</label>
+          <div className="form-group">
+            <label htmlFor="password">PASSWORD</label>
             <input
               type="password"
               id="password"
@@ -99,8 +116,8 @@ const Register = () => {
             />
           </div>
           
-          <div className="input-group">
-            <label htmlFor="confirmPassword">Confirm Password</label>
+          <div className="form-group">
+            <label htmlFor="confirmPassword">CONFIRM PASSWORD</label>
             <input
               type="password"
               id="confirmPassword"
@@ -115,16 +132,18 @@ const Register = () => {
             className="auth-button"
             disabled={isLoading}
           >
-            {isLoading ? 'Registering...' : 'Register'}
+            {isLoading ? (
+              <>
+                <span className="button-spinner"></span> SIGNING UP...
+              </>
+            ) : (
+              'SIGN UP'
+            )}
           </button>
         </form>
-        
-        <div className="auth-footer">
-          <p>Already have an account? <Link to="/login">Login</Link></p>
-        </div>
       </div>
     </div>
   );
 };
 
-export default Register; 
+export default Register;

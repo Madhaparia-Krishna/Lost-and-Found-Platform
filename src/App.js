@@ -1,5 +1,5 @@
 import React from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import { Toaster } from 'react-hot-toast';
 import Navbar from './components/Navbar';
@@ -13,13 +13,14 @@ import PublicRoute from './components/routes/PublicRoute';
 
 // Pages
 import Home from './pages/Home';
-import Login from './pages/Login';
-import Register from './pages/Register';
+import AuthPage from './pages/AuthPage';
 import NotFound from './pages/NotFound';
 import ItemDetail from './pages/ItemDetail';
 import Security from './pages/Security';
 import Admin from './pages/Admin';
 import Unauthorized from './pages/Unauthorized';
+import Profile from './pages/Profile';
+import ForgotPassword from './pages/ForgotPassword';
 
 // Dashboard Pages
 import FoundItems from './pages/dashboard/FoundItems';
@@ -34,6 +35,107 @@ import EditItem from './pages/forms/EditItem';
 
 // Styles
 import './App.css';
+import './styles/custom.css';
+import './styles/logo.css';
+
+// AppContent component to conditionally render the Navbar
+const AppContent = () => {
+  const location = useLocation();
+  const isAuthPage = location.pathname === '/login' || location.pathname === '/register';
+
+  return (
+    <>
+      {/* Only show Navbar if not on auth pages */}
+      {!isAuthPage && <Navbar />}
+      
+      {/* Main Content */}
+      <div className="app-container">
+        <Routes>
+          {/* Public routes - Home page is always accessible */}
+          <Route path="/" element={<Home />} />
+          <Route path="/login" element={<PublicRoute><AuthPage /></PublicRoute>} />
+          <Route path="/register" element={<PublicRoute><AuthPage /></PublicRoute>} />
+          <Route path="/unauthorized" element={<Unauthorized />} />
+          
+          {/* Dashboard routes */}
+          <Route path="/dashboard" element={
+            <PrivateRoute>
+              <DashboardLayout />
+            </PrivateRoute>
+          }>
+            <Route index element={<Navigate to="/dashboard/found-items" replace />} />
+            <Route path="found-items" element={<FoundItems />} />
+            <Route path="lost-items" element={<LostItems />} />
+            <Route path="requested-items" element={<RequestedItems />} />
+            <Route path="returned-items" element={<ReturnedItems />} />
+          </Route>
+          
+          {/* Item form routes */}
+          <Route path="/report-lost" element={
+            <PrivateRoute>
+              <ReportLostItem />
+            </PrivateRoute>
+          } />
+          <Route path="/report-found" element={
+            <PrivateRoute>
+              <ReportFoundItem />
+            </PrivateRoute>
+          } />
+          <Route path="/edit-item/:id" element={
+            <PrivateRoute>
+              <EditItem />
+            </PrivateRoute>
+          } />
+          
+          {/* Item details */}
+          <Route path="/items/:id" element={
+            <PrivateRoute>
+              <ItemDetail />
+            </PrivateRoute>
+          } />
+          
+          {/* Security staff routes */}
+          <Route path="/security" element={
+            <PrivateRoute requireRole="security">
+              <Security />
+            </PrivateRoute>
+          } />
+          <Route path="/security/dashboard" element={
+            <PrivateRoute requireRole="security">
+              <Security />
+            </PrivateRoute>
+          } />
+          
+          {/* Admin routes */}
+          <Route path="/admin" element={
+            <PrivateRoute requireRole="admin">
+              <Admin />
+            </PrivateRoute>
+          } />
+          <Route path="/admin/dashboard" element={
+            <PrivateRoute requireRole="admin">
+              <Admin />
+            </PrivateRoute>
+          } />
+          
+          {/* Profile route */}
+          <Route path="/profile" element={
+            <PrivateRoute>
+              <Profile />
+            </PrivateRoute>
+          } />
+          
+          {/* Password reset routes */}
+          <Route path="/forgot-password" element={<ForgotPassword />} />
+          <Route path="/reset-password" element={<ForgotPassword />} />
+          
+          {/* Catch-all route */}
+          <Route path="*" element={<NotFound />} />
+        </Routes>
+      </div>
+    </>
+  );
+};
 
 function App() {
   return (
@@ -62,83 +164,7 @@ function App() {
           }}
         />
         
-        {/* Global Navbar */}
-        <Navbar />
-        
-        {/* Main Content */}
-        <div className="app-container">
-          <Routes>
-            {/* Public routes */}
-            <Route path="/" element={<PublicRoute><Home /></PublicRoute>} />
-            <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
-            <Route path="/register" element={<PublicRoute><Register /></PublicRoute>} />
-            <Route path="/unauthorized" element={<Unauthorized />} />
-            
-            {/* Dashboard routes */}
-            <Route path="/dashboard" element={
-              <PrivateRoute>
-                <DashboardLayout />
-              </PrivateRoute>
-            }>
-              <Route index element={<Navigate to="/dashboard/found-items" replace />} />
-              <Route path="found-items" element={<FoundItems />} />
-              <Route path="lost-items" element={<LostItems />} />
-              <Route path="requested-items" element={<RequestedItems />} />
-              <Route path="returned-items" element={<ReturnedItems />} />
-            </Route>
-            
-            {/* Item form routes */}
-            <Route path="/report-lost" element={
-              <PrivateRoute>
-                <ReportLostItem />
-              </PrivateRoute>
-            } />
-            <Route path="/report-found" element={
-              <PrivateRoute>
-                <ReportFoundItem />
-              </PrivateRoute>
-            } />
-            <Route path="/edit-item/:id" element={
-              <PrivateRoute>
-                <EditItem />
-              </PrivateRoute>
-            } />
-            
-            {/* Item details */}
-            <Route path="/items/:id" element={
-              <PrivateRoute>
-                <ItemDetail />
-              </PrivateRoute>
-            } />
-            
-            {/* Security staff routes */}
-            <Route path="/security" element={
-              <PrivateRoute requireRole="security">
-                <Security />
-              </PrivateRoute>
-            } />
-            <Route path="/security/dashboard" element={
-              <PrivateRoute requireRole="security">
-                <Security />
-              </PrivateRoute>
-            } />
-            
-            {/* Admin routes */}
-            <Route path="/admin" element={
-              <PrivateRoute requireRole="admin">
-                <Admin />
-              </PrivateRoute>
-            } />
-            <Route path="/admin/dashboard" element={
-              <PrivateRoute requireRole="admin">
-                <Admin />
-              </PrivateRoute>
-            } />
-            
-            {/* Catch-all route */}
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-        </div>
+        <AppContent />
       </AuthProvider>
     </Router>
   );

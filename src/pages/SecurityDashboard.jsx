@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { securityApi, API_BASE_URL, notificationsApi } from '../utils/api';
 import emailService from '../utils/emailService';
 import { AuthContext } from '../context/AuthContext';
-import { Container, Row, Col, Card, Table, Badge, Button, Nav, Alert, Spinner, Form, Modal, Tabs, Tab, InputGroup, Dropdown } from 'react-bootstrap';
+import { Alert, Spinner, Form, Modal, Button, Badge, ButtonGroup, InputGroup } from 'react-bootstrap';
 import '../styles/SecurityDashboard.css';
 
 const SecurityDashboard = () => {
@@ -15,7 +15,7 @@ const SecurityDashboard = () => {
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
   const [error, setError] = useState(null);
-  const [activeKey, setActiveKey] = useState('dashboard');
+  const [activeKey, setActiveKey] = useState('dashboard'); // Default to dashboard
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [actionStatus, setActionStatus] = useState(null);
   const [notifications, setNotifications] = useState([]);
@@ -38,6 +38,29 @@ const SecurityDashboard = () => {
     totalUsers: 0
   });
   
+  // Dummy data for charts - replace with actual data from backend if available
+  const itemApprovalData = {
+    labels: ['Approved', 'Pending', 'Rejected'],
+    datasets: [
+      {
+        data: [70, 20, 10], // Example counts
+        backgroundColor: ['#2ecc71', '#f1c40f', '#e74c3c'],
+        hoverBackgroundColor: ['#27ae60', '#f39c12', '#c0392b'],
+      },
+    ],
+  };
+
+  const requestStatusData = {
+    labels: ['Pending', 'Accepted', 'Rejected'],
+    datasets: [
+      {
+        data: [5, 10, 2], // Example counts
+        backgroundColor: ['#3498db', '#28a745', '#e74c3c'],
+        hoverBackgroundColor: ['#2980b9', '#218838', '#c0392b'],
+      },
+    ],
+  };
+
   // Fallback image for when image loading fails
   const fallbackImageSrc = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' fill='%23f0f0f0'/%3E%3Cpath d='M30,40 L70,40 L70,60 L30,60 Z' fill='%23d0d0d0'/%3E%3Ctext x='50' y='50' font-family='Arial' font-size='12' text-anchor='middle' alignment-baseline='middle' fill='%23909090'%3ENo Image%3C/text%3E%3C/svg%3E";
 
@@ -195,14 +218,16 @@ const SecurityDashboard = () => {
     }
   };
 
-  const handleRejectItem = async (itemId) => {
-    // Show modal to get rejection reason
+  const handleRejectItem = (itemId) => {
     setItemToReject(itemId);
     setShowRejectModal(true);
   };
 
   const confirmRejectItem = async () => {
-    if (!itemToReject) return;
+    if (!itemToReject || !rejectReason) {
+      setActionStatus({ type: 'error', message: 'Please provide a reason for rejection.' });
+      return;
+    }
     
     try {
       setActionLoading(true);
@@ -251,17 +276,22 @@ const SecurityDashboard = () => {
         message: 'Accepting request...'
       });
       
-      await securityApi.markItemReturned(itemId);
+      console.log(`Accepting request for item ${itemId}...`);
+      const response = await securityApi.acceptRequest(itemId);
+      console.log('Request acceptance response:', response);
       
       setActionStatus({
         type: 'success',
         message: 'Request accepted successfully. Item marked as returned.'
       });
       
-      // Refresh data to update the UI
+      // Send email to item reporter
+      const item = approvedItems.find(item => item.id === itemId) || requestedItems.find(item => item.id === itemId);
+      if (item && item.reporter_email) {
+        await emailService.sendItemReturnedEmail(item.reporter_email, item.reporter_name, item.name);
+      }
+
       refreshData();
-      
-      // Clear status after a delay
       setTimeout(() => {
         setActionStatus(null);
       }, 5000);
@@ -284,27 +314,21 @@ const SecurityDashboard = () => {
         message: 'Rejecting request...'
       });
       
-      console.log(`Attempting to reject request for item ${itemId} by reverting status to "found"`);
-      
-      // Revert status back to "found"
-      const response = await securityApi.revertItemStatus(itemId, 'found');
-      console.log('Revert status response:', response);
+      console.log(`Rejecting request for item ${itemId}...`);
+      const response = await securityApi.rejectRequest(itemId);
+      console.log('Request rejection response:', response);
       
       setActionStatus({
         type: 'success',
-        message: 'Request rejected successfully. Item status reverted to "found".'
+        message: 'Request rejected successfully.'
       });
       
-      // Refresh data to update the UI
       refreshData();
-      
-      // Clear status after a delay
       setTimeout(() => {
         setActionStatus(null);
       }, 5000);
     } catch (error) {
       console.error('Error rejecting request:', error);
-      console.error('Error details:', error.message);
       setActionStatus({
         type: 'error',
         message: `Error rejecting request: ${error.message || 'Unknown error'}`
@@ -320,55 +344,81 @@ const SecurityDashboard = () => {
   };
 
   const handleBanUser = (userId, userName) => {
-    const user = users.find(u => u.id === userId);
-    if (user) {
-      setUserToBan(user);
-      setShowBanModal(true);
-    } else {
-      // Create a temporary user object if we don't have full user details
-      setUserToBan({
-        id: userId,
-        name: userName || 'Unknown User'
+    setUserToBan({ id: userId, name: userName });
+    setShowBanModal(true);
+  };
+
+  const handleUnbanUser = async (userId) => {
+    try {
+      setActionLoading(true);
+      setActionStatus({
+        type: 'loading',
+        message: 'Unbanning user...'
       });
-      setShowBanModal(true);
+
+      console.log(`Unbanning user ${userId}...`);
+      const response = await securityApi.unbanUser(userId);
+      console.log('User unban response:', response);
+
+      setActionStatus({
+        type: 'success',
+        message: 'User unbanned successfully'
+      });
+
+      refreshData();
+
+      setTimeout(() => {
+        setActionStatus(null);
+      }, 5000);
+    } catch (error) {
+      console.error('Error unbanning user:', error);
+      setActionStatus({
+        type: 'error',
+        message: `Error unbanning user: ${error.message || 'Unknown error'}`
+      });
+    } finally {
+      setActionLoading(false);
     }
   };
 
   const confirmSoftDelete = async () => {
-    if (!itemToDelete) return;
+    if (!itemToDelete || !deleteReason) {
+      setActionStatus({ type: 'error', message: 'Please provide a reason for deletion.' });
+      return;
+    }
     
     try {
       setActionLoading(true);
       setActionStatus({
         type: 'loading',
-        message: 'Deleting item...'
+        message: `Deleting item ${itemToDelete.name || ''}...`
       });
       
-      // Call the API to soft delete the item
       await securityApi.softDeleteItem(itemToDelete.id, deleteReason);
       
+      // Update the items list (filter out soft-deleted items)
+      setPendingItems(prev => prev.filter(item => item.id !== itemToDelete.id));
+      setApprovedItems(prev => prev.filter(item => item.id !== itemToDelete.id));
+      setRequestedItems(prev => prev.filter(item => item.id !== itemToDelete.id));
+
       setActionStatus({
         type: 'success',
-        message: 'Item deleted successfully'
+        message: `Item \'${itemToDelete.name || ''}\' soft-deleted successfully.`
       });
       
-      // Close the modal and reset values
       setShowDeleteModal(false);
       setItemToDelete(null);
       setDeleteReason('');
-      
-      // Refresh data to update the UI
+
       refreshData();
-      
-      // Clear status after a delay
       setTimeout(() => {
         setActionStatus(null);
-      }, 5000);
-    } catch (error) {
-      console.error('Error deleting item:', error);
+      }, 3000);
+    } catch (err) {
+      console.error('Error soft deleting item:', err);
       setActionStatus({
         type: 'error',
-        message: `Error deleting item: ${error.message || 'Unknown error'}`
+        message: 'Failed to soft delete item. Please try again.'
       });
     } finally {
       setActionLoading(false);
@@ -376,63 +426,51 @@ const SecurityDashboard = () => {
   };
 
   const confirmBanUser = async () => {
-    if (!userToBan) return;
+    if (!userToBan || !banReason) {
+      setActionStatus({ type: 'error', message: 'Please provide a reason for banning.' });
+      return;
+    }
     
     try {
       setActionLoading(true);
       setActionStatus({
         type: 'loading',
-        message: 'Banning user...'
+        message: `Banning ${userToBan.name || 'user'}...`
       });
       
-      // Call the API to ban the user
       await securityApi.banUser(userToBan.id, banReason);
       
+      setUsers(prevUsers => 
+        prevUsers.map(user => 
+          user.id === userToBan.id 
+            ? { ...user, is_deleted: true, ban_reason: banReason } 
+            : user
+        )
+      );
+
       setActionStatus({
         type: 'success',
-        message: 'User banned successfully'
+        message: `${userToBan.name || 'User'} banned successfully`
       });
       
-      // Close the modal and reset values
       setShowBanModal(false);
       setUserToBan(null);
       setBanReason('');
-      
-      // Refresh data to update the UI
+
       refreshData();
-      
-      // Clear status after a delay
       setTimeout(() => {
         setActionStatus(null);
-      }, 5000);
-    } catch (error) {
-      console.error('Error banning user:', error);
+      }, 3000);
+    } catch (err) {
+      console.error('Error banning user:', err);
       setActionStatus({
         type: 'error',
-        message: `Error banning user: ${error.message || 'Unknown error'}`
+        message: 'Failed to ban user. Please try again.'
       });
     } finally {
       setActionLoading(false);
     }
   };
-
-  const filteredApprovedItems = searchQuery
-    ? approvedItems.filter(item => 
-        item.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        item.description?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        item.category?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        item.reporter_name?.toLowerCase().includes(searchQuery.toLowerCase())
-      )
-    : approvedItems;
-
-  const filteredRequestedItems = searchQuery
-    ? requestedItems.filter(item => 
-        item.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        item.description?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        item.category?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        item.reporter_name?.toLowerCase().includes(searchQuery.toLowerCase())
-      )
-    : requestedItems;
 
   const formatDate = (dateStr) => {
     if (!dateStr) return 'N/A';
@@ -440,813 +478,381 @@ const SecurityDashboard = () => {
     return date.toLocaleDateString() + ' ' + date.toLocaleTimeString();
   };
 
-  // Function to get dashboard statistics
-  const fetchStats = useCallback(() => {
-    const totalItems = pendingItems.length + approvedItems.length + requestedItems.length;
-    
-    setStats({
-      totalItems,
-      pendingItems: pendingItems.length,
-      requestedItems: requestedItems.length,
-      totalUsers: users.length
-    });
-  }, [pendingItems, approvedItems, requestedItems, users]);
+  // Render a table of items
+  const renderItemsTable = (itemsToRender, showActions = true) => (
+    <div className="table-responsive">
+      <table className="table security-table">
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Name</th>
+            <th>Category</th>
+            <th>Status</th>
+            <th>Approved</th>
+            <th>Date</th>
+            <th>Reported By</th>
+            {showActions && <th>Actions</th>}
+          </tr>
+        </thead>
+        <tbody>
+          {itemsToRender.length > 0 ? (
+            itemsToRender.map(item => (
+              <tr key={item.id}>
+                <td>{item.id}</td>
+                <td>{item.name}</td>
+                <td>{item.category}</td>
+                <td><Badge bg={item.status === 'lost' ? 'danger' : 'success'}>{item.status}</Badge></td>
+                <td>
+                  {item.is_approved !== undefined ? (
+                    <Badge bg={item.is_approved ? 'success' : 'warning'}>
+                      {item.is_approved ? 'Yes' : 'No'}
+                    </Badge>
+                  ) : (
+                    'N/A'
+                  )}
+                </td>
+                <td>{formatDate(item.date_found || item.date_lost)}</td>
+                <td>{item.reporter_name || 'N/A'}</td>
+                {showActions && (
+                  <td>
+                    <ButtonGroup aria-label="Item Actions">
+                      <Button variant="info" size="sm" onClick={() => navigate(`/items/${item.id}`)}>
+                        View
+                      </Button>
+                      {activeKey === 'pendingItems' && (
+                        <>
+                          <Button variant="success" size="sm" onClick={() => handleApproveItem(item.id)} disabled={actionLoading}> 
+                            Approve
+                          </Button>
+                          <Button variant="warning" size="sm" onClick={() => handleRejectItem(item.id)} disabled={actionLoading}>
+                            Reject
+                          </Button>
+                        </>
+                      )}
+                      {activeKey === 'requestedItems' && (
+                        <>
+                          <Button variant="success" size="sm" onClick={() => handleAcceptRequest(item.id)} disabled={actionLoading}> 
+                            Accept
+                          </Button>
+                          <Button variant="warning" size="sm" onClick={() => handleRejectRequest(item.id)} disabled={actionLoading}>
+                            Reject
+                          </Button>
+                        </>
+                      )}
+                      <Button variant="danger" size="sm" onClick={() => handleSoftDelete(item)} disabled={actionLoading}> 
+                        Delete
+                      </Button>
+                    </ButtonGroup>
+                  </td>
+                )}
+              </tr>
+            ))
+          ) : (
+            <tr>
+              <td colSpan={showActions ? "8" : "7"} className="text-center">
+                <p>No items to display.</p>
+              </td>
+            </tr>
+          )}
+        </tbody>
+      </table>
+    </div>
+  );
 
-  // Add useEffect to update stats when data changes
-  useEffect(() => {
-    fetchStats();
-  }, [fetchStats, pendingItems, approvedItems, requestedItems, users]);
-
-  // Filtered users based on search query
-  const filteredUsers = userSearchQuery
-    ? users.filter(user => 
-        user.name?.toLowerCase().includes(userSearchQuery.toLowerCase()) ||
-        user.email?.toLowerCase().includes(userSearchQuery.toLowerCase()) ||
-        user.role?.toLowerCase().includes(userSearchQuery.toLowerCase())
-      )
-    : users;
-
-  // Render users table
   const renderUsersTab = () => (
-    <Card className="shadow-sm">
-      <Card.Header className="bg-light">
-        <div className="d-flex justify-content-between align-items-center">
-          <h5 className="mb-0">
-            <i className="fas fa-users me-2"></i>
-            User Management
-          </h5>
-          <Form.Group>
-            <InputGroup>
-              <Form.Control
-                type="text"
-                placeholder="Search users..."
-                value={userSearchQuery}
-                onChange={(e) => setUserSearchQuery(e.target.value)}
-              />
-              <Button 
-                variant="outline-secondary"
-                onClick={() => setUserSearchQuery('')}
-              >
-                <i className="fas fa-times"></i>
-              </Button>
-            </InputGroup>
-          </Form.Group>
-        </div>
-      </Card.Header>
-      <Card.Body className="p-0">
+    <div className="security-users-section">
+      <h2 className="page-title">User Overview</h2>
+      <p className="section-description">View registered users and their roles. Security staff can ban users.</p>
+      {actionStatus && (
+        <Alert variant={actionStatus.type === 'success' ? 'success' : 'danger'} className="mb-3">
+          {actionStatus.message}
+        </Alert>
+      )}
+      
+      <div className="filter-and-search-bar mb-3">
+        <InputGroup>
+          <Form.Control
+            placeholder="Search users by name or email..."
+            value={userSearchQuery}
+            onChange={(e) => setUserSearchQuery(e.target.value)}
+          />
+          <Button variant="outline-secondary" onClick={() => setRefreshTrigger(prev => prev + 1)}>
+            <i className="fas fa-search"></i> Search
+          </Button>
+        </InputGroup>
+      </div>
+
+      {loading ? (
+        <Spinner animation="border" role="status">
+          <span className="visually-hidden">Loading users...</span>
+        </Spinner>
+      ) : (
         <div className="table-responsive">
-          <Table hover bordered className="mb-0">
-            <thead className="bg-light">
+          <table className="table security-table">
+            <thead>
               <tr>
+                <th>ID</th>
                 <th>Name</th>
                 <th>Email</th>
                 <th>Role</th>
-                <th>Faculty/School</th>
-                <th>Registration Date</th>
+                <th>Status</th>
+                <th>Ban Reason</th>
                 <th>Actions</th>
               </tr>
             </thead>
             <tbody>
-              {filteredUsers.length === 0 ? (
+              {users.length > 0 ? (
+                users
+                  .filter(user => 
+                    user.name?.toLowerCase().includes(userSearchQuery.toLowerCase()) ||
+                    user.email?.toLowerCase().includes(userSearchQuery.toLowerCase())
+                  )
+                  .map(user => (
+                    <tr key={user.id}>
+                      <td>{user.id}</td>
+                      <td>{user.name}</td>
+                      <td>{user.email}</td>
+                      <td><Badge bg={user.role === 'admin' ? 'danger' : (user.role === 'security' ? 'primary' : 'success')}>{user.role}</Badge></td>
+                      <td><Badge bg={user.is_deleted ? 'secondary' : 'success'}>{user.is_deleted ? 'Banned' : 'Active'}</Badge></td>
+                      <td>{user.ban_reason || 'N/A'}</td>
+                      <td>
+                        {currentUser.role === 'security' || currentUser.role === 'admin' ? (
+                          <ButtonGroup aria-label="User Actions">
+                            {user.is_deleted ? (
+                              <Button variant="success" size="sm" onClick={() => handleUnbanUser(user.id)} disabled={actionLoading}>
+                                {actionLoading ? <Spinner animation="border" size="sm" /> : 'Unban'}
+                              </Button>
+                            ) : (
+                              <Button variant="warning" size="sm" onClick={() => handleBanUser(user.id, user.name)} disabled={actionLoading}>
+                                {actionLoading ? <Spinner animation="border" size="sm" /> : 'Ban'}
+                              </Button>
+                            )}
+                          </ButtonGroup>
+                        ) : (
+                          <Badge bg="info">No Actions</Badge>
+                        )}
+                      </td>
+                    </tr>
+                  ))
+              ) : (
                 <tr>
-                  <td colSpan="6" className="text-center py-4">
-                    <i className="fas fa-users fa-2x mb-3 text-muted"></i>
-                    <p>No users found</p>
+                  <td colSpan="7" className="text-center">
+                    <p>No users found.</p>
                   </td>
                 </tr>
-              ) : (
-                filteredUsers.map(user => (
-                  <tr key={user.id}>
-                    <td>
-                      <div className="d-flex align-items-center">
-                        <div className="user-avatar me-2">
-                          <div className={`avatar-circle bg-${
-                            user.role === 'admin' ? 'danger' :
-                            user.role === 'security' ? 'warning' : 'primary'
-                          }`}>
-                            {user.name.charAt(0).toUpperCase()}
-                          </div>
-                        </div>
-                        <div>
-                          <p className="mb-0 fw-medium">{user.name}</p>
-                          {user.admission_number && (
-                            <small className="text-muted">{user.admission_number}</small>
-                          )}
-                        </div>
-                      </div>
-                    </td>
-                    <td>{user.email}</td>
-                    <td>
-                      <Badge bg={
-                        user.role === 'admin' ? 'danger' :
-                        user.role === 'security' ? 'warning' : 'primary'
-                      }>
-                        {user.role}
-                      </Badge>
-                    </td>
-                    <td>{user.faculty_school || 'N/A'}</td>
-                    <td>{formatDate(user.created_at)}</td>
-                    <td>
-                      <div className="d-flex">
-                        <Button 
-                          variant="outline-info" 
-                          size="sm" 
-                          className="me-2"
-                          title="View User Details"
-                        >
-                          <i className="fas fa-eye"></i>
-                        </Button>
-                        
-                        {user.role !== 'admin' && user.role !== 'security' && (
-                          <Button 
-                            variant="outline-danger" 
-                            size="sm"
-                            onClick={() => handleBanUser(user.id, user.name)}
-                            title="Ban User"
-                          >
-                            <i className="fas fa-user-slash"></i>
-                          </Button>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                ))
               )}
             </tbody>
-          </Table>
+          </table>
         </div>
-      </Card.Body>
-    </Card>
-  );
-
-  // Dashboard content
-  const renderDashboard = () => (
-    <Row>
-      <Col>
-        <Row className="mb-4">
-          <Col md={3}>
-            <Card className="shadow-sm h-100">
-              <Card.Body className="text-center">
-                <div className="d-flex align-items-center justify-content-center mb-3">
-                  <i className="fas fa-clipboard-list fa-3x text-primary"></i>
-                </div>
-                <h2 className="mb-0">{stats.totalItems}</h2>
-                <p className="text-muted mb-0">Total Items</p>
-              </Card.Body>
-            </Card>
-          </Col>
-          <Col md={3}>
-            <Card className="shadow-sm h-100">
-              <Card.Body className="text-center">
-                <div className="d-flex align-items-center justify-content-center mb-3">
-                  <i className="fas fa-clock fa-3x text-warning"></i>
-                </div>
-                <h2 className="mb-0">{stats.pendingItems}</h2>
-                <p className="text-muted mb-0">Pending Approval</p>
-              </Card.Body>
-            </Card>
-          </Col>
-          <Col md={3}>
-            <Card className="shadow-sm h-100">
-              <Card.Body className="text-center">
-                <div className="d-flex align-items-center justify-content-center mb-3">
-                  <i className="fas fa-hand-paper fa-3x text-danger"></i>
-                </div>
-                <h2 className="mb-0">{stats.requestedItems}</h2>
-                <p className="text-muted mb-0">Requested Items</p>
-              </Card.Body>
-            </Card>
-          </Col>
-          <Col md={3}>
-            <Card className="shadow-sm h-100">
-              <Card.Body className="text-center">
-                <div className="d-flex align-items-center justify-content-center mb-3">
-                  <i className="fas fa-users fa-3x text-success"></i>
-                </div>
-                <h2 className="mb-0">{stats.totalUsers}</h2>
-                <p className="text-muted mb-0">Total Users</p>
-              </Card.Body>
-            </Card>
-          </Col>
-        </Row>
-
-        {requestedItems.length > 0 && (
-          <Row className="mb-4">
-            <Col>
-              <Card className="shadow-sm border-warning">
-                <Card.Header className="bg-warning text-white">
-                  <i className="fas fa-exclamation-triangle me-2"></i>
-                  Attention Required
-                </Card.Header>
-                <Card.Body>
-                  <p className="mb-3">
-                    There {requestedItems.length === 1 ? 'is' : 'are'} <strong>{requestedItems.length}</strong> item{requestedItems.length === 1 ? '' : 's'} waiting to be returned to {requestedItems.length === 1 ? 'its' : 'their'} owner.
-                  </p>
-                  <Button 
-                    variant="warning" 
-                    onClick={() => setActiveKey('requested')}
-                  >
-                    <i className="fas fa-eye me-2"></i>
-                    View Requested Items
-                  </Button>
-                </Card.Body>
-              </Card>
-            </Col>
-          </Row>
-        )}
-
-        {pendingItems.length > 0 && (
-          <Row className="mb-4">
-            <Col>
-              <Card className="shadow-sm border-info">
-                <Card.Header className="bg-info text-white">
-                  <i className="fas fa-clipboard-check me-2"></i>
-                  Items Needing Approval
-                </Card.Header>
-                <Card.Body>
-                  <p className="mb-3">
-                    There {pendingItems.length === 1 ? 'is' : 'are'} <strong>{pendingItems.length}</strong> item{pendingItems.length === 1 ? '' : 's'} waiting for your approval.
-                  </p>
-                  <Button 
-                    variant="info" 
-                    onClick={() => setActiveKey('pending')}
-                  >
-                    <i className="fas fa-eye me-2"></i>
-                    Review Pending Items
-                  </Button>
-                </Card.Body>
-              </Card>
-            </Col>
-          </Row>
-        )}
-
-        <Row>
-          <Col>
-            <Card className="shadow-sm">
-              <Card.Header className="bg-light">
-                <h5 className="mb-0">Recent Activity</h5>
-              </Card.Header>
-              <Card.Body className="p-0">
-                <div className="list-group list-group-flush">
-                  {notifications.length === 0 ? (
-                    <div className="text-center py-4">
-                      <i className="fas fa-bell-slash fa-2x mb-3 text-muted"></i>
-                      <p>No recent notifications</p>
-                    </div>
-                  ) : (
-                    notifications.slice(0, 5).map(notification => (
-                      <div key={notification.id} className="list-group-item py-3">
-                        <div className="d-flex align-items-center">
-                          <div className="me-3">
-                            <span className={`notification-icon bg-${
-                              notification.type === 'approval' ? 'success' : 
-                              notification.type === 'request' ? 'warning' :
-                              notification.type === 'match' ? 'info' : 'secondary'
-                            }`}>
-                              <i className={`fas ${
-                                notification.type === 'approval' ? 'fa-check' : 
-                                notification.type === 'request' ? 'fa-hand-paper' :
-                                notification.type === 'match' ? 'fa-exchange-alt' : 'fa-bell'
-                              }`}></i>
-                            </span>
-                          </div>
-                          <div>
-                            <p className="mb-1">{notification.message}</p>
-                            <small className="text-muted">{formatDate(notification.created_at)}</small>
-                          </div>
-                        </div>
-                      </div>
-                    ))
-                  )}
-                </div>
-              </Card.Body>
-              {notifications.length > 5 && (
-                <Card.Footer className="bg-white text-center">
-                  <Button 
-                    variant="link" 
-                    className="text-decoration-none"
-                    onClick={() => setActiveKey('notifications')}
-                  >
-                    View All Notifications
-                  </Button>
-                </Card.Footer>
-              )}
-            </Card>
-          </Col>
-        </Row>
-      </Col>
-    </Row>
-  );
-
-  if (loading) {
-    return (
-      <Container className="mt-5 text-center">
-        <Spinner animation="border" variant="primary" />
-        <p className="mt-3">Loading security dashboard...</p>
-      </Container>
-    );
-  }
-
-  return (
-    <Container fluid className="py-4">
-      {/* Header Section */}
-      <Row className="mb-4">
-        <Col>
-          <Card className="shadow-sm">
-            <Card.Body>
-              <div className="d-flex justify-content-between align-items-center">
-                <div className="d-flex align-items-center">
-                  <div className="me-3">
-                    <div className="security-badge">
-                      <i className="fas fa-shield-alt"></i>
-                    </div>
-                  </div>
-                  <div>
-                    <h1 className="mb-0">Security Dashboard</h1>
-                    <p className="text-muted mb-0">Manage lost and found items and users</p>
-                  </div>
-                </div>
-                <div>
-                  <Badge bg="warning" className="me-2 p-2">
-                    <i className="fas fa-user-shield me-1"></i>
-                    Security Access
-                  </Badge>
-                  <Button 
-                    variant="outline-primary" 
-                    onClick={refreshData}
-                    disabled={actionLoading}
-                  >
-                    <i className="fas fa-sync-alt me-1"></i> Refresh
-                  </Button>
-                </div>
-              </div>
-            </Card.Body>
-          </Card>
-        </Col>
-      </Row>
-
-      {/* Action Status */}
-      {actionStatus && (
-        <Row className="mb-4">
-          <Col>
-            <Alert 
-              variant={
-                actionStatus.type === 'error' ? 'danger' : 
-                actionStatus.type === 'success' ? 'success' : 
-                actionStatus.type === 'loading' ? 'info' : 'info'
-              }
-              dismissible={actionStatus.type !== 'loading'}
-              onClose={() => setActionStatus(null)}
-            >
-              {actionStatus.type === 'loading' && (
-                <Spinner animation="border" size="sm" className="me-2" />
-              )}
-              {actionStatus.message}
-            </Alert>
-          </Col>
-        </Row>
       )}
 
-      {/* Navigation Tabs */}
-      <Row className="mb-4">
-        <Col>
-          <Card className="shadow-sm">
-            <Card.Body className="p-0">
-              <Tabs
-                activeKey={activeKey}
-                onSelect={(k) => setActiveKey(k)}
-                className="mb-0"
-                fill
-              >
-                <Tab 
-                  eventKey="dashboard" 
-                  title={
-                    <span><i className="fas fa-tachometer-alt me-2"></i>Dashboard</span>
-                  }
-                />
-                <Tab 
-                  eventKey="requested" 
-                  title={
-                    <span>
-                      <i className="fas fa-hand-paper me-2"></i>
-                      Requested Items
-                      {requestedItems.length > 0 && (
-                        <Badge bg="warning" className="ms-2">{requestedItems.length}</Badge>
-                      )}
-                    </span>
-                  }
-                />
-                <Tab 
-                  eventKey="pending" 
-                  title={
-                    <span>
-                      <i className="fas fa-clock me-2"></i>
-                      Pending Approval
-                      {pendingItems.length > 0 && (
-                        <Badge bg="secondary" className="ms-2">{pendingItems.length}</Badge>
-                      )}
-                    </span>
-                  }
-                />
-                <Tab 
-                  eventKey="found" 
-                  title={
-                    <span>
-                      <i className="fas fa-list me-2"></i>
-                      Found Items
-                    </span>
-                  }
-                />
-                <Tab 
-                  eventKey="users" 
-                  title={
-                    <span>
-                      <i className="fas fa-users me-2"></i>
-                      Users
-                    </span>
-                  }
-                />
-              </Tabs>
-            </Card.Body>
-          </Card>
-        </Col>
-      </Row>
-
-      {/* Main Content */}
-      <Row>
-        <Col>
-          {activeKey === 'dashboard' && renderDashboard()}
-          
-          {activeKey === 'found' && (
-            <Card className="shadow-sm">
-              <Card.Header className="bg-light">
-                <div className="d-flex justify-content-between align-items-center">
-                  <h5 className="mb-0">
-                    <i className="fas fa-list me-2"></i>
-                    Found Items
-                  </h5>
-                  <Form.Group>
-                    <Form.Control
-                      type="text"
-                      placeholder="Search items..."
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                      style={{ width: '250px' }}
-                    />
-                  </Form.Group>
-                </div>
-              </Card.Header>
-              <Card.Body className="p-0">
-                <div className="table-responsive">
-                  <Table hover bordered className="mb-0">
-                    <thead className="bg-light">
-                      <tr>
-                        <th style={{ width: '10%' }}>Image</th>
-                        <th style={{ width: '20%' }}>Item Name</th>
-                        <th style={{ width: '15%' }}>Category</th>
-                        <th style={{ width: '15%' }}>Reported By</th>
-                        <th style={{ width: '15%' }}>Date Reported</th>
-                        <th style={{ width: '10%' }}>Status</th>
-                        <th style={{ width: '15%' }}>Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {filteredApprovedItems.length === 0 ? (
-                        <tr>
-                          <td colSpan="7" className="text-center py-4">
-                            <i className="fas fa-inbox fa-2x mb-3 text-muted"></i>
-                            <p>No approved found items available</p>
-                          </td>
-                        </tr>
-                      ) : (
-                        filteredApprovedItems.map(item => (
-                          <tr key={item.id}>
-                            <td className="text-center">
-                              {item.image ? (
-                                <img 
-                                  src={`${API_BASE_URL}/uploads/${item.image}`}
-                                  alt={item.title}
-                                  style={{ width: '50px', height: '50px', objectFit: 'cover' }}
-                                  onError={(e) => {
-                                    e.target.onerror = null;
-                                    e.target.src = fallbackImageSrc;
-                                  }}
-                                  className="rounded"
-                                />
-                              ) : (
-                                <div className="bg-light d-flex justify-content-center align-items-center rounded" style={{ width: '50px', height: '50px' }}>
-                                  <i className="fas fa-image text-muted"></i>
-                                </div>
-                              )}
-                            </td>
-                            <td>{item.title}</td>
-                            <td>
-                              <Badge bg="light" text="dark">
-                                {item.category || 'Uncategorized'}
-                              </Badge>
-                            </td>
-                            <td>{item.reporter_name || 'Anonymous'}</td>
-                            <td>{formatDate(item.created_at)}</td>
-                            <td>
-                              <Badge bg="success">Found</Badge>
-                            </td>
-                            <td>
-                              <Button 
-                                variant="outline-danger" 
-                                size="sm" 
-                                className="me-1"
-                                onClick={() => handleSoftDelete(item)}
-                              >
-                                <i className="fas fa-trash"></i>
-                              </Button>
-                              <Button 
-                                variant="outline-primary" 
-                                size="sm"
-                                as={Link}
-                                to={`/items/${item.id}`}
-                                className="me-1"
-                              >
-                                <i className="fas fa-eye"></i>
-                              </Button>
-                              {item.user_id && (
-                                <Button 
-                                  variant="outline-dark" 
-                                  size="sm"
-                                  onClick={() => handleBanUser(item.user_id, item.reporter_name)}
-                                  title="Ban User"
-                                >
-                                  <i className="fas fa-user-slash"></i>
-                                </Button>
-                              )}
-                            </td>
-                          </tr>
-                        ))
-                      )}
-                    </tbody>
-                  </Table>
-                </div>
-              </Card.Body>
-            </Card>
-          )}
-          
-          {activeKey === 'pending' && (
-            <Card className="shadow-sm">
-              <Card.Header className="bg-light">
-                <div className="d-flex justify-content-between align-items-center">
-                  <h5 className="mb-0">
-                    <i className="fas fa-clock me-2"></i>
-                    Pending Approval
-                  </h5>
-                  <Form.Group>
-                    <Form.Control
-                      type="text"
-                      placeholder="Search items..."
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                      style={{ width: '250px' }}
-                    />
-                  </Form.Group>
-                </div>
-              </Card.Header>
-              <Card.Body className="p-0">
-                <div className="table-responsive">
-                  <Table hover bordered className="mb-0">
-                    <thead className="bg-light">
-                      <tr>
-                        <th style={{ width: '10%' }}>Image</th>
-                        <th style={{ width: '20%' }}>Item Name</th>
-                        <th style={{ width: '15%' }}>Category</th>
-                        <th style={{ width: '15%' }}>Reported By</th>
-                        <th style={{ width: '15%' }}>Date Reported</th>
-                        <th style={{ width: '10%' }}>Status</th>
-                        <th style={{ width: '15%' }}>Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {pendingItems.length === 0 ? (
-                        <tr>
-                          <td colSpan="6" className="text-center py-4">
-                            <i className="fas fa-inbox fa-2x mb-3 text-muted"></i>
-                            <p>No pending items requiring approval</p>
-                          </td>
-                        </tr>
-                      ) : (
-                        pendingItems.map(item => (
-                          <tr key={item.id}>
-                            <td className="text-center">
-                              {item.image ? (
-                                <img 
-                                  src={`${API_BASE_URL}/uploads/${item.image}`}
-                                  alt={item.title}
-                                  style={{ width: '50px', height: '50px', objectFit: 'cover' }}
-                                  onError={(e) => {
-                                    e.target.onerror = null;
-                                    e.target.src = fallbackImageSrc;
-                                  }}
-                                  className="rounded"
-                                />
-                              ) : (
-                                <div className="bg-light d-flex justify-content-center align-items-center rounded" style={{ width: '50px', height: '50px' }}>
-                                  <i className="fas fa-image text-muted"></i>
-                                </div>
-                              )}
-                            </td>
-                            <td>{item.title}</td>
-                            <td>
-                              <Badge bg="light" text="dark">
-                                {item.category || 'Uncategorized'}
-                              </Badge>
-                            </td>
-                            <td>{item.reporter_name || 'Anonymous'}</td>
-                            <td>{formatDate(item.created_at)}</td>
-                            <td>
-                              <Button 
-                                variant="success" 
-                                size="sm" 
-                                className="me-2"
-                                onClick={() => handleApproveItem(item.id)}
-                                disabled={actionLoading}
-                              >
-                                <i className="fas fa-check me-1"></i> Approve
-                              </Button>
-                              <Button 
-                                variant="danger" 
-                                size="sm" 
-                                className="me-2"
-                                onClick={() => handleRejectItem(item.id)}
-                                disabled={actionLoading}
-                              >
-                                <i className="fas fa-times me-1"></i> Reject
-                              </Button>
-                              <Button 
-                                variant="outline-primary" 
-                                size="sm"
-                                as={Link}
-                                to={`/items/${item.id}`}
-                              >
-                                <i className="fas fa-eye"></i>
-                              </Button>
-                            </td>
-                          </tr>
-                        ))
-                      )}
-                    </tbody>
-                  </Table>
-                </div>
-              </Card.Body>
-            </Card>
-          )}
-          
-          {activeKey === 'requested' && (
-            <Card className="shadow-sm">
-              <Card.Header className="bg-light">
-                <div className="d-flex justify-content-between align-items-center">
-                  <h5 className="mb-0">
-                    <i className="fas fa-hand-paper me-2"></i>
-                    Requested Items
-                  </h5>
-                  <Form.Group>
-                    <Form.Control
-                      type="text"
-                      placeholder="Search items..."
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                      style={{ width: '250px' }}
-                    />
-                  </Form.Group>
-                </div>
-              </Card.Header>
-              <Card.Body className="p-0">
-                <div className="table-responsive">
-                  <Table hover bordered className="mb-0">
-                    <thead className="bg-light">
-                      <tr>
-                        <th style={{ width: '10%' }}>Image</th>
-                        <th style={{ width: '20%' }}>Item Name</th>
-                        <th style={{ width: '15%' }}>Category</th>
-                        <th style={{ width: '15%' }}>Reported By</th>
-                        <th style={{ width: '15%' }}>Date Reported</th>
-                        <th style={{ width: '10%' }}>Status</th>
-                        <th style={{ width: '15%' }}>Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {filteredRequestedItems.length === 0 ? (
-                        <tr>
-                          <td colSpan="6" className="text-center py-4">
-                            <i className="fas fa-inbox fa-2x mb-3 text-muted"></i>
-                            <p>No requested items at the moment</p>
-                          </td>
-                        </tr>
-                      ) : (
-                        filteredRequestedItems.map(item => (
-                          <tr key={item.id}>
-                            <td className="text-center">
-                              {item.image ? (
-                                <img 
-                                  src={`${API_BASE_URL}/uploads/${item.image}`}
-                                  alt={item.title}
-                                  style={{ width: '50px', height: '50px', objectFit: 'cover' }}
-                                  onError={(e) => {
-                                    e.target.onerror = null;
-                                    e.target.src = fallbackImageSrc;
-                                  }}
-                                  className="rounded"
-                                />
-                              ) : (
-                                <div className="bg-light d-flex justify-content-center align-items-center rounded" style={{ width: '50px', height: '50px' }}>
-                                  <i className="fas fa-image text-muted"></i>
-                                </div>
-                              )}
-                            </td>
-                            <td>{item.title}</td>
-                            <td>
-                              <Badge bg="light" text="dark">
-                                {item.category || 'Uncategorized'}
-                              </Badge>
-                            </td>
-                            <td>{item.claimer_name || item.reporter_name || 'Unknown'}</td>
-                            <td>{formatDate(item.updated_at || item.created_at)}</td>
-                            <td>
-                              <Button 
-                                variant="success" 
-                                size="sm" 
-                                className="me-2"
-                                onClick={() => handleAcceptRequest(item.id)}
-                                disabled={actionLoading}
-                              >
-                                <i className="fas fa-check me-1"></i> Accept
-                              </Button>
-                              <Button 
-                                variant="danger" 
-                                size="sm" 
-                                className="me-2"
-                                onClick={() => handleRejectRequest(item.id)}
-                                disabled={actionLoading}
-                              >
-                                <i className="fas fa-times me-1"></i> Reject
-                              </Button>
-                              <Button 
-                                variant="outline-primary" 
-                                size="sm"
-                                as={Link}
-                                to={`/items/${item.id}`}
-                              >
-                                <i className="fas fa-eye"></i>
-                              </Button>
-                            </td>
-                          </tr>
-                        ))
-                      )}
-                    </tbody>
-                  </Table>
-                </div>
-              </Card.Body>
-            </Card>
-          )}
-          
-          {activeKey === 'users' && renderUsersTab()}
-        </Col>
-      </Row>
-
-      {/* Delete Confirmation Modal */}
-      <Modal show={showDeleteModal} onHide={() => setShowDeleteModal(false)}>
+      {/* Ban User Modal (kept as is) */}
+      <Modal show={showBanModal} onHide={() => setShowBanModal(false)} centered>
         <Modal.Header closeButton>
-          <Modal.Title>Confirm Delete</Modal.Title>
+          <Modal.Title>Ban User</Modal.Title>
         </Modal.Header>
         <Modal.Body>
-          <p>Are you sure you want to delete this item?</p>
-          <p className="text-muted small">This will hide the item from normal users but it will still be visible to security and admin staff.</p>
-          
-          {itemToDelete && (
-            <div className="d-flex align-items-center mt-3 mb-3 p-2 bg-light rounded">
-              {itemToDelete.image ? (
-                <img 
-                  src={`${API_BASE_URL}/uploads/${itemToDelete.image}`}
-                  alt={itemToDelete.title}
-                  style={{ width: '50px', height: '50px', objectFit: 'cover' }}
-                  className="rounded me-3"
-                />
+          <p>Are you sure you want to ban user <strong>{userToBan?.name || userToBan?.id}</strong>?</p>
+          <Form.Group className="mb-3">
+            <Form.Label>Reason for banning:</Form.Label>
+            <Form.Control
+              as="textarea"
+              rows={3}
+              value={banReason}
+              onChange={(e) => setBanReason(e.target.value)}
+              placeholder="e.g., Repeated policy violations, fraudulent activity"
+              required
+            />
+          </Form.Group>
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="secondary" onClick={() => setShowBanModal(false)}>
+            Cancel
+          </Button>
+          <Button variant="danger" onClick={confirmBanUser} disabled={actionLoading}>
+            {actionLoading ? <Spinner animation="border" size="sm" /> : 'Confirm Ban'}
+          </Button>
+        </Modal.Footer>
+      </Modal>
+    </div>
+  );
+
+  // Render Notifications tab content
+  const renderNotificationsTab = () => (
+    <div className="security-notifications-section">
+      <h2 className="page-title">Notifications</h2>
+      <p className="section-description">View system notifications and alerts.</p>
+      {loading ? (
+        <Spinner animation="border" role="status">
+          <span className="visually-hidden">Loading notifications...</span>
+        </Spinner>
+      ) : (
+        <div className="table-responsive">
+          <table className="table security-table">
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Type</th>
+                <th>Message</th>
+                <th>Created At</th>
+                <th>Read</th>
+              </tr>
+            </thead>
+            <tbody>
+              {notifications.length > 0 ? (
+                notifications.map(notification => (
+                  <tr key={notification.id}>
+                    <td>{notification.id}</td>
+                    <td><Badge bg={notification.type === 'info' ? 'info' : notification.type === 'warning' ? 'warning' : 'danger'}>{notification.type}</Badge></td>
+                    <td>{notification.message}</td>
+                    <td>{formatDate(notification.created_at)}</td>
+                    <td><i className={`fas ${notification.is_read ? 'fa-check-circle text-success' : 'fa-times-circle text-danger'}`}></i></td>
+                  </tr>
+                ))
               ) : (
-                <div className="bg-secondary d-flex justify-content-center align-items-center rounded me-3" style={{ width: '50px', height: '50px' }}>
-                  <i className="fas fa-image text-white"></i>
-                </div>
+                <tr>
+                  <td colSpan="5" className="text-center">
+                    <p>No notifications to display.</p>
+                  </td>
+                </tr>
               )}
-              <div>
-                <h6 className="mb-0">{itemToDelete.title}</h6>
-                <small>{itemToDelete.category}</small>
-              </div>
-            </div>
-          )}
-          
-          <Form.Group className="mt-3">
-            <Form.Label>Reason for Deletion (Optional)</Form.Label>
-            <Form.Control 
-              as="textarea" 
-              rows={3} 
-              placeholder="Enter reason for deletion"
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+
+  // Render Dashboard overview content
+  const renderDashboard = () => (
+    <div className="dashboard-stats-section">
+      <h2 className="page-title">Overview</h2>
+      <p className="section-description">Quick statistics about items and users requiring attention.</p>
+      
+      {loading ? (
+        <Spinner animation="border" role="status">
+          <span className="visually-hidden">Loading stats...</span>
+        </Spinner>
+      ) : (
+        <div className="dashboard-cards-container">
+          <div className="dashboard-card total-pending-items">
+            <div className="card-icon"><i className="fas fa-hourglass-half"></i></div>
+            <div className="card-title">Pending Approvals</div>
+            <div className="card-value">{pendingItems.length}</div>
+          </div>
+          <div className="dashboard-card total-requested-items">
+            <div className="card-icon"><i className="fas fa-hand-paper"></i></div>
+            <div className="card-title">Pending Requests</div>
+            <div className="card-value">{requestedItems.length}</div>
+          </div>
+          <div className="dashboard-card total-approved-items">
+            <div className="card-icon"><i className="fas fa-check-circle"></i></div>
+            <div className="card-title">Approved Found Items</div>
+            <div className="card-value">{approvedItems.length}</div>
+          </div>
+          <div className="dashboard-card total-users">
+            <div className="card-icon"><i className="fas fa-users"></i></div>
+            <div className="card-title">Total Users</div>
+            <div className="card-value">{users.length}</div>
+          </div>
+        </div>
+      )}
+
+      {/* Chart Placeholders */}
+      <div className="dashboard-charts-container">
+        <div className="chart-card">
+          <h3 className="chart-title">Item Approval Status</h3>
+          <p>Chart for item approval status would go here.</p>
+          {/* Example of where a chart component would be rendered */}
+          {/* <Pie data={itemApprovalData} /> */}
+        </div>
+        <div className="chart-card">
+          <h3 className="chart-title">Request Resolution</h3>
+          <p>Chart for request resolution would go here.</p>
+          {/* Example of where a chart component would be rendered */}
+          {/* <Doughnut data={requestStatusData} /> */}
+        </div>
+      </div>
+    </div>
+  );
+
+  return (
+    <div className="security-dashboard-container">
+      <div className="page-header">
+        <h1 className="page-title">Security Dashboard</h1>
+        <p className="page-description">Welcome, {currentUser?.name || 'Security Staff'}! Monitor and manage item approvals and user requests.</p>
+      </div>
+
+      {error && <Alert variant="danger" className="mb-3">{error}</Alert>}
+
+      {/* Tabs for navigation */}
+      <div className="tabs-container">
+        <div className="tabs-nav">
+          <button 
+            className={`tab ${activeKey === 'dashboard' ? 'active' : ''}`}
+            onClick={() => setActiveKey('dashboard')}
+          >
+            Dashboard
+          </button>
+          <button 
+            className={`tab ${activeKey === 'pendingItems' ? 'active' : ''}`}
+            onClick={() => setActiveKey('pendingItems')}
+          >
+            Pending Items ({pendingItems.length})
+          </button>
+          <button 
+            className={`tab ${activeKey === 'approvedItems' ? 'active' : ''}`}
+            onClick={() => setActiveKey('approvedItems')}
+          >
+            Approved Found Items
+          </button>
+          <button 
+            className={`tab ${activeKey === 'requestedItems' ? 'active' : ''}`}
+            onClick={() => setActiveKey('requestedItems')}
+          >
+            Item Requests ({requestedItems.length})
+          </button>
+          <button 
+            className={`tab ${activeKey === 'users' ? 'active' : ''}`}
+            onClick={() => setActiveKey('users')}
+          >
+            Users
+          </button>
+          <button 
+            className={`tab ${activeKey === 'notifications' ? 'active' : ''}`}
+            onClick={() => setActiveKey('notifications')}
+          >
+            Notifications
+          </button>
+        </div>
+
+        <div className="tab-content">
+          {activeKey === 'dashboard' && renderDashboard()}\n          {activeKey === 'pendingItems' && renderItemsTable(pendingItems)}
+          {activeKey === 'approvedItems' && renderItemsTable(approvedItems, false)}
+          {activeKey === 'requestedItems' && renderItemsTable(requestedItems)}
+          {activeKey === 'users' && renderUsersTab()}
+          {activeKey === 'notifications' && renderNotificationsTab()}
+        </div>
+      </div>
+      
+      {/* Modals for delete, ban, reject */}
+      {/* Delete Item Modal (kept as is) */}
+      <Modal show={showDeleteModal} onHide={() => setShowDeleteModal(false)} centered>
+        <Modal.Header closeButton>
+          <Modal.Title>Soft Delete Item</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          <p>Are you sure you want to soft delete item <strong>{itemToDelete?.name || itemToDelete?.id}</strong>?</p>
+          <p className="text-danger">This item will be hidden from public view but can be restored by an administrator.</p>
+          <Form.Group className="mb-3">
+            <Form.Label>Reason for soft deletion:</Form.Label>
+            <Form.Control
+              as="textarea"
+              rows={3}
               value={deleteReason}
               onChange={(e) => setDeleteReason(e.target.value)}
+              placeholder="e.g., Inappropriate content, duplicate entry, resolved externally"
+              required
             />
           </Form.Group>
         </Modal.Body>
@@ -1254,169 +860,70 @@ const SecurityDashboard = () => {
           <Button variant="secondary" onClick={() => setShowDeleteModal(false)}>
             Cancel
           </Button>
-          <Button 
-            variant="danger" 
-            onClick={confirmSoftDelete}
-            disabled={actionLoading}
-          >
-            {actionLoading ? (
-              <>
-                <Spinner as="span" animation="border" size="sm" role="status" aria-hidden="true" className="me-2" />
-                Processing...
-              </>
-            ) : (
-              'Delete Item'
-            )}
+          <Button variant="danger" onClick={confirmSoftDelete} disabled={actionLoading}>
+            {actionLoading ? <Spinner animation="border" size="sm" /> : 'Confirm Soft Delete'}
           </Button>
         </Modal.Footer>
       </Modal>
 
-      {/* Ban User Modal */}
-      <Modal show={showBanModal} onHide={() => setShowBanModal(false)}>
+      {/* Ban User Modal (kept as is) */}
+      <Modal show={showBanModal} onHide={() => setShowBanModal(false)} centered>
         <Modal.Header closeButton>
-          <Modal.Title>Confirm Ban User</Modal.Title>
+          <Modal.Title>Ban User</Modal.Title>
         </Modal.Header>
         <Modal.Body>
-          <div className="alert alert-danger">
-            <i className="fas fa-exclamation-triangle me-2"></i>
-            This action will prevent the user from logging into the system.
-          </div>
-          
-          {userToBan && (
-            <div className="d-flex align-items-center mt-3 mb-3 p-3 bg-light rounded">
-              <div className="bg-dark text-white d-flex justify-content-center align-items-center rounded-circle me-3" style={{ width: '50px', height: '50px' }}>
-                <i className="fas fa-user"></i>
-              </div>
-              <div>
-                <h6 className="mb-0">{userToBan.name}</h6>
-                <small>{userToBan.email}</small>
-              </div>
-            </div>
-          )}
-          
-          <Form.Group className="mt-3">
-            <Form.Label>Reason for Banning <span className="text-danger">*</span></Form.Label>
-            <Form.Control 
-              as="textarea" 
-              rows={3} 
-              placeholder="Enter reason for banning (required)"
+          <p>Are you sure you want to ban user <strong>{userToBan?.name || userToBan?.id}</strong>?</p>
+          <Form.Group className="mb-3">
+            <Form.Label>Reason for banning:</Form.Label>
+            <Form.Control
+              as="textarea"
+              rows={3}
               value={banReason}
               onChange={(e) => setBanReason(e.target.value)}
+              placeholder="e.g., Repeated policy violations, fraudulent activity"
               required
             />
-            <Form.Text className="text-muted">
-              This information will be logged for administrative purposes.
-            </Form.Text>
           </Form.Group>
         </Modal.Body>
         <Modal.Footer>
           <Button variant="secondary" onClick={() => setShowBanModal(false)}>
             Cancel
           </Button>
-          <Button 
-            variant="danger" 
-            onClick={confirmBanUser}
-            disabled={actionLoading || !banReason.trim()}
-          >
-            {actionLoading ? (
-              <>
-                <Spinner as="span" animation="border" size="sm" role="status" aria-hidden="true" className="me-2" />
-                Processing...
-              </>
-            ) : (
-              <>
-                <i className="fas fa-user-slash me-2"></i>
-                Ban User
-              </>
-            )}
+          <Button variant="danger" onClick={confirmBanUser} disabled={actionLoading}>
+            {actionLoading ? <Spinner animation="border" size="sm" /> : 'Confirm Ban'}
           </Button>
         </Modal.Footer>
       </Modal>
 
-      {/* Reject Item Modal */}
-      <Modal show={showRejectModal} onHide={() => setShowRejectModal(false)}>
+      {/* Reject Item Modal (kept as is) */}
+      <Modal show={showRejectModal} onHide={() => setShowRejectModal(false)} centered>
         <Modal.Header closeButton>
-          <Modal.Title>Confirm Rejection</Modal.Title>
+          <Modal.Title>Reject Item Approval</Modal.Title>
         </Modal.Header>
         <Modal.Body>
-          <p>Are you sure you want to reject this item?</p>
-          <p className="text-muted small">This action cannot be undone.</p>
-          
-          <Form.Group className="mt-3">
-            <Form.Label>Reason for Rejection <span className="text-danger">*</span></Form.Label>
-            <Form.Control 
-              as="textarea" 
-              rows={3} 
-              placeholder="Enter reason for rejection (required)"
+          <p>Are you sure you want to reject the approval for item <strong>{itemToReject}</strong>?</p>
+          <Form.Group className="mb-3">
+            <Form.Label>Reason for rejection:</Form.Label>
+            <Form.Control
+              as="textarea"
+              rows={3}
               value={rejectReason}
               onChange={(e) => setRejectReason(e.target.value)}
+              placeholder="e.g., Insufficient details, fake entry, already claimed"
               required
             />
-            <Form.Text className="text-muted">
-              This information will be sent to the user who reported the item.
-            </Form.Text>
           </Form.Group>
         </Modal.Body>
         <Modal.Footer>
           <Button variant="secondary" onClick={() => setShowRejectModal(false)}>
             Cancel
           </Button>
-          <Button 
-            variant="danger" 
-            onClick={confirmRejectItem}
-            disabled={actionLoading || !rejectReason.trim()}
-          >
-            {actionLoading ? (
-              <>
-                <Spinner as="span" animation="border" size="sm" role="status" aria-hidden="true" className="me-2" />
-                Processing...
-              </>
-            ) : (
-              <>
-                <i className="fas fa-times me-2"></i>
-                Reject Item
-              </>
-            )}
+          <Button variant="danger" onClick={confirmRejectItem} disabled={actionLoading}>
+            {actionLoading ? <Spinner animation="border" size="sm" /> : 'Confirm Reject'}
           </Button>
         </Modal.Footer>
       </Modal>
-
-      {/* Custom CSS */}
-      <style>{`
-        .avatar-circle {
-          width: 36px;
-          height: 36px;
-          border-radius: 50%;
-          display: flex;
-          justify-content: center;
-          align-items: center;
-          color: white;
-          font-weight: bold;
-        }
-        
-        .security-badge {
-          width: 48px;
-          height: 48px;
-          border-radius: 50%;
-          background-color: #f8c100;
-          display: flex;
-          justify-content: center;
-          align-items: center;
-          color: white;
-          font-size: 20px;
-        }
-        
-        .notification-icon {
-          width: 40px;
-          height: 40px;
-          border-radius: 50%;
-          display: flex;
-          justify-content: center;
-          align-items: center;
-          color: white;
-        }
-      `}</style>
-    </Container>
+    </div>
   );
 };
 
