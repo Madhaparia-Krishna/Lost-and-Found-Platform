@@ -1,7 +1,7 @@
 import React, { useState, useContext, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { AuthContext } from '../context/AuthContext';
-import '../styles/Auth.css';
+import '../styles/AuthForms.css';
 
 const Register = () => {
   const [name, setName] = useState('');
@@ -17,8 +17,8 @@ const Register = () => {
   // Monitor authentication state changes
   useEffect(() => {
     if (currentUser) {
-      // Redirect if already logged in
-      navigate('/dashboard');
+      // Redirect to homepage if already logged in
+      navigate('/');
     }
   }, [currentUser, navigate]);
 
@@ -49,7 +49,8 @@ const Register = () => {
     try {
       // Use our AuthContext register function directly
       await register(name, email, password);
-      // Navigation will happen in useEffect when currentUser changes
+      // Redirect to homepage after successful registration
+      navigate('/');
     } catch (err) {
       console.error('Registration error:', err);
       setError(err.message || 'Registration failed. Please try again.');
@@ -111,13 +112,9 @@ const Register = () => {
         <button type="submit" className="login-btn" disabled={isLoading}>
           {isLoading ? <span className="button-spinner"></span> : 'Sign Up'}
         </button>
-        <div className="login-or">Or Sign up with</div>
-        <div className="login-social-row">
-          <button type="button" className="login-social-btn"><i className="fab fa-google"></i></button>
-          <button type="button" className="login-social-btn"><i className="fab fa-apple"></i></button>
-          <button type="button" className="login-social-btn"><i className="fab fa-x-twitter"></i></button>
-        </div>
-        <Link to="#" className="login-agreement">Learn user licence agreement</Link>
+        <p className="signup-prompt">
+          Already have an account? <Link to="/login" className="login-link">Sign In</Link>
+        </p>
       </form>
     </div>
   );

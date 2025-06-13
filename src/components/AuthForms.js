@@ -1,5 +1,5 @@
 import React, { useState, useContext, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { AuthContext } from '../context/AuthContext';
 import '../styles/AuthForms.css';
 
@@ -116,162 +116,57 @@ const AuthForms = ({ initialForm = 'login' }) => {
   };
 
   return (
-    <div className={`auth-container ${activeForm === 'login' ? 'login-active' : 'register-active'} ${isAnimating ? 'animating' : ''}`}>
-      {/* Form Container */}
-      <div className="auth-form-container">
-        {/* Login Form */}
-        <div className={`auth-form-side login ${activeForm === 'login' ? 'active' : ''}`}>
-          <div className="auth-header">
-            <h1>Sign In</h1>
-          </div>
-          
-          {error && activeForm === 'login' && <div className="auth-error">{error}</div>}
-          
-          <form onSubmit={handleLoginSubmit}>
-            <div className="form-group">
-              <label htmlFor="email">EMAIL ADDRESS</label>
-              <input
-                type="email"
-                id="email"
-                name="email"
-                value={loginData.email}
-                onChange={handleLoginChange}
-                required
-              />
-            </div>
-
-            <div className="form-group">
-              <label htmlFor="password">PASSWORD</label>
-              <input
-                type="password"
-                id="password"
-                name="password"
-                value={loginData.password}
-                onChange={handleLoginChange}
-                required
-              />
-            </div>
-
-            <button 
-              type="submit" 
-              className="auth-button"
-              disabled={isLoading}
-            >
-              {isLoading && activeForm === 'login' ? (
-                <>
-                  <span className="button-spinner"></span> SIGNING IN...
-                </>
-              ) : (
-                'SIGN IN'
-              )}
-            </button>
-          </form>
+    <div className="auth-container">
+      <div className={`auth-form-side login`}>
+        <div className="auth-header">
+          <h1>Sign In</h1>
         </div>
-
-        {/* Register Form */}
-        <div className={`auth-form-side register ${activeForm === 'register' ? 'active' : ''}`}>
-          <div className="auth-header">
-            <h1>Sign Up</h1>
+        {error && activeForm === 'login' && <div className="auth-error">{error}</div>}
+        <form onSubmit={handleLoginSubmit} style={{width: '100%'}}>
+          <div className="form-group">
+            <input
+              type="email"
+              id="email"
+              name="email"
+              value={loginData.email}
+              onChange={handleLoginChange}
+              required
+              placeholder="E-mail"
+              className="login-input"
+            />
           </div>
-          
-          {error && activeForm === 'register' && <div className="auth-error">{error}</div>}
-          
-          <form onSubmit={handleRegisterSubmit}>
-            <div className="form-group">
-              <label htmlFor="name">FULL NAME</label>
-              <input
-                type="text"
-                id="name"
-                name="name"
-                value={registerData.name}
-                onChange={handleRegisterChange}
-                required
-              />
-            </div>
-            
-            <div className="form-group">
-              <label htmlFor="registerEmail">EMAIL ADDRESS</label>
-              <input
-                type="email"
-                id="registerEmail"
-                name="email"
-                value={registerData.email}
-                onChange={handleRegisterChange}
-                required
-              />
-            </div>
-            
-            <div className="form-group">
-              <label htmlFor="registerPassword">PASSWORD</label>
-              <input
-                type="password"
-                id="registerPassword"
-                name="password"
-                value={registerData.password}
-                onChange={handleRegisterChange}
-                required
-                minLength={8}
-              />
-            </div>
-            
-            <div className="form-group">
-              <label htmlFor="confirmPassword">CONFIRM PASSWORD</label>
-              <input
-                type="password"
-                id="confirmPassword"
-                name="confirmPassword"
-                value={registerData.confirmPassword}
-                onChange={handleRegisterChange}
-                required
-              />
-            </div>
-            
-            <button 
-              type="submit" 
-              className="auth-button"
-              disabled={isLoading}
-            >
-              {isLoading && activeForm === 'register' ? (
-                <>
-                  <span className="button-spinner"></span> SIGNING UP...
-                </>
-              ) : (
-                'SIGN UP'
-              )}
-            </button>
-          </form>
-        </div>
-      </div>
-
-      {/* Info Panel */}
-      <div className="auth-info-side">
-        <div className="auth-info-content-container">
-          {/* Login Info Content */}
-          <div className={`auth-info-content login ${activeForm === 'login' ? 'active' : ''}`}>
-            <h2 className="info-title">New here?</h2>
-            <p className="info-text">Sign up and discover</p>
-            <button 
-              className="signup-button"
-              onClick={() => switchForm('register')}
-              disabled={isAnimating}
-            >
-              SIGN UP
-            </button>
+          <div className="form-group">
+            <input
+              type="password"
+              id="password"
+              name="password"
+              value={loginData.password}
+              onChange={handleLoginChange}
+              required
+              placeholder="Password"
+              className="login-input"
+            />
           </div>
-          
-          {/* Register Info Content */}
-          <div className={`auth-info-content register ${activeForm === 'register' ? 'active' : ''}`}>
-            <h2 className="info-title">One of us?</h2>
-            <p className="info-text">Just sign in</p>
-            <button 
-              className="signup-button"
-              onClick={() => switchForm('login')}
-              disabled={isAnimating}
-            >
-              SIGN IN
-            </button>
+          <div style={{ width: '100%', textAlign: 'center' }}>
+            <Link to="/forgot-password" className="login-forgot-link">Forgot Password ?</Link>
           </div>
-        </div>
+          <button 
+            type="submit" 
+            className="auth-button"
+            disabled={isLoading}
+          >
+            {isLoading ? (
+              <>
+                <span className="button-spinner"></span> Signing in...
+              </>
+            ) : (
+              'Sign In'
+            )}
+          </button>
+          <div className="signup-prompt">
+            Don't have an account? <Link to="/register" className="signup-link">Sign up</Link>
+          </div>
+        </form>
       </div>
     </div>
   );

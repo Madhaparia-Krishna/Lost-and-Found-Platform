@@ -4,7 +4,7 @@ import { AuthContext } from '../../context/AuthContext';
 import LoadingSpinner from '../LoadingSpinner';
 
 // Route for pages that should only be accessible when NOT logged in
-// If user is logged in, redirects to appropriate dashboard based on role
+// If user is logged in, redirects to the homepage
 const PublicRoute = ({ children }) => {
   const { currentUser, loading } = useContext(AuthContext);
   
@@ -14,14 +14,8 @@ const PublicRoute = ({ children }) => {
   }
   
   if (currentUser) {
-    // Redirect to appropriate dashboard based on role
-    if (currentUser.role === 'admin') {
-      return <Navigate to="/admin" />;
-    } else if (currentUser.role === 'security') {
-      return <Navigate to="/security" />;
-    } else {
-      return <Navigate to="/dashboard" />;
-    }
+    // Redirect to homepage for all users
+    return <Navigate to="/" />;
   }
   
   // If not logged in, render the children (public page)

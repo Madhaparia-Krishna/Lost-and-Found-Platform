@@ -13,7 +13,8 @@ import PublicRoute from './components/routes/PublicRoute';
 
 // Pages
 import Home from './pages/Home';
-import AuthPage from './pages/AuthPage';
+import Login from './pages/Login';
+import Register from './pages/Register';
 import NotFound from './pages/NotFound';
 import ItemDetail from './pages/ItemDetail';
 import Security from './pages/Security';
@@ -41,7 +42,7 @@ import './styles/logo.css';
 // AppContent component to conditionally render the Navbar
 const AppContent = () => {
   const location = useLocation();
-  const isAuthPage = location.pathname === '/login' || location.pathname === '/register';
+  const isAuthPage = location.pathname === '/login' || location.pathname === '/register' || location.pathname === '/forgot-password' || location.pathname.includes('/reset-password');
 
   return (
     <>
@@ -53,8 +54,8 @@ const AppContent = () => {
         <Routes>
           {/* Public routes - Home page is always accessible */}
           <Route path="/" element={<Home />} />
-          <Route path="/login" element={<PublicRoute><AuthPage /></PublicRoute>} />
-          <Route path="/register" element={<PublicRoute><AuthPage /></PublicRoute>} />
+          <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
+          <Route path="/register" element={<PublicRoute><Register /></PublicRoute>} />
           <Route path="/unauthorized" element={<Unauthorized />} />
           
           {/* Dashboard routes */}
@@ -126,8 +127,8 @@ const AppContent = () => {
           } />
           
           {/* Password reset routes */}
-          <Route path="/forgot-password" element={<ForgotPassword />} />
-          <Route path="/reset-password" element={<ForgotPassword />} />
+          <Route path="/forgot-password" element={<PublicRoute><ForgotPassword /></PublicRoute>} />
+          <Route path="/reset-password" element={<PublicRoute><ForgotPassword /></PublicRoute>} />
           
           {/* Catch-all route */}
           <Route path="*" element={<NotFound />} />
