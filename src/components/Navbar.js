@@ -7,6 +7,7 @@ const Navbar = () => {
   const { currentUser, logout } = useAuth();
   const location = useLocation();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   
   const toggleMenu = () => {
     setIsMenuOpen(!isMenuOpen);
@@ -17,118 +18,50 @@ const Navbar = () => {
   };
 
   return (
-    <nav className="navbar">
-      <Link to="/" className="navbar-brand">
-        <i className="fas fa-map-marker-alt"></i>
-        Lost@Campus
-      </Link>
-      
-      <div className="navbar-search">
-        <i className="fas fa-search"></i>
+    <nav className="navbar modern-navbar">
+      <div className="navbar-logo styled-logo">
+        <span className="logo-blue">Lost</span><span className="logo-dark">@Campus</span>
       </div>
-      
-      <button 
-        className="navbar-toggle" 
-        onClick={toggleMenu}
-        aria-label="Toggle navigation"
-      >
-        <i className={`fas ${isMenuOpen ? 'fa-times' : 'fa-bars'}`}></i>
-      </button>
-      
-      <div className={`navbar-collapse ${isMenuOpen ? 'show' : ''}`}>
-        <ul className="navbar-nav">
-          {currentUser && (
-            <>
-              <li className="nav-item">
-                <Link 
-                  to="/report-lost" 
-                  className={`nav-link ${location.pathname === '/report-lost' ? 'active' : ''}`}
-                  onClick={closeMenu}
+      <div className="navbar-actions">
+        <Link to="/" className="navbar-link">Home</Link>
+        <Link to="/dashboard/found-items" className="navbar-link">View Items</Link>
+        {currentUser ? (
+          <>
+            <button className="navbar-btn navbar-btn-blue" onClick={logout}>Logout</button>
+            {['admin', 'security'].includes(currentUser.role) ? (
+              <div className="navbar-profile-dropdown-wrapper">
+                <div
+                  className="navbar-profile-icon"
+                  tabIndex={0}
+                  onClick={() => setProfileMenuOpen((open) => !open)}
+                  onBlur={() => setTimeout(() => setProfileMenuOpen(false), 150)}
                 >
-                  Report Lost
-                </Link>
-              </li>
-              <li className="nav-item">
-                <Link 
-                  to="/report-found" 
-                  className={`nav-link ${location.pathname === '/report-found' ? 'active' : ''}`}
-                  onClick={closeMenu}
-                >
-                  Report Found
-                </Link>
-              </li>
-            </>
-          )}
-          <li className="nav-item">
-            <Link 
-              to="/dashboard/found-items" 
-              className={`nav-link ${location.pathname.includes('/dashboard') ? 'active' : ''}`}
-              onClick={closeMenu}
-            >
-              View Items
-            </Link>
-          </li>
-        </ul>
-        
-        <div className="nav-right">
-          {currentUser ? (
-            <div className="user-menu">
-              <button className="user-button" onClick={() => setIsMenuOpen(!isMenuOpen)}>
-                <div className="user-avatar">
                   {currentUser.name ? currentUser.name.charAt(0).toUpperCase() : 'U'}
                 </div>
-                <span className="user-name">{currentUser.name || currentUser.email}</span>
-                {currentUser.role && (
-                  <span className={`user-role role-${currentUser.role}`}>
-                    {currentUser.role}
-                  </span>
+                {profileMenuOpen && (
+                  <div className="navbar-profile-dropdown">
+                    <a href="/profile" className="navbar-profile-dropdown-item">Profile</a>
+                    {currentUser.role === 'admin' && (
+                      <a href="/admin" className="navbar-profile-dropdown-item">Admin Panel</a>
+                    )}
+                    {currentUser.role === 'security' && (
+                      <a href="/security" className="navbar-profile-dropdown-item">Security Panel</a>
+                    )}
+                  </div>
                 )}
-              </button>
-              
-              <div className={`dropdown-menu ${isMenuOpen ? 'active' : ''}`}>
-                <Link to="/profile" className="dropdown-item" onClick={closeMenu}>
-                  <i className="fas fa-user"></i> Profile
-                </Link>
-                <Link to="/dashboard" className="dropdown-item" onClick={closeMenu}>
-                  <i className="fas fa-columns"></i> Dashboard
-                </Link>
-                
-                {currentUser.role === 'admin' && (
-                  <Link to="/admin" className="dropdown-item" onClick={closeMenu}>
-                    <i className="fas fa-shield-alt"></i> Admin Panel
-                  </Link>
-                )}
-                
-                {currentUser.role === 'security' && (
-                  <Link to="/security" className="dropdown-item" onClick={closeMenu}>
-                    <i className="fas fa-user-shield"></i> Security Panel
-                  </Link>
-                )}
-                
-                <div className="dropdown-divider"></div>
-                
-                <button 
-                  className="dropdown-item" 
-                  onClick={() => {
-                    logout();
-                    closeMenu();
-                  }}
-                >
-                  <i className="fas fa-sign-out-alt"></i> Logout
-                </button>
               </div>
-            </div>
-          ) : (
-            <div className="auth-buttons">
-              <Link to="/login" className="login-button" onClick={closeMenu}>
-                Login
+            ) : (
+              <Link to="/profile" className="navbar-profile-icon">
+                {currentUser.name ? currentUser.name.charAt(0).toUpperCase() : 'U'}
               </Link>
-              <Link to="/register" className="signup-button" onClick={closeMenu}>
-                Sign Up
-              </Link>
-            </div>
-          )}
-        </div>
+            )}
+          </>
+        ) : (
+          <>
+            <Link to="/login" className="navbar-btn navbar-btn-blue">Login</Link>
+            <Link to="/register" className="navbar-btn navbar-btn-gray">Sign Up</Link>
+          </>
+        )}
       </div>
     </nav>
   );

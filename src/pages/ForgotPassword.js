@@ -153,16 +153,23 @@ function ForgotPassword() {
   
   return (
     <div className="auth-container">
-      <div className="auth-form-container">
-        <h1>{isResetPage ? 'Reset Password' : 'Forgot Password'}</h1>
-        
-        {error && <div className="error-message">{error}</div>}
-        {success && <div className="success-message">{success}</div>}
-        
+      {/* Info Side (like Register/Login) */}
+      <div className="auth-info-side">
+        <h2 className="info-title">Need help?</h2>
+        <p className="info-text">Reset your password and get back on track!</p>
+        <Link to="/login" className="signup-button">SIGN IN</Link>
+      </div>
+      {/* Form Side */}
+      <div className="auth-form-side">
+        <div className="auth-header">
+          <h1>{isResetPage ? 'Reset Password' : 'Forgot Password'}</h1>
+        </div>
+        {error && <div className="auth-error">{error}</div>}
+        {success && <div className="auth-success">{success}</div>}
         {!isResetPage ? (
-          <form onSubmit={handleEmailSubmit} className="auth-form">
+          <form onSubmit={handleEmailSubmit}>
             <div className="form-group">
-              <label htmlFor="email">Email Address</label>
+              <label htmlFor="email">EMAIL ADDRESS</label>
               <input
                 type="email"
                 id="email"
@@ -172,23 +179,17 @@ function ForgotPassword() {
                 required
               />
             </div>
-            
-            <button 
-              type="submit" 
-              className="auth-button"
-              disabled={loading}
-            >
+            <button type="submit" className="auth-button" disabled={loading}>
               {loading ? 'Sending...' : 'Send Reset Instructions'}
             </button>
-            
             <div className="auth-links">
               <Link to="/login">Back to Login</Link>
             </div>
           </form>
         ) : (
-          <form onSubmit={handleResetPassword} className="auth-form">
+          <form onSubmit={handleResetPassword}>
             <div className="form-group">
-              <label htmlFor="newPassword">New Password</label>
+              <label htmlFor="newPassword">NEW PASSWORD</label>
               <input
                 type="password"
                 id="newPassword"
@@ -199,9 +200,8 @@ function ForgotPassword() {
                 minLength="8"
               />
             </div>
-            
             <div className="form-group">
-              <label htmlFor="confirmPassword">Confirm Password</label>
+              <label htmlFor="confirmPassword">CONFIRM PASSWORD</label>
               <input
                 type="password"
                 id="confirmPassword"
@@ -211,18 +211,9 @@ function ForgotPassword() {
                 required
               />
             </div>
-            
-            <button 
-              type="submit" 
-              className="auth-button"
-              disabled={loading}
-            >
+            <button type="submit" className="auth-button" disabled={loading}>
               {loading ? 'Resetting...' : 'Reset Password'}
             </button>
-            
-            <div className="auth-links">
-              <Link to="/login">Back to Login</Link>
-            </div>
           </form>
         )}
       </div>

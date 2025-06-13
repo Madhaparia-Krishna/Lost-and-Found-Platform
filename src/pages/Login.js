@@ -59,45 +59,48 @@ const Login = () => {
           </div>
         )}
 
-        <form onSubmit={handleSubmit}>
-          <div className="form-group">
-            <label htmlFor="email">EMAIL ADDRESS</label>
-            <input
-              type="email"
-              id="email"
-              name="email"
-              value={formData.email}
-              onChange={handleChange}
-              required
-            />
-          </div>
-
-          <div className="form-group">
-            <label htmlFor="password">PASSWORD</label>
-            <input
-              type="password"
-              id="password"
-              name="password"
-              value={formData.password}
-              onChange={handleChange}
-              required
-            />
-          </div>
-
-          <button 
-            type="submit" 
-            className="auth-button"
-            disabled={isLoading}
-          >
-            {isLoading ? (
-              <>
-                <span className="button-spinner"></span> SIGNING IN...
-              </>
-            ) : (
-              'SIGN IN'
-            )}
-          </button>
-        </form>
+        <div className="login-template-container">
+          <form className="login-card" onSubmit={handleSubmit}>
+            <h1 className="login-title">Sign In</h1>
+            <div className="login-input-group">
+              <input
+                type="email"
+                id="email"
+                name="email"
+                className="login-input"
+                placeholder="E-mail"
+                value={formData.email}
+                onChange={handleChange}
+                required
+              />
+            </div>
+            <div className="login-input-group">
+              <input
+                type="password"
+                id="password"
+                name="password"
+                className="login-input"
+                placeholder="Password"
+                value={formData.password}
+                onChange={handleChange}
+                required
+              />
+            </div>
+            <div className="login-forgot-row">
+              <Link to="/forgot-password" className="login-forgot-link">Forgot Password ?</Link>
+            </div>
+            <button type="submit" className="login-btn" disabled={isLoading}>
+              {isLoading ? <span className="button-spinner"></span> : 'Sign In'}
+            </button>
+            <div className="login-or">Or Sign in with</div>
+            <div className="login-social-row">
+              <button type="button" className="login-social-btn"><i className="fab fa-google"></i></button>
+              <button type="button" className="login-social-btn"><i className="fab fa-apple"></i></button>
+              <button type="button" className="login-social-btn"><i className="fab fa-x-twitter"></i></button>
+            </div>
+            <Link to="#" className="login-agreement">Learn user licence agreement</Link>
+          </form>
+        </div>
       </div>
 
       {/* Right side - Info panel */}

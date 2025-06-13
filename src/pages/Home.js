@@ -20,37 +20,34 @@ const Home = () => {
   };
 
   return (
-    <div className="home-container">
-      <header className="home-header">
-        <div className="hero-section">
+    <div className="home-container auth-bg">
+      <header className="home-header" style={{backgroundColor: '#e1ebf5', color: '#333', boxShadow: '0 2px 4px rgba(0,0,0,0.05)'}}>
+        <div className="hero-section" style={{background: 'white', color: '#333', boxShadow: 'none'}}>
           <div className="hero-content">
-            <h1>Lost Something on Campus?</h1>
-            <p>A simple and effective platform to report lost items and find what you're looking for on campus. We help connect students with their lost belongings.</p>
+            <h1 style={{color: '#333'}}>Lost Something on Campus?</h1>
+            <p style={{color: '#666'}}>A simple and effective platform to report lost items and find what you're looking for on campus. We help connect students with their lost belongings.</p>
             
             <div className="hero-buttons">
               {currentUser ? (
                 <>
-                  <button className="hero-button primary" onClick={handleReportLost}>
+                  <button className="hero-button auth-button" style={{backgroundColor: '#999', color: 'white'}} onClick={handleReportLost}>
                     <i className="fas fa-exclamation-circle"></i> Report Lost Item
                   </button>
-                  <button className="hero-button secondary" onClick={handleReportFound}>
+                  <button className="hero-button auth-button" style={{backgroundColor: '#b8b8b8', color: 'white'}} onClick={handleReportFound}>
                     <i className="fas fa-hand-holding"></i> Report Found Item
                   </button>
                 </>
               ) : (
                 <>
-                  <Link to="/login" className="hero-button primary">
+                  <Link to="/login" className="hero-button auth-button" style={{backgroundColor: '#999', color: 'white'}}>
                     <i className="fas fa-sign-in-alt"></i> Login
                   </Link>
-                  <Link to="/register" className="hero-button secondary">
+                  <Link to="/register" className="hero-button auth-button" style={{backgroundColor: '#b8b8b8', color: 'white'}}>
                     <i className="fas fa-user-plus"></i> Create Account
                   </Link>
                 </>
               )}
             </div>
-          </div>
-          <div className="hero-image">
-            <img src="/images/lost-and-found.svg" alt="Lost and Found Illustration" />
           </div>
         </div>
       </header>

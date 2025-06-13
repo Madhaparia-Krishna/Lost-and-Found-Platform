@@ -59,89 +59,66 @@ const Register = () => {
   };
 
   return (
-    <div className="auth-container">
-      {/* Left side - Info panel */}
-      <div className="auth-info-side">
-        <h2 className="info-title">Welcome!</h2>
-        <p className="info-text">Sign in and discover</p>
-        <Link to="/login" className="signup-button">
-          SIGN IN
-        </Link>
-      </div>
-
-      {/* Right side - Form */}
-      <div className="auth-form-side">
-        <div className="auth-header">
-          <h1>Sign Up</h1>
+    <div className="login-template-container">
+      <form className="login-card" onSubmit={handleSubmit}>
+        <h1 className="login-title">Sign Up</h1>
+        {error && <div className="login-error">{error}</div>}
+        <div className="login-input-group">
+          <input
+            type="text"
+            id="name"
+            className="login-input"
+            placeholder="Full Name"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            required
+          />
         </div>
-        
-        {error && (
-          <div className="auth-error">
-            {error}
-          </div>
-        )}
-        
-        <form onSubmit={handleSubmit}>
-          <div className="form-group">
-            <label htmlFor="name">FULL NAME</label>
-            <input
-              type="text"
-              id="name"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              required
-            />
-          </div>
-          
-          <div className="form-group">
-            <label htmlFor="email">EMAIL ADDRESS</label>
-            <input
-              type="email"
-              id="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-            />
-          </div>
-          
-          <div className="form-group">
-            <label htmlFor="password">PASSWORD</label>
-            <input
-              type="password"
-              id="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-              minLength={8}
-            />
-          </div>
-          
-          <div className="form-group">
-            <label htmlFor="confirmPassword">CONFIRM PASSWORD</label>
-            <input
-              type="password"
-              id="confirmPassword"
-              value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
-              required
-            />
-          </div>
-          
-          <button 
-            type="submit" 
-            className="auth-button"
-            disabled={isLoading}
-          >
-            {isLoading ? (
-              <>
-                <span className="button-spinner"></span> SIGNING UP...
-              </>
-            ) : (
-              'SIGN UP'
-            )}
-          </button>
-        </form>
-      </div>
+        <div className="login-input-group">
+          <input
+            type="email"
+            id="email"
+            className="login-input"
+            placeholder="E-mail"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            required
+          />
+        </div>
+        <div className="login-input-group">
+          <input
+            type="password"
+            id="password"
+            className="login-input"
+            placeholder="Password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            required
+            minLength={8}
+          />
+        </div>
+        <div className="login-input-group">
+          <input
+            type="password"
+            id="confirmPassword"
+            className="login-input"
+            placeholder="Confirm Password"
+            value={confirmPassword}
+            onChange={(e) => setConfirmPassword(e.target.value)}
+            required
+          />
+        </div>
+        <button type="submit" className="login-btn" disabled={isLoading}>
+          {isLoading ? <span className="button-spinner"></span> : 'Sign Up'}
+        </button>
+        <div className="login-or">Or Sign up with</div>
+        <div className="login-social-row">
+          <button type="button" className="login-social-btn"><i className="fab fa-google"></i></button>
+          <button type="button" className="login-social-btn"><i className="fab fa-apple"></i></button>
+          <button type="button" className="login-social-btn"><i className="fab fa-x-twitter"></i></button>
+        </div>
+        <Link to="#" className="login-agreement">Learn user licence agreement</Link>
+      </form>
     </div>
   );
 };
