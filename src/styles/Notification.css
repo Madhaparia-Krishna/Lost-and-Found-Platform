@@ -21,15 +21,15 @@
 }
 
 .notification-button:hover {
-  background-color: #f0f0f0;
-  color: #007bff;
+  background-color: #EAE7DC;
+  color: #E98074;
 }
 
 .notification-badge {
   position: absolute;
   top: 0;
   right: 0;
-  background-color: #dc3545;
+  background-color: #E85A4F;
   color: white;
   border-radius: 50%;
   padding: 0.25rem 0.5rem;
@@ -72,7 +72,7 @@
 .mark-all-read {
   background: none;
   border: none;
-  color: #007bff;
+  color: #E98074;
   cursor: pointer;
   font-size: 0.875rem;
   padding: 0.25rem 0.5rem;
@@ -127,7 +127,7 @@
 }
 
 .mark-read-btn:hover {
-  color: #007bff;
+  color: #E98074;
 }
 
 .no-notifications {

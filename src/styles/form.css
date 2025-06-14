@@ -7,12 +7,12 @@
 .form-header {
   margin-bottom: 2rem;
   padding-bottom: 1rem;
-  border-bottom: 1px solid #ddd;
+  border-bottom: 1px solid #D8C3A5;
 }
 
 .form-header h1 {
   margin-bottom: 0.5rem;
-  color: #333;
+  color: #4D4C4A;
   text-align: center;
 }
 
@@ -26,7 +26,7 @@
 
 .menu-link {
   text-decoration: none;
-  color: #005cb9;
+  color: #E98074;
   padding: 0.5rem 0.8rem;
   border-radius: 4px;
   font-weight: 500;
@@ -34,26 +34,26 @@
 }
 
 .menu-link:hover {
-  background-color: #e9f2ff;
+  background-color: #D8C3A5;
 }
 
 .auth-message {
   text-align: center;
   padding: 2rem;
-  background-color: #f8f9fa;
+  background-color: #EAE7DC;
   border-radius: 8px;
   margin-top: 2rem;
 }
 
 .auth-message p {
   margin-bottom: 1rem;
-  color: #666;
+  color: #6D6C6A;
 }
 
 .auth-button {
   display: inline-block;
   padding: 0.7rem 1.5rem;
-  background-color: #005cb9;
+  background-color: #E98074;
   color: white;
   text-decoration: none;
   border-radius: 4px;
@@ -62,16 +62,16 @@
 }
 
 .auth-button:hover {
-  background-color: #004a94;
+  background-color: #E85A4F;
 }
 
 .success-message {
   text-align: center;
   padding: 2rem;
-  background-color: #d4edda;
+  background-color: #D8C3A5;
   border-radius: 8px;
   margin-top: 2rem;
-  color: #155724;
+  color: #4D4C4A;
 }
 
 .success-message h2 {
@@ -87,7 +87,7 @@
 
 .report-another-btn {
   padding: 0.7rem 1.5rem;
-  background-color: #28a745;
+  background-color: #8E8D8A;
   color: white;
   border: none;
   border-radius: 4px;
@@ -97,12 +97,12 @@
 }
 
 .report-another-btn:hover {
-  background-color: #218838;
+  background-color: #6D6C6A;
 }
 
 .view-items-link {
   padding: 0.7rem 1.5rem;
-  background-color: #005cb9;
+  background-color: #E98074;
   color: white;
   text-decoration: none;
   border-radius: 4px;
@@ -112,7 +112,7 @@
 }
 
 .view-items-link:hover {
-  background-color: #004a94;
+  background-color: #E85A4F;
 }
 
 .form {
@@ -123,7 +123,7 @@
 }
 
 .form h2 {
-  color: #333;
+  color: #4D4C4A;
   text-align: center;
   margin-bottom: 2rem;
   font-size: 1.5rem;
@@ -145,7 +145,7 @@
 .form label {
   display: block;
   margin-bottom: 0.5rem;
-  color: #555;
+  color: #6D6C6A;
   font-weight: 500;
 }
 
@@ -154,7 +154,7 @@
 .form textarea {
   width: 100%;
   padding: 0.75rem;
-  border: 1px solid #dee2e6;
+  border: 1px solid #D8C3A5;
   border-radius: 4px;
   font-size: 1rem;
   transition: all 0.2s;
@@ -165,8 +165,8 @@
 .form select:focus,
 .form textarea:focus {
   outline: none;
-  border-color: #007bff;
-  box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.1);
+  border-color: #E98074;
+  box-shadow: 0 0 0 3px rgba(233, 128, 116, 0.1);
 }
 
 .form textarea {
@@ -183,14 +183,14 @@
 .form small {
   display: block;
   margin-top: 0.5rem;
-  color: #666;
+  color: #8E8D8A;
   font-size: 0.875rem;
 }
 
 .submit-btn {
   width: 100%;
   padding: 0.8rem;
-  background-color: #007bff;
+  background-color: #E98074;
   color: white;
   border: none;
   border-radius: 4px;
@@ -201,45 +201,45 @@
 }
 
 .submit-btn:hover {
-  background-color: #0056b3;
+  background-color: #E85A4F;
 }
 
 .submit-btn:disabled {
-  background-color: #bdc3c7;
+  background-color: #C0B9A8;
   cursor: not-allowed;
 }
 
 .error-message {
   background-color: #ffe6e6;
-  color: #d32f2f;
+  color: #E85A4F;
   padding: 0.8rem;
   border-radius: 4px;
   margin-bottom: 1.2rem;
   text-align: center;
-  border-left: 4px solid #d32f2f;
+  border-left: 4px solid #E85A4F;
 }
 
 .success-message {
   text-align: center;
   padding: 2rem;
-  background-color: #e8f5e9;
+  background-color: #D8C3A5;
   border-radius: 8px;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
 }
 
 .success-message h2 {
-  color: #2e7d32;
+  color: #4D4C4A;
   margin-bottom: 1rem;
 }
 
 .success-message p {
-  color: #333;
+  color: #4D4C4A;
   margin-bottom: 2rem;
 }
 
 .form-notice {
-  background-color: #f8f9fa;
-  border-left: 4px solid #17a2b8;
+  background-color: #EAE7DC;
+  border-left: 4px solid #E98074;
   padding: 1rem;
   margin-bottom: 1.5rem;
   border-radius: 4px;
@@ -247,7 +247,7 @@
 
 .form-notice p {
   margin: 0;
-  color: #333;
+  color: #4D4C4A;
   font-size: 0.95rem;
 }
 
@@ -266,13 +266,13 @@
 .form-text {
   display: block;
   margin-top: 0.5rem;
-  color: #666;
+  color: #8E8D8A;
   font-size: 0.85rem;
 }
 
 .approval-notice {
-  background-color: #f8f9fa;
-  border-left: 4px solid #17a2b8;
+  background-color: #EAE7DC;
+  border-left: 4px solid #E98074;
   padding: 1rem;
   margin-bottom: 1.5rem;
   border-radius: 4px;
@@ -280,7 +280,7 @@
 
 .approval-notice p {
   margin: 0;
-  color: #333;
+  color: #4D4C4A;
   font-size: 0.95rem;
 }
 
@@ -303,21 +303,21 @@
 }
 
 .view-items-btn {
-  background-color: #007bff;
+  background-color: #E98074;
   color: white;
 }
 
 .view-items-btn:hover {
-  background-color: #0056b3;
+  background-color: #E85A4F;
 }
 
 .report-another-btn {
-  background-color: #6c757d;
+  background-color: #8E8D8A;
   color: white;
 }
 
 .report-another-btn:hover {
-  background-color: #5a6268;
+  background-color: #6D6C6A;
 }
 
 .auth-required {
@@ -326,7 +326,7 @@
 }
 
 .auth-required h2 {
-  color: #333;
+  color: #4D4C4A;
   margin-bottom: 1rem;
 }
 
@@ -347,25 +347,25 @@
 }
 
 .login-btn {
-  background-color: #007bff;
+  background-color: #E98074;
   color: white;
 }
 
 .login-btn:hover {
-  background-color: #0056b3;
+  background-color: #E85A4F;
 }
 
 .register-btn {
-  background-color: #6c757d;
+  background-color: #8E8D8A;
   color: white;
 }
 
 .register-btn:hover {
-  background-color: #5a6268;
+  background-color: #6D6C6A;
 }
 
 .form-auth-status {
-  background-color: #f8f9fa;
+  background-color: #EAE7DC;
   padding: 0.8rem;
   margin: 1rem 0;
   border-radius: 4px;
@@ -374,7 +374,7 @@
 
 .form-auth-status p {
   margin: 0;
-  color: #495057;
+  color: #4D4C4A;
 }
 
 /* Responsive Design */

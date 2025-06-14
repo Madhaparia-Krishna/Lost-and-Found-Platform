@@ -71,7 +71,7 @@
 .form-group input:focus,
 .form-group select:focus,
 .form-group textarea:focus {
-  border-color: #3498db;
+  border-color: #E98074;
   outline: none;
 }
 
@@ -116,12 +116,12 @@
 
 .image-upload-label:hover {
   background-color: #ebebeb;
-  border-color: #3498db;
+  border-color: #E98074;
 }
 
 .image-upload-label i {
   margin-right: 0.5rem;
-  color: #3498db;
+  color: #E98074;
 }
 
 .image-preview-container {
@@ -178,7 +178,7 @@
 
 .submit-btn {
   padding: 0.75rem 1.5rem;
-  background-color: #3498db;
+  background-color: #E98074;
   color: white;
   border: none;
   border-radius: 4px;
@@ -190,7 +190,7 @@
 }
 
 .submit-btn:hover {
-  background-color: #2980b9;
+  background-color: #E85A4F;
 }
 
 .submit-btn:disabled {

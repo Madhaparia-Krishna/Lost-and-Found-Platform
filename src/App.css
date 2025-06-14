@@ -9,27 +9,37 @@
 
 /* Global styling */
 :root {
-  --primary-color: #3498db;
-  --secondary-color: #f39c12;
-  --success-color: #2ecc71;
-  --danger-color: #e74c3c;
-  --warning-color: #f1c40f;
-  --info-color: #1abc9c;
-  --light-color: #f8f9fa;
-  --dark-color: #343a40;
-  --gray-100: #f8f9fa;
-  --gray-200: #e9ecef;
-  --gray-300: #dee2e6;
-  --gray-400: #ced4da;
-  --gray-500: #adb5bd;
-  --gray-600: #6c757d;
-  --gray-700: #495057;
-  --gray-800: #343a40;
-  --gray-900: #212529;
+  /* New color palette based on provided design */
+  --primary-color: #E98074; /* Coral/salmon color from image */
+  --secondary-color: #D8C3A5; /* Beige/tan color from image */
+  --success-color: #8E8D8A; /* Gray color from image */
+  --danger-color: #E85A4F; /* Darker coral/red from image */
+  --warning-color: #E8E9EB; /* Light gray from image */
+  --info-color: #E98074; /* Using coral as info color */
+  --light-color: #EAE7DC; /* Light beige background from image */
+  --dark-color: #8E8D8A; /* Gray from image */
+  
+  /* Exact colors from the image */
+  --color-eae7dc: #EAE7DC; /* Light beige background */
+  --color-d8c3a5: #D8C3A5; /* Tan/beige */
+  --color-8e8d8a: #8E8D8A; /* Gray */
+  --color-e98074: #E98074; /* Coral/salmon */
+  --color-e85a4f: #E85A4F; /* Darker coral/red */
+  
+  /* Gray scale based on the design */
+  --gray-100: #EAE7DC;
+  --gray-200: #E8E9EB;
+  --gray-300: #D8C3A5;
+  --gray-400: #C0B9A8;
+  --gray-500: #ADA69C;
+  --gray-600: #8E8D8A;
+  --gray-700: #6D6C6A;
+  --gray-800: #4D4C4A;
+  --gray-900: #2D2C2A;
 }
 
 body {
-  background-color: #f5f7fa !important;
+  background-color: var(--light-color) !important;
   color: var(--gray-800);
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   padding-top: 60px; /* Account for fixed navbar */
@@ -78,7 +88,7 @@ body {
   display: inline-flex;
   align-items: center;
   padding: 0.7rem 1.5rem;
-  background-color: #3498db;
+  background-color: var(--primary-color);
   color: white;
   border: none;
   border-radius: 4px;
@@ -92,7 +102,7 @@ body {
 }
 
 .retry-button:hover {
-  background-color: #2980b9;
+  background-color: var(--danger-color);
 }
 
 /* Action status messages */
@@ -105,27 +115,27 @@ body {
 }
 
 .action-status.success {
-  background-color: #d4edda;
-  color: #155724;
-  border: 1px solid #c3e6cb;
+  background-color: var(--secondary-color);
+  color: var(--gray-900);
+  border: 1px solid var(--gray-400);
 }
 
 .action-status.error {
   background-color: #f8d7da;
-  color: #721c24;
+  color: var(--danger-color);
   border: 1px solid #f5c6cb;
 }
 
 .action-status.info {
-  background-color: #d1ecf1;
-  color: #0c5460;
-  border: 1px solid #bee5eb;
+  background-color: var(--light-color);
+  color: var(--gray-800);
+  border: 1px solid var(--gray-300);
 }
 
 .action-status.loading {
-  background-color: #fff3cd;
-  color: #856404;
-  border: 1px solid #ffeeba;
+  background-color: var(--gray-200);
+  color: var(--gray-800);
+  border: 1px solid var(--gray-300);
 }
 
 .action-status i {
@@ -164,8 +174,8 @@ body {
 }
 
 .form-control:focus {
-  border-color: #3498db;
-  box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.2);
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 3px rgba(233, 128, 116, 0.2);
 }
 
 .form-text {
@@ -194,30 +204,30 @@ body {
 }
 
 .btn-primary {
-  background-color: #3498db;
+  background-color: var(--primary-color);
   color: white;
 }
 
 .btn-primary:hover {
-  background-color: #2980b9;
+  background-color: var(--danger-color);
 }
 
 .btn-secondary {
-  background-color: #f0f2f5;
-  color: #333;
+  background-color: var(--secondary-color);
+  color: var(--gray-900);
 }
 
 .btn-secondary:hover {
-  background-color: #e0e0e0;
+  background-color: var(--gray-400);
 }
 
 .btn-danger {
-  background-color: #e74c3c;
+  background-color: var(--danger-color);
   color: white;
 }
 
 .btn-danger:hover {
-  background-color: #c0392b;
+  background-color: #d44d42;
 }
 
 .btn-sm {

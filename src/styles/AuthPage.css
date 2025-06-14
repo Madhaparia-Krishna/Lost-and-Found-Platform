@@ -4,7 +4,7 @@
   align-items: center;
   min-height: 100vh;
   width: 100%;
-  background-color: #f5f7fa;
+  background-color: #EAE7DC;
   overflow: hidden;
   padding: 20px;
 }
@@ -25,7 +25,7 @@
 /* Apply gradient animation on larger screens */
 @media (min-width: 768px) {
   .auth-page {
-    background: linear-gradient(-45deg, #f5f7fa, #e8eef5, #dde6f3, #d1dff0);
+    background: linear-gradient(-45deg, #EAE7DC, #D8C3A5, #EAE7DC, #D8C3A5);
     background-size: 400% 400%;
     animation: gradientAnimation 15s ease infinite;
   }

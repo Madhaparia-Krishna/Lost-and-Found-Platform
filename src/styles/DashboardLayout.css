@@ -155,8 +155,8 @@
 }
 
 .user-menu-item:hover {
-  background-color: rgba(52, 152, 219, 0.1);
-  color: #3498db;
+  background-color: rgba(233, 128, 116, 0.1);
+  color: #E98074;
 }
 
 .user-menu-item.logout {
@@ -212,7 +212,7 @@
 
 /* Button styling */
 .primary-btn {
-  background-color: #3498db;
+  background-color: #E98074;
   color: white;
   border: none;
   padding: 0.75rem 1.25rem;
@@ -229,7 +229,7 @@
 }
 
 .primary-btn:hover {
-  background-color: #2980b9;
+  background-color: #E85A4F;
 }
 
 /* Grid layout for items */
@@ -283,7 +283,7 @@
 }
 
 .status-returned {
-  background-color: #3498db;
+  background-color: #E98074;
   color: white;
 }
 
@@ -445,12 +445,12 @@
 }
 
 .claim-button {
-  background-color: #3498db;
+  background-color: #E98074;
   color: white;
 }
 
 .claim-button:hover {
-  background-color: #2980b9;
+  background-color: #E85A4F;
 }
 
 .edit-btn {
@@ -550,9 +550,9 @@
 .spinner {
   width: 40px;
   height: 40px;
-  border: 3px solid rgba(52, 152, 219, 0.3);
+  border: 3px solid rgba(233, 128, 116, 0.3);
   border-radius: 50%;
-  border-top-color: #3498db;
+  border-top-color: #E98074;
   animation: spin 1s linear infinite;
   margin-bottom: 1rem;
 }
@@ -598,7 +598,7 @@
 }
 
 .retry-btn {
-  background-color: #3498db;
+  background-color: #E98074;
   color: white;
   border: none;
   padding: 0.75rem 1.25rem;
@@ -614,7 +614,7 @@
 }
 
 .retry-btn:hover {
-  background-color: #2980b9;
+  background-color: #E85A4F;
 }
 
 /* Action status message */
@@ -642,7 +642,7 @@
 }
 
 .action-status.loading {
-  background-color: #3498db;
+  background-color: #E98074;
 }
 
 .action-status i {
@@ -686,7 +686,7 @@
 }
 
 .search-btn {
-  background-color: #3498db;
+  background-color: #E98074;
   color: white;
   border: none;
   padding: 0.75rem 1.25rem;
@@ -702,7 +702,7 @@
 }
 
 .search-btn:hover {
-  background-color: #2980b9;
+  background-color: #E85A4F;
 }
 
 /* Responsive adjustments */

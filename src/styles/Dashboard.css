@@ -6,7 +6,7 @@
 
 .sidebar {
   width: 250px;
-  background-color: #2c3e50; /* Dark blue-gray for sidebar */
+  background-color: #8E8D8A; /* Gray color for sidebar */
   color: white;
   display: flex;
   flex-direction: column;
@@ -35,7 +35,7 @@
 .sidebar-logo i {
   margin-right: 0.5rem;
   font-size: 1.8rem;
-  color: #3498db; /* A blue accent */
+  color: #E98074; /* Coral/salmon color */
 }
 
 .sidebar-nav {
@@ -60,12 +60,12 @@
 }
 
 .sidebar-nav .nav-item:hover {
-  background-color: #34495e; /* Slightly lighter dark blue-gray on hover */
+  background-color: #6D6C6A; /* Darker gray on hover */
   color: #ffffff;
 }
 
 .sidebar-nav .nav-item.active {
-  background-color: #3498db; /* Blue accent for active item */
+  background-color: #E98074; /* Coral/salmon for active item */
   color: white;
   font-weight: bold;
 }
@@ -101,7 +101,7 @@
 }
 
 .dashboard-header .header-action-button {
-  background-color: #2ecc71; /* Green for action buttons */
+  background-color: #8E8D8A; /* Gray for action buttons */
   color: white;
   padding: 0.6rem 1.2rem;
   border-radius: 5px;
@@ -114,11 +114,11 @@
 }
 
 .dashboard-header .header-action-button.lost-btn {
-  background-color: #e74c3c; /* Red for lost button */
+  background-color: #E85A4F; /* Darker coral/red for lost button */
 }
 
 .dashboard-header .header-action-button.found-btn {
-  background-color: #2ecc71; /* Green for found button */
+  background-color: #8E8D8A; /* Gray for found button */
 }
 
 .dashboard-header .header-action-button:hover {
@@ -136,7 +136,7 @@
   width: 40px;
   height: 40px;
   border-radius: 50%;
-  background-color: #3498db; /* Blue for avatar background */
+  background-color: #E98074; /* Coral/salmon for avatar background */
   color: white;
   display: flex;
   align-items: center;
@@ -155,7 +155,7 @@
 .logout-button {
   background: none;
   border: none;
-  color: #e74c3c; /* Red for logout button */
+  color: #E85A4F; /* Darker coral/red for logout button */
   cursor: pointer;
   font-size: 1rem;
   display: flex;
@@ -165,7 +165,7 @@
 }
 
 .logout-button:hover {
-  color: #c0392b;
+  color: #d44d42;
 }
 
 .dashboard-main {
@@ -194,7 +194,7 @@
 .dashboard-card .card-icon {
   font-size: 2.5rem;
   margin-bottom: 0.8rem;
-  color: #3498db; /* Blue accent for icons */
+  color: #E98074; /* Coral/salmon for icons */
 }
 
 .dashboard-card .card-title {

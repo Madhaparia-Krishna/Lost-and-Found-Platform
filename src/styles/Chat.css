@@ -51,7 +51,7 @@
 
 .message.sent {
   align-self: flex-end;
-  background-color: #007bff;
+  background-color: #E98074;
   color: white;
 }
 
@@ -91,7 +91,7 @@
 }
 
 .role-user {
-  background-color: #2196f3;
+  background-color: #E98074;
   color: white;
 }
 
@@ -128,13 +128,13 @@
 
 .message-input:focus {
   outline: none;
-  border-color: #80bdff;
-  box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+  border-color: #E98074;
+  box-shadow: 0 0 0 0.2rem rgba(233, 128, 116, 0.25);
 }
 
 .send-button {
   padding: 0.75rem 1.5rem;
-  background-color: #007bff;
+  background-color: #E98074;
   color: white;
   border: none;
   border-radius: 4px;
@@ -144,10 +144,10 @@
 }
 
 .send-button:hover {
-  background-color: #0056b3;
+  background-color: #E85A4F;
 }
 
 .send-button:disabled {
-  background-color: #6c757d;
+  background-color: #8E8D8A;
   cursor: not-allowed;
 } 

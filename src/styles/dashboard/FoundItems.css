@@ -70,8 +70,8 @@
 
 .filter-input:focus,
 .filter-select:focus {
-  border-color: #3498db;
-  box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.2);
+  border-color: #E98074;
+  box-shadow: 0 0 0 3px rgba(233, 128, 116, 0.2);
 }
 
 /* Items Grid */
@@ -125,23 +125,23 @@
   font-weight: bold;
   text-transform: uppercase;
   color: white;
-  background-color: #3498db;
+  background-color: #E98074;
 }
 
 .status-found {
-  background-color: #27ae60;
+  background-color: #8E8D8A;
 }
 
 .status-lost {
-  background-color: #e74c3c;
+  background-color: #E85A4F;
 }
 
 .status-claimed {
-  background-color: #f39c12;
+  background-color: #D8C3A5;
 }
 
 .status-requested {
-  background-color: #9b59b6;
+  background-color: #8E8D8A;
 }
 
 .item-details {
@@ -206,12 +206,12 @@
 }
 
 .request-button {
-  background-color: #3498db;
+  background-color: #E98074;
   color: white;
 }
 
 .request-button:hover {
-  background-color: #2980b9;
+  background-color: #E85A4F;
 }
 
 .request-button:disabled {

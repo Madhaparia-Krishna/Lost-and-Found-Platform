@@ -238,7 +238,7 @@
 }
 
 .status-returned {
-  background-color: #3498db;
+  background-color: #E98074;
 }
 
 /* Loading state */
@@ -252,9 +252,9 @@
 .spinner {
   width: 50px;
   height: 50px;
-  border: 5px solid rgba(75, 142, 241, 0.2);
+  border: 5px solid rgba(233, 128, 116, 0.2);
   border-radius: 50%;
-  border-top-color: #4b8ef1;
+  border-top-color: #E98074;
   animation: spin 1s linear infinite;
   margin: 0 auto 30px;
 }
@@ -296,15 +296,15 @@
 }
 
 .retry-btn {
-  background-color: #3498db;
+  background-color: #E98074;
   color: white;
-  box-shadow: 0 4px 10px rgba(52, 152, 219, 0.3);
+  box-shadow: 0 4px 10px rgba(233, 128, 116, 0.3);
 }
 
 .retry-btn:hover {
-  background-color: #2980b9;
+  background-color: #E85A4F;
   transform: translateY(-2px);
-  box-shadow: 0 6px 14px rgba(52, 152, 219, 0.4);
+  box-shadow: 0 6px 14px rgba(233, 128, 116, 0.4);
 }
 
 .close-btn {

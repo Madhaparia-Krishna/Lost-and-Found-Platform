@@ -25,7 +25,7 @@
 
 .nav-link {
   text-decoration: none;
-  color: #005cb9;
+  color: #E98074;
   padding: 0.5rem 0.8rem;
   border-radius: 4px;
   font-weight: 500;
@@ -33,7 +33,7 @@
 }
 
 .nav-link:hover {
-  background-color: #e9f2ff;
+  background-color: #EAE7DC;
 }
 
 .item-summary {
@@ -87,14 +87,14 @@
 .claim-instructions {
   margin-bottom: 1.5rem;
   padding: 1rem;
-  background-color: #e9f2ff;
+  background-color: #EAE7DC;
   border-radius: 4px;
-  border-left: 4px solid #005cb9;
+  border-left: 4px solid #E98074;
 }
 
 .claim-instructions h3 {
   margin-top: 0;
-  color: #005cb9;
+  color: #E98074;
 }
 
 .claim-instructions p {
@@ -131,9 +131,9 @@
 }
 
 .form-group textarea:focus {
-  border-color: #005cb9;
+  border-color: #E98074;
   outline: none;
-  box-shadow: 0 0 0 2px rgba(0, 92, 185, 0.2);
+  box-shadow: 0 0 0 2px rgba(233, 128, 116, 0.2);
 }
 
 .form-actions {
@@ -153,31 +153,31 @@
 }
 
 .primary-button {
-  background-color: #005cb9;
+  background-color: #E98074;
   color: white;
 }
 
 .primary-button:hover {
-  background-color: #004a93;
+  background-color: #E85A4F;
 }
 
 .primary-button:disabled {
-  background-color: #99c2e8;
+  background-color: #C0B9A8;
   cursor: not-allowed;
 }
 
 .secondary-button {
-  background-color: #f0f0f0;
-  color: #333;
+  background-color: #8E8D8A;
+  color: white;
 }
 
 .secondary-button:hover {
-  background-color: #e0e0e0;
+  background-color: #6D6C6A;
 }
 
 .secondary-button:disabled {
-  background-color: #f0f0f0;
-  color: #999;
+  background-color: #C0B9A8;
+  color: white;
   cursor: not-allowed;
 }
 
@@ -192,15 +192,15 @@
 .success-message {
   text-align: center;
   padding: 2rem;
-  background-color: #d4edda;
-  color: #155724;
+  background-color: #D8C3A5;
+  color: #4D4C4A;
   border-radius: 8px;
   margin-top: 2rem;
 }
 
 .success-message h2 {
   margin-top: 0;
-  color: #155724;
+  color: #4D4C4A;
 }
 
 .loading {
@@ -222,7 +222,7 @@
 
 .refresh-btn {
   padding: 0.7rem 1.5rem;
-  background-color: #28a745;
+  background-color: #8E8D8A;
   color: white;
   border: none;
   border-radius: 4px;
@@ -242,42 +242,42 @@
 }
 
 .action-status.success {
-  background-color: #d4edda;
-  color: #155724;
-  border-left: 4px solid #28a745;
+  background-color: #D8C3A5;
+  color: #4D4C4A;
+  border-left: 4px solid #8E8D8A;
 }
 
 .action-status.error {
   background-color: #f8d7da;
-  color: #721c24;
-  border-left: 4px solid #dc3545;
+  color: #E85A4F;
+  border-left: 4px solid #E85A4F;
 }
 
 .action-status.info {
-  background-color: #d1ecf1;
-  color: #0c5460;
-  border-left: 4px solid #17a2b8;
+  background-color: #EAE7DC;
+  color: #4D4C4A;
+  border-left: 4px solid #E98074;
 }
 
 .action-status.warning {
-  background-color: #fff3cd;
-  color: #856404;
-  border-left: 4px solid #ffc107;
+  background-color: #D8C3A5;
+  color: #6D6C6A;
+  border-left: 4px solid #8E8D8A;
 }
 
 .action-status.loading {
-  background-color: #e9f2ff;
-  color: #004a93;
-  border-left: 4px solid #005cb9;
+  background-color: #EAE7DC;
+  color: #E98074;
+  border-left: 4px solid #E98074;
 }
 
 .loading-spinner {
   display: inline-block;
   width: 20px;
   height: 20px;
-  border: 2px solid rgba(0, 92, 185, 0.2);
+  border: 2px solid rgba(233, 128, 116, 0.2);
   border-radius: 50%;
-  border-top-color: #005cb9;
+  border-top-color: #E98074;
   animation: spin 1s linear infinite;
   margin-left: 10px;
 }
