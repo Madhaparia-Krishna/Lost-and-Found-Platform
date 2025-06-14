@@ -1,0 +1,153 @@
+.chat-container {
+  display: flex;
+  flex-direction: column;
+  height: 600px;
+  background-color: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+  overflow: hidden;
+}
+
+.chat-header {
+  padding: 1rem;
+  background-color: #f8f9fa;
+  border-bottom: 1px solid #e9ecef;
+}
+
+.chat-header h3 {
+  margin: 0 0 0.5rem 0;
+  color: #333;
+}
+
+.participants {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.participant-badge {
+  background-color: #e9ecef;
+  padding: 0.25rem 0.75rem;
+  border-radius: 15px;
+  font-size: 0.875rem;
+  color: #495057;
+}
+
+.messages-container {
+  flex: 1;
+  padding: 1rem;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.message {
+  max-width: 70%;
+  padding: 0.75rem;
+  border-radius: 8px;
+  position: relative;
+}
+
+.message.sent {
+  align-self: flex-end;
+  background-color: #E98074;
+  color: white;
+}
+
+.message.received {
+  align-self: flex-start;
+  background-color: #f8f9fa;
+  color: #333;
+}
+
+.message-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.25rem;
+}
+
+.sender-name {
+  font-weight: 600;
+  font-size: 0.875rem;
+}
+
+.sender-role {
+  font-size: 0.75rem;
+  padding: 0.125rem 0.5rem;
+  border-radius: 12px;
+  text-transform: capitalize;
+}
+
+.role-admin {
+  background-color: #ffd700;
+  color: #333;
+}
+
+.role-security {
+  background-color: #4caf50;
+  color: white;
+}
+
+.role-user {
+  background-color: #E98074;
+  color: white;
+}
+
+.message-content {
+  word-wrap: break-word;
+}
+
+.message-timestamp {
+  font-size: 0.75rem;
+  color: #6c757d;
+  margin-top: 0.25rem;
+  text-align: right;
+}
+
+.message.sent .message-timestamp {
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.message-input-form {
+  display: flex;
+  gap: 0.5rem;
+  padding: 1rem;
+  background-color: #f8f9fa;
+  border-top: 1px solid #e9ecef;
+}
+
+.message-input {
+  flex: 1;
+  padding: 0.75rem;
+  border: 1px solid #ced4da;
+  border-radius: 4px;
+  font-size: 1rem;
+}
+
+.message-input:focus {
+  outline: none;
+  border-color: #E98074;
+  box-shadow: 0 0 0 0.2rem rgba(233, 128, 116, 0.25);
+}
+
+.send-button {
+  padding: 0.75rem 1.5rem;
+  background-color: #E98074;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.send-button:hover {
+  background-color: #E85A4F;
+}
+
+.send-button:disabled {
+  background-color: #8E8D8A;
+  cursor: not-allowed;
+} 

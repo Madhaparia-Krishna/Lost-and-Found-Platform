@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
+  <style>
+    .text {
+      font-family: 'Arial Black', 'Arial Bold', Arial, sans-serif;
+      font-weight: 900;
+      font-size: 24px;
+      fill: #4B0082;
+      stroke: #FFFFFF;
+      stroke-width: 1px;
+      paint-order: stroke fill;
+    }
+    .outline {
+      fill: none;
+      stroke: #8A2BE2;
+      stroke-width: 3px;
+    }
+  </style>
+  <rect width="64" height="64" fill="transparent" />
+  <text x="32" y="38" text-anchor="middle" class="text">L@C</text>
+  <rect x="8" y="24" width="48" height="28" rx="14" class="outline" />
+</svg> 

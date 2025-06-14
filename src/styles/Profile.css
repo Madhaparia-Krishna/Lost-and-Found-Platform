@@ -2,9 +2,9 @@
   max-width: 800px;
   margin: 2rem auto;
   padding: 2rem;
-  background-color: #fff;
-  border-radius: 8px;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+  background-color: #EAE7DC;
+  border-radius: 4px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
 }
 
 .profile-container h1 {
@@ -33,17 +33,18 @@
 .form-group input,
 .form-group select {
   padding: 0.8rem;
-  border: 1px solid #ddd;
-  border-radius: 4px;
+  border: 1px solid #D8C3A5;
+  border-radius: 2px;
   font-size: 1rem;
   transition: border-color 0.3s;
+  background-color: #fff;
 }
 
 .form-group input:focus,
 .form-group select:focus {
   outline: none;
-  border-color: #4a90e2;
-  box-shadow: 0 0 0 2px rgba(74, 144, 226, 0.2);
+  border-color: #E98074;
+  box-shadow: 0 0 0 2px rgba(233, 128, 116, 0.2);
 }
 
 .disabled-input {
@@ -58,11 +59,11 @@
 }
 
 .update-button {
-  background-color: #4a90e2;
+  background-color: #E98074;
   color: white;
   border: none;
   padding: 1rem;
-  border-radius: 4px;
+  border-radius: 2px;
   font-size: 1rem;
   font-weight: 600;
   cursor: pointer;
@@ -71,30 +72,30 @@
 }
 
 .update-button:hover {
-  background-color: #3a7bbf;
+  background-color: #E85A4F;
 }
 
 .update-button:disabled {
-  background-color: #a0c4e9;
+  background-color: #D8C3A5;
   cursor: not-allowed;
 }
 
 .error-message {
-  background-color: #ffe8e8;
-  color: #d32f2f;
+  background-color: #f8d7da;
+  color: #E85A4F;
   padding: 1rem;
-  border-radius: 4px;
+  border-radius: 2px;
   margin-bottom: 1.5rem;
-  border-left: 4px solid #d32f2f;
+  border-left: 4px solid #E85A4F;
 }
 
 .success-message {
-  background-color: #e8f5e9;
-  color: #2e7d32;
+  background-color: #D8C3A5;
+  color: #4D4C4A;
   padding: 1rem;
-  border-radius: 4px;
+  border-radius: 2px;
   margin-bottom: 1.5rem;
-  border-left: 4px solid #2e7d32;
+  border-left: 4px solid #8E8D8A;
 }
 
 .profile-actions {
@@ -107,28 +108,28 @@
 }
 
 .back-button {
-  background-color: #f0f0f0;
-  color: #333;
+  background-color: #8E8D8A;
+  color: white;
   border: none;
   padding: 0.7rem 1.2rem;
-  border-radius: 4px;
+  border-radius: 2px;
   cursor: pointer;
   transition: background-color 0.3s;
 }
 
 .back-button:hover {
-  background-color: #e0e0e0;
+  background-color: #6D6C6A;
 }
 
 .password-link {
-  color: #4a90e2;
+  color: #E98074;
   text-decoration: none;
   font-weight: 500;
   transition: color 0.3s;
 }
 
 .password-link:hover {
-  color: #3a7bbf;
+  color: #E85A4F;
   text-decoration: underline;
 }
 

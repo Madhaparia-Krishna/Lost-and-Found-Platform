@@ -1,0 +1,481 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Item Match Simulation</title>
+    <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background-color: white;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            margin-bottom: 20px;
+        }
+        .note {
+            background-color: #fff3cd;
+            border: 1px solid #ffeeba;
+            color: #856404;
+            padding: 15px;
+            border-radius: 4px;
+            margin-bottom: 20px;
+        }
+        h1, h2 {
+            color: #2c3e50;
+            text-align: center;
+        }
+        h2 {
+            margin-top: 0;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #eee;
+        }
+        .form-wrapper {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+        form {
+            display: grid;
+            grid-gap: 15px;
+        }
+        label {
+            font-weight: bold;
+            margin-bottom: 5px;
+            display: block;
+        }
+        input, select, textarea {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 16px;
+        }
+        textarea {
+            height: 80px;
+        }
+        button {
+            background-color: #3498db;
+            color: white;
+            padding: 12px;
+            border: none;
+            border-radius: 4px;
+            font-size: 16px;
+            cursor: pointer;
+            margin-top: 10px;
+        }
+        .match-button {
+            grid-column: span 2;
+            background-color: #27ae60;
+        }
+        button:hover {
+            opacity: 0.9;
+        }
+        .result {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 4px;
+            display: none;
+        }
+        .success {
+            background-color: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+        }
+        .error {
+            background-color: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+        }
+        .match-result {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 4px;
+            background-color: #e8f4fd;
+            border: 1px solid #b8daff;
+            color: #004085;
+        }
+        .hidden {
+            display: none;
+        }
+        .compare {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-top: 20px;
+        }
+        .compare-column {
+            background-color: #f8f9fa;
+            padding: 15px;
+            border-radius: 4px;
+        }
+        .match-score {
+            text-align: center;
+            font-size: 24px;
+            font-weight: bold;
+            margin: 20px 0;
+            color: #2c3e50;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Lost & Found Item Match Simulation</h1>
+        
+        <div class="note">
+            <strong>Important:</strong> This tool simulates the matching of lost and found items and sends a real notification email to the address you provide. 
+            The email will be sent <strong>TO</strong> the email address you enter in the form below (not FROM it). 
+            This allows you to test receiving match notifications without needing to create actual items in the database.
+        </div>
+        
+        <p>Enter details for both a lost item and a found item to see how well they match and receive a notification email.</p>
+        
+        <div class="form-wrapper">
+            <div>
+                <h2>Lost Item</h2>
+                <form id="lostItemForm">
+                    <div>
+                        <label for="lostTitle">Item Title:</label>
+                        <input type="text" id="lostTitle" name="lostTitle" required placeholder="Lost Laptop">
+                    </div>
+                    <div>
+                        <label for="lostCategory">Category:</label>
+                        <select id="lostCategory" name="lostCategory">
+                            <option value="Electronics">Electronics</option>
+                            <option value="Clothing">Clothing</option>
+                            <option value="Books">Books</option>
+                            <option value="ID Cards">ID Cards</option>
+                            <option value="Keys">Keys</option>
+                            <option value="Accessories">Accessories</option>
+                            <option value="Other">Other</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label for="lostLocation">Location:</label>
+                        <input type="text" id="lostLocation" name="lostLocation" placeholder="Library">
+                    </div>
+                    <div>
+                        <label for="lostDescription">Description:</label>
+                        <textarea id="lostDescription" name="lostDescription" placeholder="Black laptop with stickers"></textarea>
+                    </div>
+                    <div>
+                        <label for="userEmail">Your Email (will receive notification):</label>
+                        <input type="email" id="userEmail" name="userEmail" required placeholder="your@email.com">
+                    </div>
+                    <div>
+                        <label for="userName">Your Name:</label>
+                        <input type="text" id="userName" name="userName" required placeholder="Your Name">
+                    </div>
+                </form>
+            </div>
+            
+            <div>
+                <h2>Found Item</h2>
+                <form id="foundItemForm">
+                    <div>
+                        <label for="foundTitle">Item Title:</label>
+                        <input type="text" id="foundTitle" name="foundTitle" required placeholder="Found Laptop">
+                    </div>
+                    <div>
+                        <label for="foundCategory">Category:</label>
+                        <select id="foundCategory" name="foundCategory">
+                            <option value="Electronics">Electronics</option>
+                            <option value="Clothing">Clothing</option>
+                            <option value="Books">Books</option>
+                            <option value="ID Cards">ID Cards</option>
+                            <option value="Keys">Keys</option>
+                            <option value="Accessories">Accessories</option>
+                            <option value="Other">Other</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label for="foundLocation">Location:</label>
+                        <input type="text" id="foundLocation" name="foundLocation" placeholder="Library">
+                    </div>
+                    <div>
+                        <label for="foundDescription">Description:</label>
+                        <textarea id="foundDescription" name="foundDescription" placeholder="Black laptop with stickers, found in study area"></textarea>
+                    </div>
+                </form>
+            </div>
+        </div>
+        
+        <button id="matchButton" class="match-button">Check for Match & Send Email</button>
+        
+        <div id="matchResult" class="match-result hidden">
+            <h3>Match Analysis</h3>
+            <div class="compare">
+                <div class="compare-column">
+                    <h4>Lost Item</h4>
+                    <p><strong>Title:</strong> <span id="compareLostTitle"></span></p>
+                    <p><strong>Category:</strong> <span id="compareLostCategory"></span></p>
+                    <p><strong>Location:</strong> <span id="compareLostLocation"></span></p>
+                    <p><strong>Description:</strong> <span id="compareLostDescription"></span></p>
+                </div>
+                <div class="compare-column">
+                    <h4>Found Item</h4>
+                    <p><strong>Title:</strong> <span id="compareFoundTitle"></span></p>
+                    <p><strong>Category:</strong> <span id="compareFoundCategory"></span></p>
+                    <p><strong>Location:</strong> <span id="compareFoundLocation"></span></p>
+                    <p><strong>Description:</strong> <span id="compareFoundDescription"></span></p>
+                </div>
+            </div>
+            
+            <div class="match-score">Match Score: <span id="score">0</span>%</div>
+            
+            <div id="emailStatus" class="result"></div>
+        </div>
+    </div>
+
+    <script>
+        // Initialize EmailJS
+        (function() {
+            emailjs.init("pDF979lgKSH6M7p8y");
+            console.log("EmailJS initialized");
+        })();
+        
+        // Verify EmailJS configuration is working
+        function checkEmailJSConfig() {
+            console.log("Checking EmailJS configuration...");
+            console.log("Service ID: service_1b8c1on");
+            console.log("Template ID: template_cnjtyil");
+            console.log("Public Key: pDF979lgKSH6M7p8y");
+            
+            // Log the available services and templates if possible
+            if (typeof emailjs.listServices === 'function') {
+                emailjs.listServices().then(services => {
+                    console.log("Available services:", services);
+                }).catch(err => {
+                    console.log("Could not list services:", err);
+                });
+            }
+        }
+        
+        // Run the check when the page loads
+        window.onload = function() {
+            checkEmailJSConfig();
+            console.log("Page loaded and EmailJS checked");
+        };
+        
+        // Calculate similarity score between two strings
+        function calculateStringSimilarity(str1, str2) {
+            if (!str1 && !str2) return 1;
+            if (!str1 || !str2) return 0;
+            
+            const s1 = str1.toLowerCase();
+            const s2 = str2.toLowerCase();
+            
+            // Simple word matching
+            const words1 = s1.split(/\s+/);
+            const words2 = s2.split(/\s+/);
+            
+            let matches = 0;
+            for (const word1 of words1) {
+                if (word1.length < 3) continue; // Skip short words
+                for (const word2 of words2) {
+                    if (word2.length < 3) continue;
+                    if (word1 === word2 || word1.includes(word2) || word2.includes(word1)) {
+                        matches++;
+                        break;
+                    }
+                }
+            }
+            
+            const maxWords = Math.max(words1.length, words2.length);
+            return maxWords > 0 ? matches / maxWords : 0;
+        }
+        
+        // Calculate match score between lost and found items
+        function calculateMatchScore() {
+            let score = 0;
+            let totalWeight = 0;
+            
+            // Get form values
+            const lostItem = {
+                title: document.getElementById('lostTitle').value,
+                category: document.getElementById('lostCategory').value,
+                location: document.getElementById('lostLocation').value,
+                description: document.getElementById('lostDescription').value
+            };
+            
+            const foundItem = {
+                title: document.getElementById('foundTitle').value,
+                category: document.getElementById('foundCategory').value,
+                location: document.getElementById('foundLocation').value,
+                description: document.getElementById('foundDescription').value
+            };
+            
+            // Update comparison display
+            document.getElementById('compareLostTitle').textContent = lostItem.title;
+            document.getElementById('compareLostCategory').textContent = lostItem.category;
+            document.getElementById('compareLostLocation').textContent = lostItem.location || 'Not specified';
+            document.getElementById('compareLostDescription').textContent = lostItem.description || 'Not specified';
+            
+            document.getElementById('compareFoundTitle').textContent = foundItem.title;
+            document.getElementById('compareFoundCategory').textContent = foundItem.category;
+            document.getElementById('compareFoundLocation').textContent = foundItem.location || 'Not specified';
+            document.getElementById('compareFoundDescription').textContent = foundItem.description || 'Not specified';
+
+            // Category match (weight: 0.3)
+            if (lostItem.category === foundItem.category) {
+                score += 0.3;
+            }
+            totalWeight += 0.3;
+
+            // Location match (weight: 0.2)
+            if (lostItem.location && foundItem.location && 
+                lostItem.location.toLowerCase() === foundItem.location.toLowerCase()) {
+                score += 0.2;
+            }
+            totalWeight += 0.2;
+
+            // Title similarity (weight: 0.2)
+            const titleSimilarity = calculateStringSimilarity(lostItem.title, foundItem.title);
+            score += 0.2 * titleSimilarity;
+            totalWeight += 0.2;
+
+            // Description similarity (weight: 0.3)
+            const descriptionSimilarity = calculateStringSimilarity(
+                lostItem.description,
+                foundItem.description
+            );
+            score += 0.3 * descriptionSimilarity;
+            totalWeight += 0.3;
+
+            const finalScore = totalWeight > 0 ? (score / totalWeight) * 100 : 0;
+            return Math.round(finalScore);
+        }
+        
+        // Handle match button click
+        document.getElementById('matchButton').addEventListener('click', function() {
+            // Validate email and names
+            const userEmail = document.getElementById('userEmail').value;
+            const userName = document.getElementById('userName').value;
+            
+            if (!userEmail || !userName) {
+                alert('Please enter your email and name to receive a notification');
+                return;
+            }
+            
+            // Calculate match score
+            const matchScore = calculateMatchScore();
+            
+            // Show the match result
+            const matchResult = document.getElementById('matchResult');
+            matchResult.classList.remove('hidden');
+            
+            // Update the score display
+            document.getElementById('score').textContent = matchScore;
+            
+            // If score is above threshold, send email
+            if (matchScore >= 50) {
+                sendMatchEmail(userEmail, userName, matchScore);
+            } else {
+                const emailStatus = document.getElementById('emailStatus');
+                emailStatus.className = 'result';
+                emailStatus.style.display = 'block';
+                emailStatus.innerHTML = `
+                    <p>Match score (${matchScore}%) is below the 50% threshold.</p>
+                    <p>No notification email will be sent automatically.</p>
+                    <button id="forceSendButton">Send Email Anyway</button>
+                `;
+                
+                document.getElementById('forceSendButton').addEventListener('click', function() {
+                    sendMatchEmail(userEmail, userName, matchScore);
+                });
+            }
+        });
+        
+        // Send match email
+        function sendMatchEmail(userEmail, userName, matchScore) {
+            const emailStatus = document.getElementById('emailStatus');
+            emailStatus.className = 'result';
+            emailStatus.style.display = 'block';
+            emailStatus.textContent = 'Sending notification email...';
+            
+            const lostItem = {
+                title: document.getElementById('lostTitle').value,
+                category: document.getElementById('lostCategory').value,
+                location: document.getElementById('lostLocation').value
+            };
+            
+            const foundItem = {
+                title: document.getElementById('foundTitle').value,
+                category: document.getElementById('foundCategory').value,
+                location: document.getElementById('foundLocation').value
+            };
+            
+            // Create template parameters
+            // IMPORTANT: These parameter names must match exactly what's expected in your EmailJS template
+            const templateParams = {
+                // This should be the recipient's email address (from the form)
+                to_email: userEmail,
+                reply_to: userEmail, // Ensure reply-to is also set
+                from_name: "Lost & Found System",
+                
+                // This is the system name that appears as the sender name
+                name: "Lost & Found System",
+                
+                // This is the recipient's name that you'll use in the greeting
+                user_name: userName,
+                
+                time: new Date().toLocaleString(),
+                message: `We've found a ${matchScore}% match for your lost item: ${lostItem.title}`,
+                item_title: foundItem.title,
+                category: foundItem.category,
+                date: new Date().toLocaleDateString(),
+                match_link: `http://localhost:3000/matches/9999`,
+                location: foundItem.location || 'Unknown location',
+                
+                // Explicitly add every possible recipient-related field used by EmailJS
+                recipient: userEmail,
+                to_name: userName
+            };
+            
+            console.log('Sending with params:', templateParams);
+            
+            // Use a more verbose configuration with explicit service/template details
+            const emailConfig = {
+                serviceID: "service_1b8c1on", 
+                templateID: "template_cnjtyil",
+                templateParams: templateParams,
+                publicKey: "pDF979lgKSH6M7p8y"
+            };
+            console.log('Email configuration:', emailConfig);
+            
+            // Send the email using EmailJS
+            emailjs.send(
+                emailConfig.serviceID, 
+                emailConfig.templateID, 
+                emailConfig.templateParams
+            )
+                .then(function(response) {
+                    console.log('SUCCESS!', response.status, response.text);
+                    emailStatus.className = 'result success';
+                    emailStatus.innerHTML = `
+                        <h3>Match Notification Sent!</h3>
+                        <p>Email sent to: ${userEmail}</p>
+                        <p>Match Score: ${matchScore}%</p>
+                        <p>Status: ${response.status}</p>
+                        <p>Response: ${response.text}</p>
+                    `;
+                }, function(error) {
+                    console.log('FAILED...', error);
+                    emailStatus.className = 'result error';
+                    emailStatus.innerHTML = `
+                        <h3>Failed to Send Notification</h3>
+                        <p>Error: ${JSON.stringify(error)}</p>
+                    `;
+                });
+        }
+    </script>
+</body>
+</html> 

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { sendEmail, buildEmailParams, EMAIL_TEMPLATES } from '../utils/emailService';
+import emailService from '../utils/emailService';
 import '../styles/AuthForms.css';
 
 function ForgotPassword() {
@@ -77,18 +77,11 @@ function ForgotPassword() {
         throw new Error('Invalid server response: missing reset URL');
       }
 
-      // Send email using EmailJS
-      const emailParams = {
-        name: data.userName || 'User',
-        reset_link: data.resetUrl,
-        email: email
-      };
-      
-      console.log('Sending email with params:', emailParams);
-      
-      const emailResult = await sendEmail(
-        EMAIL_TEMPLATES.PASSWORD_RESET,
-        emailParams
+      // Send email using our emailService
+      const emailResult = await emailService.sendPasswordResetEmail(
+        email,
+        data.userName || 'User',
+        data.resetUrl
       );
 
       if (!emailResult.success) {
@@ -159,46 +152,38 @@ function ForgotPassword() {
   };
   
   return (
-    <div className="auth-container">
-      <div className="auth-form-container">
-        <h1>{isResetPage ? 'Reset Password' : 'Forgot Password'}</h1>
-        
-        {error && <div className="error-message">{error}</div>}
-        {success && <div className="success-message">{success}</div>}
-        
+    <div className="login-template-container">
+      <form className="login-card" onSubmit={isResetPage ? handleResetPassword : handleEmailSubmit}>
+        <h1 className="login-title">{isResetPage ? 'Reset Password' : 'Forgot Password'}</h1>
+        {error && <div className="login-error">{error}</div>}
+        {success && <div className="login-success">{success}</div>}
         {!isResetPage ? (
-          <form onSubmit={handleEmailSubmit} className="auth-form">
-            <div className="form-group">
-              <label htmlFor="email">Email Address</label>
+          <>
+            <div className="login-input-group">
               <input
                 type="email"
                 id="email"
+                className="login-input"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="Enter your email"
                 required
               />
             </div>
-            
-            <button 
-              type="submit" 
-              className="auth-button"
-              disabled={loading}
-            >
-              {loading ? 'Sending...' : 'Send Reset Instructions'}
+            <button type="submit" className="login-btn" disabled={loading}>
+              {loading ? <span className="button-spinner"></span> : 'Send Reset Instructions'}
             </button>
-            
-            <div className="auth-links">
-              <Link to="/login">Back to Login</Link>
-            </div>
-          </form>
+            <p className="signup-prompt">
+              <Link to="/login" className="login-link">Back to Login</Link>
+            </p>
+          </>
         ) : (
-          <form onSubmit={handleResetPassword} className="auth-form">
-            <div className="form-group">
-              <label htmlFor="newPassword">New Password</label>
+          <>
+            <div className="login-input-group">
               <input
                 type="password"
                 id="newPassword"
+                className="login-input"
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
                 placeholder="Enter new password"
@@ -206,33 +191,26 @@ function ForgotPassword() {
                 minLength="8"
               />
             </div>
-            
-            <div className="form-group">
-              <label htmlFor="confirmPassword">Confirm Password</label>
+            <div className="login-input-group">
               <input
                 type="password"
                 id="confirmPassword"
+                className="login-input"
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 placeholder="Confirm new password"
                 required
               />
             </div>
-            
-            <button 
-              type="submit" 
-              className="auth-button"
-              disabled={loading}
-            >
-              {loading ? 'Resetting...' : 'Reset Password'}
+            <button type="submit" className="login-btn" disabled={loading}>
+              {loading ? <span className="button-spinner"></span> : 'Reset Password'}
             </button>
-            
-            <div className="auth-links">
-              <Link to="/login">Back to Login</Link>
-            </div>
-          </form>
+            <p className="signup-prompt">
+              <Link to="/login" className="login-link">Back to Login</Link>
+            </p>
+          </>
         )}
-      </div>
+      </form>
     </div>
   );
 }

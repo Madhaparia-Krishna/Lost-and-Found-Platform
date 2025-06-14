@@ -1,101 +1,109 @@
-import React, { useContext, useEffect } from 'react';
+import React, { useContext } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { AuthContext } from '../context/AuthContext';
-import ProfileDropdown from '../components/ProfileDropdown';
-import '../index.css';
-import '../styles/Navbar.css';
+import '../styles/Home.css';
 
-function Home() {
-  const { currentUser, logout } = useContext(AuthContext);
+const Home = () => {
+  const { currentUser } = useContext(AuthContext);
   const navigate = useNavigate();
 
-  const [mobileMenuOpen, setMobileMenuOpen] = React.useState(false);
-
-  const toggleMobileMenu = () => {
-    setMobileMenuOpen(!mobileMenuOpen);
+  const handleReportLost = () => {
+    navigate('/report-lost');
   };
 
-  // Debug the auth state
-  useEffect(() => {
-    console.log('Home component - Current user:', currentUser);
-  }, [currentUser]);
+  const handleReportFound = () => {
+    navigate('/report-found');
+  };
 
-  const handleLogout = () => {
-    console.log('Logging out...');
-    logout();
-    navigate('/');
+  const handleViewItems = () => {
+    navigate('/dashboard/found-items');
   };
 
   return (
-    <div className="home-container">
-      <nav className="navbar">
-        <div className="nav-left">
-          <h1>Lost@Campus</h1>
-          <p className="subheading">Your go-to place when things go missing</p>
-        </div>
-        
-        {/* Hamburger menu for mobile */}
-        <div className="menu-toggle d-md-none" onClick={toggleMobileMenu}>
-          ☰
-        </div>
-        
-        <div className={`nav-right ${mobileMenuOpen ? 'active' : ''}`}>
-          <div className="action-buttons">
-            <button className="nav-btn" onClick={() => navigate('/lost')}>
-        Submit Lost Item
-      </button>
-      <button className="nav-btn" onClick={() => navigate('/found')}>
-        Submit Found Item
-      </button>
-            <button className="nav-btn">View Recent Posts</button>
-          </div>
-          
-          {/* Authentication components */}
-          {!currentUser ? (
-            <div className="auth-section">
-              <Link to="/login" className="nav-btn">Log In</Link>
-              <Link to="/register" className="nav-btn">Register</Link>
+    <div className="home-container auth-bg">
+      <header className="home-header">
+        <div className="hero-section">
+          <div className="hero-content">
+            <h1>Lost Something on Campus?</h1>
+            <p>A simple and effective platform to report lost items and find what you're looking for on campus. We help connect students with their lost belongings.</p>
+            
+            <div className="hero-buttons">
+              {currentUser ? (
+                <>
+                  <button className="hero-button primary" onClick={handleReportLost}>
+                    <i className="fas fa-exclamation-circle"></i> Report Lost Item
+                  </button>
+                  <button className="hero-button secondary" onClick={handleReportFound}>
+                    <i className="fas fa-hand-holding"></i> Report Found Item
+                  </button>
+                </>
+              ) : (
+                <>
+                  <Link to="/login" className="hero-button primary">
+                    <i className="fas fa-sign-in-alt"></i> Login
+                  </Link>
+                  <Link to="/register" className="hero-button secondary">
+                    <i className="fas fa-user-plus"></i> Create Account
+                  </Link>
+                </>
+              )}
             </div>
-          ) : (
-            <div className="auth-section">
-              <ProfileDropdown user={currentUser} logout={logout} />
-            </div>
-          )}
+          </div>
         </div>
-      </nav>
+      </header>
 
-      <main className="main-content">
-        <section className="search-section">
-          <div className="search-container">
-            <input type="text" placeholder="Search..." className="search-input" />
-            <select className="category-select">
-              <option value="">Category</option>
-              <option value="electronics">Electronics</option>
-              <option value="clothing">Clothing</option>
-              <option value="books">Books</option>
-            </select>
+      <section className="features-section">
+        <h2>How It Works</h2>
+        <div className="features-grid">
+          <div className="feature-card">
+            <div className="feature-icon">
+              <i className="fas fa-clipboard-list"></i>
+            </div>
+            <h3>Report Lost Items</h3>
+            <p>Quickly submit details about items you've lost and get notified when similar items are found.</p>
           </div>
-        </section>
-      </main>
+          <div className="feature-card">
+            <div className="feature-icon">
+              <i className="fas fa-hand-holding"></i>
+            </div>
+            <h3>Submit Found Items</h3>
+            <p>Help others by reporting items you've found and facilitate their return to the rightful owners.</p>
+          </div>
+          <div className="feature-card">
+            <div className="feature-icon">
+              <i className="fas fa-search"></i>
+            </div>
+            <h3>Search the Database</h3>
+            <p>Browse our collection of found items or search for specific items using advanced filters.</p>
+          </div>
+          <div className="feature-card">
+            <div className="feature-icon">
+              <i className="fas fa-exchange-alt"></i>
+            </div>
+            <h3>Get Items Back</h3>
+            <p>Verify your identity and arrange to collect your items once they've been found.</p>
+          </div>
+        </div>
+        <div className="view-all-button">
+          <button className="primary-button" onClick={handleViewItems}>
+            <i className="fas fa-list"></i> View All Found Items
+          </button>
+        </div>
+      </section>
 
-      <div className="content-section">
-        <section className="rating">
-          <div className="rating-container">
-            <p>⭐⭐⭐⭐⭐ Rate us!</p>
+      <footer className="home-footer">
+        <div className="footer-content">
+          <p>&copy; {new Date().getFullYear()} Lost@Campus</p>
+          <div className="footer-links">
+            <a href="#about">About</a>
+            <a href="#privacy">Privacy Policy</a>
+            <a href="#terms">Terms of Service</a>
+            <a href="#contact">Contact</a>
           </div>
-        </section>
-
-        <section className="recent-items">
-          <h2>Some Recent Lost & Found Items</h2>
-          <div className="item-grid">
-            <div className="item-card">Item 1</div>
-            <div className="item-card">Item 2</div>
-            <div className="item-card">Item 3</div>
-          </div>
-        </section>
-      </div>
+        </div>
+      </footer>
     </div>
   );
-}
+};
 
 export default Home;

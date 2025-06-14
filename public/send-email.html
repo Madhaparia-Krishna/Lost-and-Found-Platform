@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Direct Email Sender</title>
+    <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background-color: white;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+        h1 {
+            color: #2c3e50;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        form {
+            display: grid;
+            grid-gap: 15px;
+        }
+        label {
+            font-weight: bold;
+            margin-bottom: 5px;
+            display: block;
+        }
+        input, select, textarea {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 16px;
+        }
+        textarea {
+            height: 100px;
+        }
+        button {
+            background-color: #3498db;
+            color: white;
+            padding: 12px;
+            border: none;
+            border-radius: 4px;
+            font-size: 16px;
+            cursor: pointer;
+            margin-top: 10px;
+        }
+        button:hover {
+            background-color: #2980b9;
+        }
+        .result {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 4px;
+            display: none;
+        }
+        .success {
+            background-color: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+        }
+        .error {
+            background-color: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Direct Email Sender</h1>
+        <p>This page sends emails directly using the EmailJS browser client library.</p>
+        
+        <form id="emailForm">
+            <div>
+                <label for="toEmail">To Email:</label>
+                <input type="email" id="toEmail" name="toEmail" required placeholder="Recipient's email">
+            </div>
+            <div>
+                <label for="userName">User Name:</label>
+                <input type="text" id="userName" name="userName" required placeholder="User's name">
+            </div>
+            <div>
+                <label for="itemTitle">Item Title:</label>
+                <input type="text" id="itemTitle" name="itemTitle" required placeholder="Item title">
+            </div>
+            <div>
+                <label for="category">Category:</label>
+                <select id="category" name="category">
+                    <option value="Electronics">Electronics</option>
+                    <option value="Clothing">Clothing</option>
+                    <option value="Books">Books</option>
+                    <option value="ID Cards">ID Cards</option>
+                    <option value="Keys">Keys</option>
+                    <option value="Accessories">Accessories</option>
+                    <option value="Other">Other</option>
+                </select>
+            </div>
+            <div>
+                <label for="location">Location:</label>
+                <input type="text" id="location" name="location" placeholder="Where it was found">
+            </div>
+            <div>
+                <label for="message">Custom Message:</label>
+                <textarea id="message" name="message" placeholder="Enter a custom message"></textarea>
+            </div>
+            <button type="submit">Send Email</button>
+        </form>
+        
+        <div id="result" class="result"></div>
+    </div>
+
+    <script>
+        // Initialize EmailJS
+        (function() {
+            emailjs.init("pDF979lgKSH6M7p8y");
+        })();
+        
+        document.getElementById('emailForm').addEventListener('submit', function(event) {
+            event.preventDefault();
+            
+            const resultDiv = document.getElementById('result');
+            resultDiv.className = 'result';
+            resultDiv.style.display = 'block';
+            resultDiv.textContent = 'Sending email...';
+            
+            // Create template parameters
+            const templateParams = {
+                to_email: document.getElementById('toEmail').value,
+                name: "Lost & Found System",
+                user_name: document.getElementById('userName').value,
+                time: new Date().toLocaleString(),
+                message: document.getElementById('message').value || 
+                    `We've found an item that matches your lost report: ${document.getElementById('itemTitle').value}`,
+                item_title: document.getElementById('itemTitle').value,
+                category: document.getElementById('category').value,
+                date: new Date().toLocaleDateString(),
+                match_link: `http://localhost:3000/matches/9999`,
+                location: document.getElementById('location').value || 'Unknown location'
+            };
+            
+            console.log('Sending with params:', templateParams);
+            
+            // Send the email using EmailJS
+            emailjs.send("service_1b8c1on", "template_cnjtyil", templateParams)
+                .then(function(response) {
+                    console.log('SUCCESS!', response.status, response.text);
+                    resultDiv.className = 'result success';
+                    resultDiv.innerHTML = `
+                        <h3>Email Sent Successfully!</h3>
+                        <p>The email has been sent to: ${templateParams.to_email}</p>
+                        <p>Status: ${response.status}</p>
+                        <p>Response: ${response.text}</p>
+                    `;
+                }, function(error) {
+                    console.log('FAILED...', error);
+                    resultDiv.className = 'result error';
+                    resultDiv.innerHTML = `
+                        <h3>Failed to Send Email</h3>
+                        <p>Error: ${JSON.stringify(error)}</p>
+                    `;
+                });
+        });
+    </script>
+</body>
+</html> 

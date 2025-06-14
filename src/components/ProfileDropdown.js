@@ -46,7 +46,7 @@ const ProfileDropdown = ({ user, logout }) => {
   };
 
   const goToSecurityPanel = () => {
-    navigate('/security');
+    navigate('/security-dashboard');
     setIsOpen(false);
   };
 

@@ -1,7 +1,7 @@
 import React, { useState, useContext, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { AuthContext } from '../context/AuthContext';
-import '../styles/Auth.css';
+import '../styles/AuthForms.css';
 
 const Register = () => {
   const [name, setName] = useState('');
@@ -17,7 +17,7 @@ const Register = () => {
   // Monitor authentication state changes
   useEffect(() => {
     if (currentUser) {
-      // Redirect if already logged in
+      // Redirect to homepage if already logged in
       navigate('/');
     }
   }, [currentUser, navigate]);
@@ -47,103 +47,77 @@ const Register = () => {
     }
 
     try {
-      // API call to your backend
-      const response = await fetch('/api/register', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          name,
-          email,
-          password
-        }),
-      });
-
-      const data = await response.json();
-
-      if (response.ok) {
-        // Registration successful, log the user in
-        register(data.user);
-        // Navigation will happen in useEffect when currentUser changes
-      } else {
-        setError(data.message || 'Registration failed. Please try again.');
-      }
+      // Use our AuthContext register function directly
+      await register(name, email, password);
+      // Redirect to homepage after successful registration
+      navigate('/');
     } catch (err) {
       console.error('Registration error:', err);
-      setError('Connection error. Please check if the server is running.');
+      setError(err.message || 'Registration failed. Please try again.');
     } finally {
       setIsLoading(false);
     }
   };
 
   return (
-    <div className="auth-container">
-      <div className="auth-card">
-        <h2>Register</h2>
-        {error && <div className="error-message">{error}</div>}
-        
-        <form onSubmit={handleSubmit}>
-          <div className="input-group">
-            <label htmlFor="name">Full Name</label>
-            <input
-              type="text"
-              id="name"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              required
-            />
-          </div>
-          
-          <div className="input-group">
-            <label htmlFor="email">Email</label>
-            <input
-              type="email"
-              id="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-            />
-          </div>
-          
-          <div className="input-group">
-            <label htmlFor="password">Password (min. 8 characters)</label>
-            <input
-              type="password"
-              id="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-              minLength={8}
-            />
-          </div>
-          
-          <div className="input-group">
-            <label htmlFor="confirmPassword">Confirm Password</label>
-            <input
-              type="password"
-              id="confirmPassword"
-              value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
-              required
-            />
-          </div>
-          
-          <button 
-            type="submit" 
-            className="auth-button"
-            disabled={isLoading}
-          >
-            {isLoading ? 'Registering...' : 'Register'}
-          </button>
-        </form>
-        
-        <div className="auth-footer">
-          <p>Already have an account? <Link to="/login">Login</Link></p>
+    <div className="login-template-container">
+      <form className="login-card" onSubmit={handleSubmit}>
+        <h1 className="login-title">Sign Up</h1>
+        {error && <div className="login-error">{error}</div>}
+        <div className="login-input-group">
+          <input
+            type="text"
+            id="name"
+            className="login-input"
+            placeholder="Full Name"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            required
+          />
         </div>
-      </div>
+        <div className="login-input-group">
+          <input
+            type="email"
+            id="email"
+            className="login-input"
+            placeholder="E-mail"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            required
+          />
+        </div>
+        <div className="login-input-group">
+          <input
+            type="password"
+            id="password"
+            className="login-input"
+            placeholder="Password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            required
+            minLength={8}
+          />
+        </div>
+        <div className="login-input-group">
+          <input
+            type="password"
+            id="confirmPassword"
+            className="login-input"
+            placeholder="Confirm Password"
+            value={confirmPassword}
+            onChange={(e) => setConfirmPassword(e.target.value)}
+            required
+          />
+        </div>
+        <button type="submit" className="login-btn" disabled={isLoading}>
+          {isLoading ? <span className="button-spinner"></span> : 'Sign Up'}
+        </button>
+        <p className="signup-prompt">
+          Already have an account? <Link to="/login" className="login-link">Sign In</Link>
+        </p>
+      </form>
     </div>
   );
 };
 
-export default Register; 
+export default Register;

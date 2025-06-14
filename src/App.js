@@ -1,69 +1,173 @@
 import React from 'react';
-import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
+import { Toaster } from 'react-hot-toast';
+import Navbar from './components/Navbar';
+
+// Layouts
+import DashboardLayout from './components/layouts/DashboardLayout';
+
+// Routes
+import PrivateRoute from './components/routes/PrivateRoute';
+import PublicRoute from './components/routes/PublicRoute';
+
+// Pages
 import Home from './pages/Home';
 import Login from './pages/Login';
 import Register from './pages/Register';
-import SecurityPanel from './pages/SecurityPanel';
-import AdminPanel from './pages/AdminPanel';
+import NotFound from './pages/NotFound';
+import ItemDetail from './pages/ItemDetail';
+import Security from './pages/Security';
+import Admin from './pages/Admin';
 import Unauthorized from './pages/Unauthorized';
-import FAQ from './pages/FAQ';
-import About from './pages/About';
-import HelpCenter from './pages/HelpCenter';
 import Profile from './pages/Profile';
 import ForgotPassword from './pages/ForgotPassword';
-import ProtectedRoute from './components/ProtectedRoute';
-import FoundForm from './pages/FoundForm';
-import LostForm from './pages/LostForm';
+
+// Dashboard Pages
+import FoundItems from './pages/dashboard/FoundItems';
+import LostItems from './pages/dashboard/LostItems';
+import RequestedItems from './pages/dashboard/RequestedItems';
+import ReturnedItems from './pages/dashboard/ReturnedItems';
+
+// Form Pages
+import ReportLostItem from './pages/forms/ReportLostItem';
+import ReportFoundItem from './pages/forms/ReportFoundItem';
+import EditItem from './pages/forms/EditItem';
+
+// Styles
+import './App.css';
+import './styles/custom.css';
+import './styles/logo.css';
+
+// AppContent component to conditionally render the Navbar
+const AppContent = () => {
+  const location = useLocation();
+  const isAuthPage = location.pathname === '/login' || location.pathname === '/register' || location.pathname === '/forgot-password' || location.pathname.includes('/reset-password');
+
+  return (
+    <>
+      {/* Only show Navbar if not on auth pages */}
+      {!isAuthPage && <Navbar />}
+      
+      {/* Main Content */}
+      <div className="app-container">
+        <Routes>
+          {/* Public routes - Home page is always accessible */}
+          <Route path="/" element={<Home />} />
+          <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
+          <Route path="/register" element={<PublicRoute><Register /></PublicRoute>} />
+          <Route path="/unauthorized" element={<Unauthorized />} />
+          
+          {/* Dashboard routes */}
+          <Route path="/dashboard" element={
+            <PrivateRoute>
+              <DashboardLayout />
+            </PrivateRoute>
+          }>
+            <Route index element={<Navigate to="/dashboard/found-items" replace />} />
+            <Route path="found-items" element={<FoundItems />} />
+            <Route path="lost-items" element={<LostItems />} />
+            <Route path="requested-items" element={<RequestedItems />} />
+            <Route path="returned-items" element={<ReturnedItems />} />
+          </Route>
+          
+          {/* Item form routes */}
+          <Route path="/report-lost" element={
+            <PrivateRoute>
+              <ReportLostItem />
+            </PrivateRoute>
+          } />
+          <Route path="/report-found" element={
+            <PrivateRoute>
+              <ReportFoundItem />
+            </PrivateRoute>
+          } />
+          <Route path="/edit-item/:id" element={
+            <PrivateRoute>
+              <EditItem />
+            </PrivateRoute>
+          } />
+          
+          {/* Item details */}
+          <Route path="/items/:id" element={
+            <PrivateRoute>
+              <ItemDetail />
+            </PrivateRoute>
+          } />
+          
+          {/* Security staff routes */}
+          <Route path="/security" element={
+            <PrivateRoute requireRole="security">
+              <Security />
+            </PrivateRoute>
+          } />
+          <Route path="/security/dashboard" element={
+            <PrivateRoute requireRole="security">
+              <Security />
+            </PrivateRoute>
+          } />
+          
+          {/* Admin routes */}
+          <Route path="/admin" element={
+            <PrivateRoute requireRole="admin">
+              <Admin />
+            </PrivateRoute>
+          } />
+          <Route path="/admin/dashboard" element={
+            <PrivateRoute requireRole="admin">
+              <Admin />
+            </PrivateRoute>
+          } />
+          
+          {/* Profile route */}
+          <Route path="/profile" element={
+            <PrivateRoute>
+              <Profile />
+            </PrivateRoute>
+          } />
+          
+          {/* Password reset routes */}
+          <Route path="/forgot-password" element={<PublicRoute><ForgotPassword /></PublicRoute>} />
+          <Route path="/reset-password" element={<PublicRoute><ForgotPassword /></PublicRoute>} />
+          
+          {/* Catch-all route */}
+          <Route path="*" element={<NotFound />} />
+        </Routes>
+      </div>
+    </>
+  );
+};
+
 function App() {
   return (
-    <AuthProvider>
-      <Router>
-        <Routes>
-          {/* Public routes */}
-          <Route path="/" element={<Home />} />
-          <Route path="/login" element={<Login />} />
-          <Route path="/register" element={<Register />} />
-          <Route path="/forgot-password" element={<ForgotPassword />} />
-          <Route path="/reset-password" element={<ForgotPassword />} />
-          <Route path="/faq" element={<FAQ />} />
-          <Route path="/about" element={<About />} />
-          <Route path="/help" element={<HelpCenter />} />
-          <Route path="/unauthorized" element={<Unauthorized />} />
-          <Route path="/found" element={<FoundForm />} />
-        <Route path="/lost" element={<LostForm />} />
-
-          {/* Protected routes */}
-          <Route 
-            path="/profile" 
-            element={
-              <ProtectedRoute 
-                element={<Profile />} 
-                allowedRoles={['user', 'admin', 'security']} 
-              />
-            } 
-          />
-          <Route 
-            path="/security" 
-            element={
-              <ProtectedRoute 
-                element={<SecurityPanel />} 
-                allowedRoles={['security', 'admin']} 
-              />
-            } 
-          />
-          <Route 
-            path="/admin" 
-            element={
-              <ProtectedRoute 
-                element={<AdminPanel />} 
-                allowedRoles={['admin']} 
-              />
-            } 
-          />
-        </Routes>
-      </Router>
-    </AuthProvider>
+    <Router>
+      <AuthProvider>
+        {/* Toast notifications */}
+        <Toaster
+          position="top-right"
+          toastOptions={{
+            duration: 3000,
+            style: {
+              background: '#363636',
+              color: '#fff',
+            },
+            success: {
+              style: {
+                background: '#27ae60',
+              },
+            },
+            error: {
+              style: {
+                background: '#e74c3c',
+              },
+              duration: 4000,
+            },
+          }}
+        />
+        
+        <AppContent />
+      </AuthProvider>
+    </Router>
   );
 }
 

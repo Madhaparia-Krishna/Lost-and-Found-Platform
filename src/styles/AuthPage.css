@@ -1,0 +1,32 @@
+.auth-page {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+  width: 100%;
+  background-color: #EAE7DC;
+  overflow: hidden;
+  padding: 20px;
+}
+
+/* Add a subtle animation to the background */
+@keyframes gradientAnimation {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+/* Apply gradient animation on larger screens */
+@media (min-width: 768px) {
+  .auth-page {
+    background: linear-gradient(-45deg, #EAE7DC, #D8C3A5, #EAE7DC, #D8C3A5);
+    background-size: 400% 400%;
+    animation: gradientAnimation 15s ease infinite;
+  }
+} 

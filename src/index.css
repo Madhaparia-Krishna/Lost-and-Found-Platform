@@ -1,16 +1,184 @@
-body {
+/* Base styles */
+* {
   margin: 0;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
-    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
-    sans-serif;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  background-color: #f8f9fa;
+  background-color: #EAE7DC;
+  color: #4D4C4A;
+  line-height: 1.6;
 }
 
 code {
-  font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
-    monospace;
+  font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New', monospace;
+}
+
+/* General utility classes */
+.container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 1rem;
+}
+
+.text-center {
+  text-align: center;
+}
+
+.mt-2 {
+  margin-top: 1rem;
+}
+
+.mb-2 {
+  margin-bottom: 1rem;
+}
+
+.mt-4 {
+  margin-top: 2rem;
+}
+
+.mb-4 {
+  margin-bottom: 2rem;
+}
+
+/* Form elements */
+input, select, textarea, button {
+  font-family: inherit;
+  font-size: 1rem;
+  outline: none;
+}
+
+button {
+  cursor: pointer;
+}
+
+/* Buttons */
+.btn {
+  display: inline-block;
+  padding: 0.6rem 1.2rem;
+  border-radius: 4px;
+  border: none;
+  font-weight: 500;
+  text-decoration: none;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-primary {
+  background-color: #E98074;
+  color: white;
+}
+
+.btn-primary:hover {
+  background-color: #E85A4F;
+}
+
+.btn-secondary {
+  background-color: #D8C3A5;
+  color: #4D4C4A;
+}
+
+.btn-secondary:hover {
+  background-color: #C0B9A8;
+}
+
+.btn-danger {
+  background-color: #E85A4F;
+  color: white;
+}
+
+.btn-danger:hover {
+  background-color: #d44d42;
+}
+
+/* Links */
+a {
+  color: #E98074;
+  text-decoration: none;
+  transition: color 0.2s;
+}
+
+a:hover {
+  color: #E85A4F;
+}
+
+/* Error and success messages */
+.alert {
+  padding: 0.8rem 1rem;
+  border-radius: 4px;
+  margin-bottom: 1rem;
+}
+
+.alert-danger {
+  background-color: #f8d7da;
+  color: #E85A4F;
+  border: 1px solid #f5c6cb;
+}
+
+.alert-success {
+  background-color: #D8C3A5;
+  color: #4D4C4A;
+  border: 1px solid #C0B9A8;
+}
+
+.alert-info {
+  background-color: #EAE7DC;
+  color: #4D4C4A;
+  border: 1px solid #D8C3A5;
+}
+
+/* Status badges */
+.badge {
+  display: inline-block;
+  padding: 0.25rem 0.6rem;
+  border-radius: 20px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.badge-success {
+  background-color: #8E8D8A;
+  color: white;
+}
+
+.badge-primary {
+  background-color: #E98074;
+  color: white;
+}
+
+.badge-warning {
+  background-color: #D8C3A5;
+  color: #4D4C4A;
+}
+
+.badge-danger {
+  background-color: #E85A4F;
+  color: white;
+}
+
+.badge-info {
+  background-color: #8E8D8A;
+  color: white;
+}
+
+/* Responsive utility classes */
+@media (max-width: 768px) {
+  .d-sm-none {
+    display: none !important;
+  }
+  
+  .d-sm-block {
+    display: block !important;
+  }
+  
+  .text-sm-center {
+    text-align: center !important;
+  }
 }
 
 /* Utility Classes */
@@ -27,7 +195,7 @@ code {
 /* Homepage */
 .home-container {
   min-height: 100vh;
-  background-color: #f8f9fa;
+  background-color: #EAE7DC;
 }
 
 .navbar {
@@ -35,8 +203,8 @@ code {
   justify-content: space-between;
   align-items: center;
   padding: 0.6rem 2rem;
-  background-color: #ffffff;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  background-color: #EAE7DC;
+  box-shadow: 0 1px 3px rgba(142, 141, 138, 0.2);
   position: sticky;
   top: 0;
   z-index: 1000;
@@ -51,14 +219,14 @@ code {
   margin: 0;
   font-size: 1.5rem;
   font-weight: 600;
-  color: #333;
+  color: #E85A4F;
   line-height: 1.2;
 }
 
 .subheading {
   margin: 0;
   font-size: 0.8rem;
-  color: #666;
+  color: #8E8D8A;
   line-height: 1.2;
 }
 
@@ -72,7 +240,7 @@ code {
   display: flex;
   gap: 0.7rem;
   margin-right: 0.7rem;
-  border-right: 1px solid #ddd;
+  border-right: 1px solid #D8C3A5;
   padding-right: 0.7rem;
 }
 
@@ -80,15 +248,6 @@ code {
   padding: 0.4rem 0.8rem;
   border: none;
   border-radius: 4px;
-  background-color: #007bff;
-  color: white;
-  font-size: 0.9rem;
-  cursor: pointer;
-  transition: background-color 0.2s;
-}
-
-.nav-btn:hover {
-  background-color: #0056b3;
 }
 
 .welcome-text {

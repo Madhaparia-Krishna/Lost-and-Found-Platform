@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useContext } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { AuthContext } from '../context/AuthContext';
-import '../styles/Profile.css';
+import '../styles/AuthForms.css';
 
 function Profile() {
   const { currentUser } = useContext(AuthContext);
@@ -114,71 +114,72 @@ function Profile() {
   };
   
   if (loading && !profile.name) {
-    return <div className="profile-container">Loading...</div>;
+    return (
+      <div className="login-template-container">
+        <div className="login-card">
+          <h1 className="login-title">Your Profile</h1>
+          <div style={{ textAlign: 'center', padding: '20px' }}>Loading...</div>
+        </div>
+      </div>
+    );
   }
   
   return (
-    <div className="profile-container">
-      <h1>Your Profile</h1>
-      
-      {error && <div className="error-message">{error}</div>}
-      {success && <div className="success-message">{success}</div>}
-      
-      <form onSubmit={handleSubmit} className="profile-form">
-        <div className="form-group">
-          <label htmlFor="name">Full Name</label>
+    <div className="login-template-container">
+      <form className="login-card" onSubmit={handleSubmit}>
+        <h1 className="login-title">Your Profile</h1>
+        {error && <div className="login-error">{error}</div>}
+        {success && <div className="login-success">{success}</div>}
+        <div className="login-input-group">
           <input
             type="text"
             id="name"
             name="name"
+            className="login-input"
+            placeholder="Full Name"
             value={profile.name}
             onChange={handleChange}
             required
           />
         </div>
-        
-        <div className="form-group">
-          <label htmlFor="email">Email</label>
+        <div className="login-input-group">
           <input
             type="email"
             id="email"
             name="email"
+            className="login-input"
             value={profile.email}
             disabled
-            className="disabled-input"
           />
-          <small>Email cannot be changed</small>
+          <small style={{ color: '#888', marginTop: '5px', display: 'block' }}>Email cannot be changed</small>
         </div>
-        
-        <div className="form-group">
-          <label htmlFor="admission_number">Admission Number</label>
+        <div className="login-input-group">
           <input
             type="text"
             id="admission_number"
             name="admission_number"
+            className="login-input"
+            placeholder="Admission Number"
             value={profile.admission_number || ''}
             onChange={handleChange}
-            placeholder="e.g., S12345"
           />
         </div>
-        
-        <div className="form-group">
-          <label htmlFor="faculty_school">Faculty/School</label>
+        <div className="login-input-group">
           <input
             type="text"
             id="faculty_school"
             name="faculty_school"
+            className="login-input"
+            placeholder="Faculty/School"
             value={profile.faculty_school || ''}
             onChange={handleChange}
-            placeholder="e.g., School of Computing"
           />
         </div>
-        
-        <div className="form-group">
-          <label htmlFor="year_of_study">Year of Study</label>
+        <div className="login-input-group">
           <select
             id="year_of_study"
             name="year_of_study"
+            className="login-input"
             value={profile.year_of_study || ''}
             onChange={handleChange}
           >
@@ -193,33 +194,33 @@ function Profile() {
             <option value="Staff">Staff</option>
           </select>
         </div>
-        
-        <div className="form-group">
-          <label htmlFor="phone_number">Phone Number</label>
+        <div className="login-input-group">
           <input
             type="tel"
             id="phone_number"
             name="phone_number"
+            className="login-input"
+            placeholder="Phone Number"
             value={profile.phone_number || ''}
             onChange={handleChange}
-            placeholder="e.g., +1234567890"
           />
         </div>
-        
-        <button type="submit" className="update-button" disabled={loading}>
-          {loading ? 'Updating...' : 'Update Profile'}
+        <button type="submit" className="login-btn" disabled={loading}>
+          {loading ? <span className="button-spinner"></span> : 'Update Profile'}
         </button>
+        <div style={{ width: '100%', textAlign: 'center', marginTop: '10px' }}>
+          <Link to="/forgot-password" className="login-forgot-link">Reset Password</Link>
+        </div>
+        <div style={{ marginTop: '10px', width: '100%' }}>
+          <button 
+            type="button" 
+            className="login-btn btn-secondary" 
+            onClick={() => navigate('/')}
+          >
+            Back to Home
+          </button>
+        </div>
       </form>
-      
-      <div className="profile-actions">
-        <button 
-          className="back-button" 
-          onClick={() => navigate('/')}
-        >
-          Back to Home
-        </button>
-        <a href="/forgot-password" className="password-link">Reset Password</a>
-      </div>
     </div>
   );
 }

@@ -1,0 +1,408 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Returned Items - Lost@Campus</title>
+    <style>
+        /* Base styles */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: Arial, sans-serif;
+        }
+        
+        body {
+            background-color: #f5f5f5;
+            color: #333;
+            line-height: 1.6;
+        }
+        
+        /* Container */
+        .container {
+            width: 100%;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 20px;
+        }
+        
+        /* Navbar */
+        .navbar {
+            background-color: #e0e0e0;
+            padding: 1rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .navbar-brand {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: #555;
+            text-decoration: none;
+        }
+        
+        .navbar-nav {
+            display: flex;
+            list-style: none;
+        }
+        
+        .nav-item {
+            margin-left: 1.5rem;
+        }
+        
+        .nav-link {
+            color: #555;
+            text-decoration: none;
+            font-weight: 500;
+        }
+        
+        .nav-link:hover {
+            color: #333;
+        }
+        
+        /* Page header */
+        .page-header {
+            margin: 2rem 0;
+        }
+        
+        .page-title {
+            font-size: 2rem;
+            color: #555;
+        }
+        
+        /* Search and filters */
+        .filters {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+            flex-wrap: wrap;
+        }
+        
+        .search-input {
+            flex: 1;
+            min-width: 200px;
+            padding: 0.75rem;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            background-color: #fff;
+        }
+        
+        .filter-select {
+            padding: 0.75rem;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            background-color: #fff;
+        }
+        
+        /* Table */
+        .table-container {
+            overflow-x: auto;
+            margin-bottom: 2rem;
+        }
+        
+        .table {
+            width: 100%;
+            border-collapse: collapse;
+            background-color: white;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+        
+        .table th, .table td {
+            padding: 1rem;
+            text-align: left;
+            border-bottom: 1px solid #eee;
+        }
+        
+        .table th {
+            background-color: #f9f9f9;
+            font-weight: 600;
+            color: #555;
+        }
+        
+        .table tr:last-child td {
+            border-bottom: none;
+        }
+        
+        /* Status badge */
+        .status-badge {
+            display: inline-block;
+            padding: 0.25rem 0.5rem;
+            border-radius: 3px;
+            font-size: 0.875rem;
+            font-weight: 600;
+            background-color: #f0f0f0;
+            color: #777;
+        }
+        
+        .status-badge-returned {
+            background-color: #e0e0e0;
+            color: #555;
+        }
+        
+        /* Buttons */
+        .btn {
+            display: inline-block;
+            padding: 0.5rem 0.75rem;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            text-align: center;
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 0.875rem;
+            transition: background-color 0.3s;
+        }
+        
+        .btn-primary {
+            background-color: #aaa;
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background-color: #999;
+        }
+        
+        /* Action buttons */
+        .action-buttons {
+            display: flex;
+            gap: 0.5rem;
+        }
+        
+        /* Empty state */
+        .empty-state {
+            background-color: #fff;
+            border-radius: 5px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            padding: 3rem;
+            text-align: center;
+            margin: 2rem 0;
+        }
+        
+        .empty-state-icon {
+            width: 80px;
+            height: 80px;
+            background-color: #f0f0f0;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 1.5rem;
+            font-size: 2rem;
+            color: #aaa;
+        }
+        
+        .empty-state-title {
+            font-size: 1.5rem;
+            color: #555;
+            margin-bottom: 1rem;
+        }
+        
+        .empty-state-description {
+            color: #777;
+            margin-bottom: 1.5rem;
+        }
+        
+        /* Pagination */
+        .pagination {
+            display: flex;
+            justify-content: center;
+            margin-top: 2rem;
+            margin-bottom: 2rem;
+        }
+        
+        .page-item {
+            margin: 0 0.25rem;
+        }
+        
+        .page-link {
+            display: block;
+            padding: 0.5rem 0.75rem;
+            border-radius: 4px;
+            background-color: #fff;
+            border: 1px solid #ddd;
+            color: #555;
+            text-decoration: none;
+        }
+        
+        .page-link.active {
+            background-color: #ddd;
+            color: #333;
+        }
+        
+        /* Responsive */
+        @media (max-width: 768px) {
+            .filters {
+                flex-direction: column;
+            }
+            
+            .search-input, .filter-select {
+                width: 100%;
+            }
+            
+            .action-buttons {
+                flex-direction: column;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Navbar -->
+    <nav class="navbar">
+        <div class="container">
+            <a href="homepage.html" class="navbar-brand">Lost@Campus</a>
+            <ul class="navbar-nav">
+                <li class="nav-item">
+                    <a href="user_dashboard.html" class="nav-link">Dashboard</a>
+                </li>
+                <li class="nav-item">
+                    <a href="#" class="nav-link">Profile</a>
+                </li>
+                <li class="nav-item">
+                    <a href="login.html" class="nav-link">Logout</a>
+                </li>
+            </ul>
+        </div>
+    </nav>
+    
+    <!-- Main content -->
+    <main>
+        <div class="container">
+            <!-- Page header -->
+            <div class="page-header">
+                <h1 class="page-title">Returned Items</h1>
+            </div>
+            
+            <!-- Filters -->
+            <div class="filters">
+                <input type="text" class="search-input" placeholder="Search returned items...">
+                <select class="filter-select">
+                    <option value="">All Categories</option>
+                    <option value="electronics">Electronics</option>
+                    <option value="clothing">Clothing</option>
+                    <option value="accessories">Accessories</option>
+                    <option value="books">Books</option>
+                    <option value="personal">Personal Items</option>
+                </select>
+                <select class="filter-select">
+                    <option value="">All Dates</option>
+                    <option value="today">Today</option>
+                    <option value="week">This Week</option>
+                    <option value="month">This Month</option>
+                    <option value="year">This Year</option>
+                </select>
+            </div>
+            
+            <!-- Returned items table -->
+            <div class="table-container">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Item</th>
+                            <th>Category</th>
+                            <th>Date Found</th>
+                            <th>Date Returned</th>
+                            <th>Returned To</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>Textbook</td>
+                            <td>Books</td>
+                            <td>2023-05-10</td>
+                            <td>2023-05-20</td>
+                            <td>Emma Brown</td>
+                            <td><span class="status-badge status-badge-returned">Returned</span></td>
+                            <td>
+                                <div class="action-buttons">
+                                    <a href="#" class="btn btn-primary">View Details</a>
+                                </div>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td>Glasses</td>
+                            <td>Accessories</td>
+                            <td>2023-05-08</td>
+                            <td>2023-05-19</td>
+                            <td>David Miller</td>
+                            <td><span class="status-badge status-badge-returned">Returned</span></td>
+                            <td>
+                                <div class="action-buttons">
+                                    <a href="#" class="btn btn-primary">View Details</a>
+                                </div>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td>Student ID Card</td>
+                            <td>Personal Items</td>
+                            <td>2023-05-15</td>
+                            <td>2023-05-17</td>
+                            <td>Michael Johnson</td>
+                            <td><span class="status-badge status-badge-returned">Returned</span></td>
+                            <td>
+                                <div class="action-buttons">
+                                    <a href="#" class="btn btn-primary">View Details</a>
+                                </div>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td>Laptop Charger</td>
+                            <td>Electronics</td>
+                            <td>2023-05-12</td>
+                            <td>2023-05-15</td>
+                            <td>Jane Smith</td>
+                            <td><span class="status-badge status-badge-returned">Returned</span></td>
+                            <td>
+                                <div class="action-buttons">
+                                    <a href="#" class="btn btn-primary">View Details</a>
+                                </div>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td>Water Bottle</td>
+                            <td>Personal Items</td>
+                            <td>2023-05-10</td>
+                            <td>2023-05-12</td>
+                            <td>Sarah Jones</td>
+                            <td><span class="status-badge status-badge-returned">Returned</span></td>
+                            <td>
+                                <div class="action-buttons">
+                                    <a href="#" class="btn btn-primary">View Details</a>
+                                </div>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            
+            <!-- Empty state (hidden by default, shown when no items) -->
+            <div class="empty-state" style="display: none;">
+                <div class="empty-state-icon">
+                    ✓
+                </div>
+                <h2 class="empty-state-title">No Returned Items Yet</h2>
+                <p class="empty-state-description">When items are returned to their owners, they will appear here.</p>
+            </div>
+            
+            <!-- Pagination -->
+            <div class="pagination">
+                <div class="page-item">
+                    <a href="#" class="page-link">&laquo;</a>
+                </div>
+                <div class="page-item">
+                    <a href="#" class="page-link active">1</a>
+                </div>
+                <div class="page-item">
+                    <a href="#" class="page-link">2</a>
+                </div>
+                <div class="page-item">
+                    <a href="#" class="page-link">&raquo;</a>
+                </div>
+            </div>
+        </div>
+    </main>
+</body>
+</html> 

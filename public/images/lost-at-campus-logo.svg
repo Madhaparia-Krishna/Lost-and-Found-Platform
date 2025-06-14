@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200" viewBox="0 0 200 200">
+  <style>
+    .text {
+      font-family: 'Arial Black', 'Arial Bold', Arial, sans-serif;
+      font-weight: 900;
+      font-size: 36px;
+      fill: #4B0082;
+      stroke: #FFFFFF;
+      stroke-width: 2px;
+      paint-order: stroke fill;
+    }
+    .outline {
+      fill: none;
+      stroke: #8A2BE2;
+      stroke-width: 4px;
+    }
+  </style>
+  <rect width="200" height="200" fill="transparent" />
+  <text x="100" y="110" text-anchor="middle" class="text">LOST@CAMPUS</text>
+  <rect x="20" y="80" width="160" height="50" rx="25" class="outline" />
+</svg> 

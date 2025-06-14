@@ -1,0 +1,333 @@
+/* Enhanced animations for auth forms */
+.auth-container {
+  perspective: 1000px;
+}
+
+.auth-form-container {
+  transform-style: preserve-3d;
+  backface-visibility: hidden;
+}
+
+.auth-form-side {
+  backface-visibility: hidden;
+}
+
+/* Enhanced transitions */
+.auth-container.login-active .auth-form-side.login,
+.auth-container.register-active .auth-form-side.register {
+  animation: formSlideIn 0.6s cubic-bezier(0.68, -0.55, 0.265, 1.55) forwards;
+}
+
+.auth-container.login-active .auth-form-side.register,
+.auth-container.register-active .auth-form-side.login {
+  animation: formSlideOut 0.6s cubic-bezier(0.68, -0.55, 0.265, 1.55) forwards;
+}
+
+.auth-container.login-active .auth-info-content.login,
+.auth-container.register-active .auth-info-content.register {
+  animation: infoSlideIn 0.6s cubic-bezier(0.68, -0.55, 0.265, 1.55) forwards;
+}
+
+.auth-container.login-active .auth-info-content.register,
+.auth-container.register-active .auth-info-content.login {
+  animation: infoSlideOut 0.6s cubic-bezier(0.68, -0.55, 0.265, 1.55) forwards;
+}
+
+/* Form animations */
+@keyframes formSlideIn {
+  0% {
+    opacity: 0;
+    transform: translateX(50px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes formSlideOut {
+  0% {
+    opacity: 1;
+    transform: translateX(0);
+  }
+  100% {
+    opacity: 0;
+    transform: translateX(-50px);
+  }
+}
+
+/* Info panel animations */
+@keyframes infoSlideIn {
+  0% {
+    opacity: 0;
+    transform: translateX(-50px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes infoSlideOut {
+  0% {
+    opacity: 1;
+    transform: translateX(0);
+  }
+  100% {
+    opacity: 0;
+    transform: translateX(50px);
+  }
+}
+
+/* Button animations */
+.signup-button {
+  position: relative;
+  overflow: hidden;
+  transition: all 0.3s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+}
+
+/* Button effect for both buttons */
+.auth-info-content.login .signup-button,
+.auth-info-content.register .signup-button {
+  animation: buttonAppear 0.6s cubic-bezier(0.68, -0.55, 0.265, 1.55) both;
+  animation-delay: 0.3s;
+}
+
+@keyframes buttonAppear {
+  0% {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.signup-button:after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(255, 255, 255, 0.1);
+  transform: translateX(-100%);
+  transition: transform 0.3s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+}
+
+.signup-button:hover:after {
+  transform: translateX(0);
+}
+
+.signup-button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+}
+
+.signup-button:active {
+  transform: translateY(0);
+  box-shadow: none;
+}
+
+/* Input focus effect */
+.form-group input {
+  position: relative;
+}
+
+.form-group input:focus {
+  border-bottom: 2px solid #666;
+}
+
+/* Container shadow effect during transition */
+.auth-container.animating {
+  animation: containerPulse 0.6s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+}
+
+@keyframes containerPulse {
+  0% {
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+  }
+  50% {
+    box-shadow: 0 15px 40px rgba(0, 0, 0, 0.15);
+  }
+  100% {
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+  }
+}
+
+/* Media queries for responsive animations */
+@media (max-width: 768px) {
+  @keyframes formSlideIn {
+    0% {
+      opacity: 0;
+      transform: translateY(20px);
+    }
+    100% {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+  
+  @keyframes formSlideOut {
+    0% {
+      opacity: 1;
+      transform: translateY(0);
+    }
+    100% {
+      opacity: 0;
+      transform: translateY(-20px);
+    }
+  }
+}
+
+.auth-slider-container {
+  position: relative;
+  width: 700px;
+  height: 350px;
+  background: #fff;
+  border-radius: 10px;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+  overflow: hidden;
+  display: flex;
+}
+
+.form-panel {
+  position: absolute;
+  top: 0;
+  width: 70%;
+  height: 100%;
+  background: #e1ebf5;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  transition: transform 0.6s cubic-bezier(0.68,-0.55,0.265,1.55);
+  z-index: 2;
+  padding: 2rem 3rem;
+  box-sizing: border-box;
+}
+
+.sign-in-panel {
+  left: 0;
+  transform: translateX(0%);
+}
+
+.right-panel-active .sign-in-panel {
+  transform: translateX(-100%);
+}
+
+.sign-up-panel {
+  left: 0;
+  transform: translateX(100%);
+  background: #fff;
+  z-index: 1;
+}
+
+.right-panel-active .sign-up-panel {
+  transform: translateX(0%);
+  z-index: 2;
+}
+
+.overlay-panel {
+  position: absolute;
+  right: 0;
+  top: 0;
+  width: 30%;
+  height: 100%;
+  background: #b8b8b8;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 3;
+  transition: transform 0.6s cubic-bezier(0.68,-0.55,0.265,1.55);
+  box-sizing: border-box;
+  text-align: center;
+  padding: 2rem 1rem;
+}
+
+.overlay-content h2 {
+  font-size: 1.3rem;
+  margin-bottom: 0.2rem;
+  font-weight: 500;
+}
+
+.overlay-content p {
+  margin-bottom: 1.2rem;
+  font-size: 0.7rem;
+  opacity: 0.9;
+}
+
+.ghost {
+  padding: 0.4rem 1.2rem;
+  background: transparent;
+  color: #fff;
+  border: 1px solid #fff;
+  border-radius: 20px;
+  font-size: 0.7rem;
+  cursor: pointer;
+  transition: all 0.3s;
+  text-transform: uppercase;
+}
+
+.ghost:hover {
+  background: rgba(255,255,255,0.2);
+}
+
+.auth-slider-container input {
+  width: 100%;
+  padding: 0.4rem 0;
+  border: none;
+  border-bottom: 1px solid #bbb;
+  font-size: 0.9rem;
+  background: transparent;
+  outline: none;
+  margin-bottom: 1.2rem;
+  color: #333;
+}
+
+.auth-slider-container input::placeholder {
+  color: #666;
+  opacity: 1;
+  font-size: 0.9rem;
+}
+
+.auth-button {
+  width: 100%;
+  padding: 0.6rem;
+  background: #999;
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  font-size: 0.8rem;
+  font-weight: 400;
+  cursor: pointer;
+  transition: all 0.3s;
+  margin-top: 1.5rem;
+  text-transform: uppercase;
+}
+
+.auth-button:hover {
+  background: #888;
+}
+
+@media (max-width: 800px) {
+  .auth-slider-container {
+    width: 100vw;
+    min-width: 320px;
+    height: auto;
+    flex-direction: column;
+  }
+  .form-panel, .sign-up-panel, .sign-in-panel, .overlay-panel {
+    position: static;
+    width: 100%;
+    height: auto;
+    transform: none !important;
+    padding: 2rem 1rem;
+  }
+  .overlay-panel {
+    order: 2;
+    min-height: 120px;
+  }
+} 
