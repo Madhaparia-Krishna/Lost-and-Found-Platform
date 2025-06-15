@@ -796,11 +796,13 @@ app.get('/items/found', async (req, res) => {
       `SELECT i.*, u.name as reporter_name 
        FROM Items i 
        LEFT JOIN Users u ON i.user_id = u.id
-       WHERE i.is_deleted = FALSE AND i.status = 'found'
+       WHERE i.is_deleted = FALSE 
+       AND i.status = 'found'
+       AND i.is_approved = TRUE
        ORDER BY i.created_at DESC`
     );
     
-    console.log(`Retrieved ${items.length} found items`);
+    console.log(`Retrieved ${items.length} approved found items`);
     res.json(items);
   } catch (error) {
     console.error('Error fetching found items:', error);
@@ -1551,6 +1553,7 @@ app.post('/api/items/matches', async (req, res) => {
       JOIN Users u ON i.user_id = u.id
       WHERE i.is_deleted = FALSE
       AND i.status = ?
+      ${isFoundItem ? 'AND i.is_approved = TRUE' : ''}
     `, [isFoundItem ? 'lost' : 'found']);
 
     const matches = [];
@@ -1590,7 +1593,38 @@ app.post('/api/items/matches', async (req, res) => {
           ]
         );
 
-        // We'll handle email notifications from the frontend
+        // Send email notification to the user who lost the item
+        try {
+          const matchId = matchResult.insertId;
+          const lostItem = isFoundItem ? compareItem : item;
+          const foundItem = isFoundItem ? item : compareItem;
+          const userEmail = compareItem.email;
+          const userName = compareItem.name;
+          
+          // If this is a lost item, send email to the user who reported it lost
+          if (!isFoundItem || (isFoundItem && compareItem.status === 'lost')) {
+            // Import email sending functionality
+            const { sendMatchNotification } = require('./server-email');
+            
+            console.log(`Sending match notification email to ${userEmail}`);
+            await sendMatchNotification(
+              userEmail,
+              userName,
+              lostItem.title,
+              matchId,
+              {
+                category: lostItem.category,
+                date: lostItem.date,
+                description: lostItem.description
+              }
+            );
+            console.log('Match notification email sent successfully');
+          }
+        } catch (emailError) {
+          console.error('Error sending match notification email:', emailError);
+          // Continue even if email fails
+        }
+
         matches.push({
           matchId: matchResult.insertId,
           score,
@@ -1624,7 +1658,7 @@ app.put('/api/security/items/:itemId/approve', authenticateToken, async (req, re
 
     // Get item details for notification
     const [items] = await pool.query(
-      'SELECT user_id, title FROM Items WHERE id = ?',
+      'SELECT i.*, u.email, u.name FROM Items i JOIN Users u ON i.user_id = u.id WHERE i.id = ?',
       [itemId]
     );
 
@@ -1641,6 +1675,77 @@ app.put('/api/security/items/:itemId/approve', authenticateToken, async (req, re
           itemId
         ]
       );
+
+      // Check for matches with lost items
+      if (item.status === 'found') {
+        try {
+          // Get lost items to compare against
+          const [lostItems] = await pool.query(`
+            SELECT i.*, u.email, u.name
+            FROM Items i
+            JOIN Users u ON i.user_id = u.id
+            WHERE i.is_deleted = FALSE
+            AND i.status = 'lost'
+          `);
+
+          const MATCH_THRESHOLD = 0.7; // Minimum score to consider a match
+          const { calculateMatchScore } = require('./server-utils');
+          const { sendMatchNotification } = require('./server-email');
+
+          for (const lostItem of lostItems) {
+            const score = calculateMatchScore(lostItem, item);
+
+            if (score >= MATCH_THRESHOLD) {
+              console.log(`Match found with score ${score} between found item ${item.id} and lost item ${lostItem.id}`);
+              
+              // Create match record
+              const [matchResult] = await pool.query(
+                `INSERT INTO ItemMatches 
+                (lost_item_id, found_item_id, match_score) 
+                VALUES (?, ?, ?)`,
+                [lostItem.id, item.id, score]
+              );
+
+              // Create notification for lost item owner
+              await pool.query(
+                `INSERT INTO Notifications 
+                (user_id, message, type, related_item_id) 
+                VALUES (?, ?, 'match', ?)`,
+                [
+                  lostItem.user_id,
+                  `A potential match has been found for your lost item "${lostItem.title}"`,
+                  lostItem.id
+                ]
+              );
+
+              // Send email notification to the user who reported the lost item
+              try {
+                const matchId = matchResult.insertId;
+                
+                console.log(`Sending match notification email to ${lostItem.email}`);
+                await sendMatchNotification(
+                  lostItem.email,
+                  lostItem.name,
+                  lostItem.title,
+                  matchId,
+                  {
+                    category: lostItem.category,
+                    date: lostItem.date,
+                    description: lostItem.description
+                  }
+                );
+                console.log('Match notification email sent successfully');
+              } catch (emailError) {
+                console.error('Error sending match notification email:', emailError);
+                // Continue even if email fails
+              }
+            }
+          }
+        } catch (matchError) {
+          console.error('Error checking for matches after approval:', matchError);
+          // Continue even if matching fails
+        }
+      }
     }
 
     res.json({ message: 'Item approved successfully' });
@@ -3251,5 +3356,79 @@ app.get('/api/debug/create-admin', async (req, res) => {
   } catch (error) {
     console.error('Error creating admin user:', error);
     res.status(500).json({ message: 'Error creating admin user' });
+  }
+});
+
+// Debug endpoint to create a security user if none exists
+app.get('/api/debug/create-security', async (req, res) => {
+  try {
+    // Check if security user exists
+    const [securityUsers] = await pool.query('SELECT * FROM Users WHERE role = ?', ['security']);
+    
+    if (securityUsers.length > 0) {
+      return res.json({
+        message: 'Security user already exists',
+        security: {
+          id: securityUsers[0].id,
+          name: securityUsers[0].name,
+          email: securityUsers[0].email,
+          role: securityUsers[0].role
+        }
+      });
+    }
+    
+    // Create security user if none exists
+    const saltRounds = 10;
+    const hashedPassword = await bcrypt.hash('Security@123', saltRounds);
+    
+    const [result] = await pool.query(
+      'INSERT INTO Users (name, email, password, role) VALUES (?, ?, ?, ?)',
+      ['Security Officer', 'security@example.com', hashedPassword, 'security']
+    );
+    
+    res.json({
+      message: 'Security user created successfully',
+      security: {
+        id: result.insertId,
+        name: 'Security Officer',
+        email: 'security@example.com',
+        role: 'security'
+      },
+      note: 'Default password is Security@123'
+    });
+  } catch (error) {
+    console.error('Error creating security user:', error);
+    res.status(500).json({ message: 'Error creating security user' });
+  }
+});
+
+// Debug endpoint to set a user's role to security
+app.get('/api/debug/set-security/:userId', async (req, res) => {
+  try {
+    const { userId } = req.params;
+    
+    // Update user role to security
+    const [result] = await pool.query(
+      'UPDATE Users SET role = ? WHERE id = ?',
+      ['security', userId]
+    );
+    
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+    
+    // Get updated user info
+    const [users] = await pool.query(
+      'SELECT id, name, email, role FROM Users WHERE id = ?',
+      [userId]
+    );
+    
+    res.json({
+      message: 'User role updated to security successfully',
+      user: users[0]
+    });
+  } catch (error) {
+    console.error('Error updating user role:', error);
+    res.status(500).json({ message: 'Error updating user role' });
   }
 });

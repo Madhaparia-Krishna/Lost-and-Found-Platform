@@ -105,6 +105,11 @@ const SecurityDashboard = () => {
       const itemsArray = await securityApi.getPendingItems();
       console.log("Received pending items:", itemsArray.length);
       
+      // If there are pending items, automatically show the pending items tab
+      if (itemsArray.length > 0 && activeKey === 'dashboard') {
+        setActiveKey('pendingItems');
+      }
+      
       setPendingItems(itemsArray);
     } catch (error) {
       console.error('Error fetching pending items:', error);
@@ -481,6 +486,27 @@ const SecurityDashboard = () => {
   // Render a table of items
   const renderItemsTable = (itemsToRender, showActions = true) => (
     <div className="table-responsive">
+      {activeKey === 'pendingItems' && (
+        <div className="pending-items-header">
+          <h3>Items Pending Approval</h3>
+          <div className="approval-instructions">
+            <p>
+              <i className="fas fa-info-circle"></i> Found items require your approval before they become visible to users. 
+              Review each item carefully and either approve or reject it.
+            </p>
+            {itemsToRender.length === 0 ? (
+              <div className="no-pending-items">
+                <i className="fas fa-check-circle"></i> No items pending approval at this time.
+              </div>
+            ) : (
+              <div className="pending-count">
+                <span className="badge bg-warning">{itemsToRender.length}</span> items waiting for your review
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+      
       <table className="table security-table">
         <thead>
           <tr>
@@ -497,9 +523,9 @@ const SecurityDashboard = () => {
         <tbody>
           {itemsToRender.length > 0 ? (
             itemsToRender.map(item => (
-              <tr key={item.id}>
+              <tr key={item.id} className={item.status === 'found' && !item.is_approved ? 'pending-approval-row' : ''}>
                 <td>{item.id}</td>
-                <td>{item.name}</td>
+                <td>{item.name || item.title}</td>
                 <td>{item.category}</td>
                 <td><Badge bg={item.status === 'lost' ? 'danger' : 'success'}>{item.status}</Badge></td>
                 <td>
@@ -511,7 +537,7 @@ const SecurityDashboard = () => {
                     'N/A'
                   )}
                 </td>
-                <td>{formatDate(item.date_found || item.date_lost)}</td>
+                <td>{formatDate(item.date_found || item.date_lost || item.date)}</td>
                 <td>{item.reporter_name || 'N/A'}</td>
                 {showActions && (
                   <td>
@@ -522,10 +548,10 @@ const SecurityDashboard = () => {
                       {activeKey === 'pendingItems' && (
                         <>
                           <Button variant="success" size="sm" onClick={() => handleApproveItem(item.id)} disabled={actionLoading}> 
-                            Approve
+                            <i className="fas fa-check"></i> Approve
                           </Button>
                           <Button variant="warning" size="sm" onClick={() => handleRejectItem(item.id)} disabled={actionLoading}>
-                            Reject
+                            <i className="fas fa-times"></i> Reject
                           </Button>
                         </>
                       )}

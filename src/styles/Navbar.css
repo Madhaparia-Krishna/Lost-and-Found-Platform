@@ -624,11 +624,17 @@
   background: #EAE7DC;
 }
 
+.navbar-profile-dropdown-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
 .navbar-profile-icon {
   width: 36px;
   height: 36px;
   border-radius: 50%;
-  background: #E98074;
+  background: #E98074; /* Same pink as login button */
   color: #fff;
   display: flex;
   align-items: center;
@@ -636,14 +642,10 @@
   font-weight: 700;
   font-size: 1.1rem;
   margin-right: 0.7rem;
-  box-shadow: 0 2px 8px rgba(233, 128, 116, 0.10);
+  box-shadow: 0 2px 8px rgba(233, 128, 116, 0.3);
+  cursor: pointer;
 }
 
-.navbar-profile-dropdown-wrapper {
-  position: relative;
-  display: flex;
-  align-items: center;
-}
 .navbar-profile-dropdown {
   position: absolute;
   top: 110%;
@@ -658,6 +660,7 @@
   flex-direction: column;
   align-items: stretch;
 }
+
 .navbar-profile-dropdown-item {
   color: #222;
   text-decoration: none;
@@ -670,6 +673,7 @@
   cursor: pointer;
   transition: background 0.18s, color 0.18s;
 }
+
 .navbar-profile-dropdown-item:hover {
   background: #EAE7DC;
   color: #E98074;

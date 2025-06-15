@@ -61,7 +61,17 @@ const AuthForms = ({ initialForm = 'login' }) => {
       }
     } catch (err) {
       console.error('Login error:', err);
-      setError(err.message || 'Failed to login. Please check your credentials.');
+      
+      // Show specific message for invalid credentials
+      if (err.message && (
+          err.message.includes('Invalid email or password') || 
+          err.message.includes('credentials') ||
+          err.message.includes('Authentication failed')
+        )) {
+        setError('Incorrect email or password. Please try again.');
+      } else {
+        setError(err.message || 'Failed to login. Please try again.');
+      }
     } finally {
       setIsLoading(false);
     }

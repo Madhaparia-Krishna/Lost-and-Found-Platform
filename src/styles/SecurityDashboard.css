@@ -510,4 +510,65 @@
 .approval-badge.rejected {
   background-color: #dc3545;
   color: white;
+}
+
+/* Pending Items Section */
+.pending-items-header {
+  margin-bottom: 1.5rem;
+  padding: 1rem;
+  background-color: #f8f9fa;
+  border-left: 4px solid #ffc107;
+  border-radius: 4px;
+}
+
+.pending-items-header h3 {
+  margin-top: 0;
+  margin-bottom: 0.5rem;
+  color: #333;
+  font-size: 1.4rem;
+}
+
+.approval-instructions {
+  color: #555;
+}
+
+.approval-instructions p {
+  margin-bottom: 0.5rem;
+}
+
+.approval-instructions i {
+  color: #ffc107;
+  margin-right: 0.5rem;
+}
+
+.no-pending-items {
+  padding: 0.5rem;
+  background-color: #d4edda;
+  color: #155724;
+  border-radius: 4px;
+  margin-top: 0.5rem;
+}
+
+.no-pending-items i {
+  color: #28a745;
+  margin-right: 0.5rem;
+}
+
+.pending-count {
+  margin-top: 0.5rem;
+  font-weight: 500;
+}
+
+.pending-count .badge {
+  font-size: 1rem;
+  margin-right: 0.5rem;
+  padding: 0.3rem 0.6rem;
+}
+
+.pending-approval-row {
+  background-color: #fff8e1;
+}
+
+.pending-approval-row:hover {
+  background-color: #ffecb3;
 } 

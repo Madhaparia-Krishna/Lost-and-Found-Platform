@@ -305,6 +305,16 @@ const Dashboard = () => {
         <div className="my-items">
           <h2>My Items</h2>
           {renderErrorMessage(error)}
+          
+          <div className="info-box approval-info">
+            <i className="fas fa-info-circle info-icon"></i>
+            <div className="info-content">
+              <h4>Found Item Approval Process</h4>
+              <p>All reported found items must be approved by security staff before they're visible to other users. 
+              Items with "Pending Approval" status are still being reviewed.</p>
+            </div>
+          </div>
+          
           {userItems.length === 0 && !error ? (
             <p>You haven't reported any items yet</p>
           ) : (
