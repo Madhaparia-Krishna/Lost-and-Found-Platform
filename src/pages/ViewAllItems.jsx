@@ -72,6 +72,7 @@ const ViewAllItems = () => {
         const isApproved = item.is_approved === true;
         
         // Check for valid status (found, requested, received)
+        // Exclude lost items from the view
         const hasValidStatus = item.status === 'found' || item.status === 'requested' || item.status === 'received';
         
         // Ensure item is not deleted
@@ -185,19 +186,34 @@ const ViewAllItems = () => {
 
   // Handle requesting an item (callback for ItemModal)
   const handleRequestItem = async (itemId) => {
-    // Update the item status locally
-    setItems(prevItems => 
-      prevItems.map(item => 
-        item.id === itemId 
-          ? { ...item, status: 'requested' } 
-          : item
-      )
-    );
-    
-    // Refresh data after a short delay
-    setTimeout(() => {
-      handleRefresh();
-    }, 2000);
+    try {
+      // Update the item status locally
+      setItems(prevItems => 
+        prevItems.map(item => 
+          item.id === itemId 
+            ? { ...item, status: 'requested' } 
+            : item
+        )
+      );
+      
+      // Show success message
+      setActionStatus({
+        type: 'success',
+        message: 'Item requested successfully. The security team will review your request.'
+      });
+      
+      // Clear message after 5 seconds
+      setTimeout(() => {
+        setActionStatus(null);
+      }, 5000);
+      
+    } catch (error) {
+      console.error('Error requesting item:', error);
+      setActionStatus({
+        type: 'error',
+        message: 'Failed to request item. Please try again.'
+      });
+    }
   };
   
   // Get filtered items based on active tab
@@ -373,68 +389,71 @@ const ViewAllItems = () => {
             </p>
           </Alert>
         ) : (
-          <Row xs={1} md={2} lg={3} className="g-4">
+          <Row xs={2} md={3} lg={4} className="g-4">
             {filteredItems.map(item => (
               <Col key={item.id || Math.random()}>
-                <Card className="h-100 shadow-sm hover-effect">
-                  <div className="position-relative">
-                    {item.image && !imageErrors[item.id] ? (
-                      <Card.Img 
-                        variant="top" 
-                        src={`${API_BASE_URL}/uploads/${item.image}`}
-                        alt={item.title || 'Found Item'}
-                        className="item-image"
-                        style={{ height: '200px', objectFit: 'cover' }}
-                        onError={(e) => {
-                          e.target.onerror = null;
-                          e.target.src = fallbackImageSrc;
-                          handleImageError(item.id);
-                        }}
-                      />
-                    ) : (
-                      <div className="bg-light d-flex justify-content-center align-items-center" style={{ height: '200px' }}>
-                        <i className="fas fa-image fa-3x text-muted"></i>
-                      </div>
-                    )}
-                    <Badge 
-                      bg={
-                        item.status === 'found' ? 'success' : 
-                        item.status === 'requested' ? 'warning' : 
-                        item.status === 'received' ? 'primary' : 
-                        'secondary'
-                      }
-                      className="position-absolute top-0 end-0 m-2"
-                    >
-                      {item.status === 'found' ? 'Found' : 
-                       item.status === 'requested' ? 'Requested' : 
-                       item.status === 'received' ? 'Received' : 
-                       'Unknown'}
-                    </Badge>
-                  </div>
-                  <Card.Body>
-                    <Card.Title>{item.title || 'Untitled Item'}</Card.Title>
-                    <Card.Subtitle className="mb-2 text-muted">
-                      <Badge bg="light" text="dark" className="me-2">
-                        {item.category || 'Uncategorized'}
-                      </Badge>
-                    </Card.Subtitle>
-                    <Card.Text className="text-truncate">
-                      {item.description || 'No description provided'}
-                    </Card.Text>
-                    <div className="text-muted small mb-3">
-                      <div>Reported by: {item.reporter_name || 'Anonymous'}</div>
-                      <div>Date: {item.created_at ? new Date(item.created_at).toLocaleDateString() : 'Unknown'}</div>
-                    </div>
-                    <div className="d-grid">
-                      <Button 
-                        variant="outline-primary" 
-                        onClick={() => openItemModal(item.id)}
+                <div className="item-perfect-square">
+                  <Card className="item-square-card shadow-sm hover-effect">
+                    <div className="square-image-container">
+                      {item.image && !imageErrors[item.id] ? (
+                        <Card.Img 
+                          variant="top" 
+                          src={`${API_BASE_URL}/uploads/${item.image}`}
+                          alt={item.title || 'Found Item'}
+                          className="item-square-image"
+                          onError={(e) => {
+                            e.target.onerror = null;
+                            e.target.src = fallbackImageSrc;
+                            handleImageError(item.id);
+                          }}
+                        />
+                      ) : (
+                        <div className="bg-light d-flex justify-content-center align-items-center h-100">
+                          <i className="fas fa-image fa-3x text-muted"></i>
+                        </div>
+                      )}
+                      <Badge 
+                        bg={
+                          item.status === 'found' ? 'success' : 
+                          item.status === 'requested' ? 'warning' : 
+                          item.status === 'received' ? 'primary' : 
+                          'secondary'
+                        }
+                        className="position-absolute top-0 end-0 m-2"
                       >
-                        <i className="fas fa-search me-1"></i> View Details
-                      </Button>
+                        {item.status === 'found' ? 'Found' : 
+                         item.status === 'requested' ? 'Requested' : 
+                         item.status === 'received' ? 'Received' : 
+                         'Unknown'}
+                      </Badge>
                     </div>
-                  </Card.Body>
-                </Card>
+                    <Card.Body className="d-flex flex-column align-items-center text-center">
+                      <Card.Title className="item-title mb-3">{item.title || 'Untitled Item'}</Card.Title>
+                      <div className="d-grid gap-2 w-100">
+                        <Button 
+                          variant="outline-primary" 
+                          onClick={() => openItemModal(item.id)}
+                          size="sm"
+                        >
+                          <i className="fas fa-search me-1"></i> View Details
+                        </Button>
+                        {currentUser && item.status === 'found' && (
+                          <Button 
+                            variant="outline-success"
+                            onClick={() => {
+                              setSelectedItemId(item.id);
+                              setShowModal(true);
+                            }}
+                            disabled={item.status !== 'found'}
+                            size="sm"
+                          >
+                            <i className="fas fa-hand-paper me-1"></i> Request
+                          </Button>
+                        )}
+                      </div>
+                    </Card.Body>
+                  </Card>
+                </div>
               </Col>
             ))}
           </Row>

@@ -62,6 +62,11 @@ const AdminDashboard = () => {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [itemToDelete, setItemToDelete] = useState(null);
   const [deleteReason, setDeleteReason] = useState('');
+  
+  // Role change states
+  const [showRoleModal, setShowRoleModal] = useState(false);
+  const [userToChangeRole, setUserToChangeRole] = useState(null);
+  const [selectedRole, setSelectedRole] = useState('');
 
   // Fetch data on component mount
   useEffect(() => {
@@ -379,6 +384,63 @@ const AdminDashboard = () => {
     setShowDeleteModal(true);
   };
 
+  // Handle role change modal open
+  const handleChangeRole = (user) => {
+    setUserToChangeRole(user);
+    setSelectedRole(user.role); // Set current role as default
+    setShowRoleModal(true);
+  };
+
+  // Handle role change confirmation
+  const confirmRoleChange = async () => {
+    if (!userToChangeRole || !selectedRole) {
+      setActionStatus({ type: 'error', message: 'Please select a role.' });
+      return;
+    }
+
+    try {
+      setActionLoading(true);
+      setActionStatus({
+        type: 'loading',
+        message: `Updating role for ${userToChangeRole.name || 'user'}...`
+      });
+      
+      await adminApi.updateUserRole(userToChangeRole.id, selectedRole);
+
+      // Update the users list
+      setUsers(prevUsers => 
+        prevUsers.map(user => 
+          user.id === userToChangeRole.id 
+            ? { ...user, role: selectedRole } 
+            : user
+        )
+      );
+
+      setActionStatus({
+        type: 'success',
+        message: `Role updated to ${selectedRole} for ${userToChangeRole.name || 'user'}.`
+      });
+      
+      setShowRoleModal(false);
+      setUserToChangeRole(null);
+      setSelectedRole('');
+
+      // Refresh the data after a short delay
+      setTimeout(() => {
+        setRefreshTrigger(prev => prev + 1);
+        setActionStatus(null);
+      }, 3000);
+    } catch (err) {
+      console.error('Error updating user role:', err);
+      setActionStatus({
+        type: 'error',
+        message: 'Failed to update user role. Please try again.'
+      });
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
   // Handle item deletion confirmation
   const confirmDeleteItem = async () => {
     if (!itemToDelete || !deleteReason) {
@@ -606,9 +668,14 @@ const AdminDashboard = () => {
                               {actionLoading ? <Spinner animation="border" size="sm" /> : 'Unban'}
                             </Button>
                           ) : (
-                            <Button variant="warning" size="sm" onClick={() => handleBanUser(user.id, user.name)} disabled={actionLoading}>
-                              {actionLoading ? <Spinner animation="border" size="sm" /> : 'Ban'}
-                            </Button>
+                            <>
+                              <Button variant="warning" size="sm" onClick={() => handleBanUser(user.id, user.name)} disabled={actionLoading}>
+                                {actionLoading ? <Spinner animation="border" size="sm" /> : 'Ban'}
+                              </Button>
+                              <Button variant="info" size="sm" onClick={() => handleChangeRole(user)} disabled={actionLoading}>
+                                {actionLoading ? <Spinner animation="border" size="sm" /> : 'Change Role'}
+                              </Button>
+                            </>
                           )}
                         </ButtonGroup>
                       </td>
@@ -651,6 +718,44 @@ const AdminDashboard = () => {
           </Button>
           <Button variant="danger" onClick={confirmBanUser} disabled={actionLoading}>
             {actionLoading ? <Spinner animation="border" size="sm" /> : 'Confirm Ban'}
+          </Button>
+        </Modal.Footer>
+      </Modal>
+
+      {/* Role Change Modal */}
+      <Modal show={showRoleModal} onHide={() => setShowRoleModal(false)} centered>
+        <Modal.Header closeButton>
+          <Modal.Title>Change User Role</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          <p>Change role for user <strong>{userToChangeRole?.name || userToChangeRole?.email || userToChangeRole?.id}</strong></p>
+          <Form.Group className="mb-3">
+            <Form.Label>Select Role:</Form.Label>
+            <Form.Select
+              value={selectedRole}
+              onChange={(e) => setSelectedRole(e.target.value)}
+              required
+            >
+              <option value="">Select a role</option>
+              <option value="user">User</option>
+              <option value="security">Security</option>
+              <option value="admin">Admin</option>
+            </Form.Select>
+            <Form.Text className="text-muted">
+              <ul>
+                <li><strong>User:</strong> Regular user with basic permissions</li>
+                <li><strong>Security:</strong> Can approve/reject items and manage claims</li>
+                <li><strong>Admin:</strong> Full system access and user management</li>
+              </ul>
+            </Form.Text>
+          </Form.Group>
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="secondary" onClick={() => setShowRoleModal(false)}>
+            Cancel
+          </Button>
+          <Button variant="primary" onClick={confirmRoleChange} disabled={actionLoading}>
+            {actionLoading ? <Spinner animation="border" size="sm" /> : 'Update Role'}
           </Button>
         </Modal.Footer>
       </Modal>

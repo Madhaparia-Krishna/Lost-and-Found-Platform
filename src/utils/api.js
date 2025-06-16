@@ -447,12 +447,26 @@ export const itemsApi = {
   },
   
   // Approve item (security staff only)
-  approveItem: async (itemId, token) => {
+  approveItem: async (itemId) => {
     try {
+      // Get token from localStorage
+      let token = null;
+      const user = localStorage.getItem('user');
+      if (user) {
+        try {
+          const userData = JSON.parse(user);
+          token = userData.token;
+        } catch (error) {
+          console.error('Error parsing user data:', error);
+        }
+      }
+      
       const config = token ? { headers: { Authorization: `Bearer ${token}` } } : {};
-      const response = await axios.put(`/security/items/${itemId}/approve`, {}, config);
+      console.log(`Approving item ${itemId} with auth token`);
+      const response = await axios.put(`/api/security/items/${itemId}/approve`, {}, config);
       return handleResponse(response);
     } catch (error) {
+      console.error('Error approving item:', error);
       return handleError(error);
     }
   },
@@ -460,9 +474,24 @@ export const itemsApi = {
   // Reject item (security staff only)
   rejectItem: async (itemId, reason = '') => {
     try {
-      const response = await axios.put(`/security/items/${itemId}/reject`, { reason });
+      // Get token from localStorage
+      let token = null;
+      const user = localStorage.getItem('user');
+      if (user) {
+        try {
+          const userData = JSON.parse(user);
+          token = userData.token;
+        } catch (error) {
+          console.error('Error parsing user data:', error);
+        }
+      }
+      
+      const config = token ? { headers: { Authorization: `Bearer ${token}` } } : {};
+      console.log(`Rejecting item ${itemId} with reason: ${reason}`);
+      const response = await axios.put(`/api/security/items/${itemId}/reject`, { reason }, config);
       return handleResponse(response);
     } catch (error) {
+      console.error('Error rejecting item:', error);
       return handleError(error);
     }
   }
@@ -592,6 +621,45 @@ export const securityApi = {
     }
   },
   
+  // Get dashboard statistics
+  getStatistics: async () => {
+    try {
+      const response = await api.get('/api/security/statistics');
+      return handleResponse(response);
+    } catch (error) {
+      console.error('Error fetching security statistics:', error);
+      return {
+        itemCounts: { lost: 0, found: 0, requested: 0, received: 0, returned: 0, pending: 0 },
+        claimCounts: { pending: 0 },
+        userCounts: { total: 0 },
+        monthlyStats: [],
+        categoryDistribution: []
+      };
+    }
+  },
+  
+  // Get security activity logs
+  getActivityLogs: async () => {
+    try {
+      const response = await api.get('/api/security/activity-logs');
+      return handleResponse(response);
+    } catch (error) {
+      console.error('Error fetching security activity logs:', error);
+      return { logs: [] };
+    }
+  },
+  
+  // Advanced item search
+  searchItems: async (params) => {
+    try {
+      const response = await api.get('/api/security/search-items', { params });
+      return handleResponse(response);
+    } catch (error) {
+      console.error('Error searching items:', error);
+      return { items: [] };
+    }
+  },
+  
   // Get pending claims
   getPendingClaims: async () => {
     try {
@@ -606,9 +674,12 @@ export const securityApi = {
   // Approve an item
   approveItem: async (itemId) => {
     try {
+      console.log(`Approving item ${itemId}...`);
       const response = await api.put(`/api/security/items/${itemId}/approve`);
+      console.log('Approval response:', response);
       return handleResponse(response);
     } catch (error) {
+      console.error('Error approving item:', error);
       return handleError(error);
     }
   },
@@ -616,9 +687,38 @@ export const securityApi = {
   // Reject an item
   rejectItem: async (itemId, reason = '') => {
     try {
+      console.log(`Rejecting item ${itemId} with reason: ${reason}`);
       const response = await api.put(`/api/security/items/${itemId}/reject`, { reason });
+      console.log('Rejection response:', response);
       return handleResponse(response);
     } catch (error) {
+      console.error('Error rejecting item:', error);
+      return handleError(error);
+    }
+  },
+  
+  // Accept a request (mark item as returned)
+  acceptRequest: async (itemId) => {
+    try {
+      console.log(`Accepting request for item ${itemId}...`);
+      const response = await api.put(`/api/security/items/${itemId}/return`);
+      console.log('Request acceptance response:', response);
+      return handleResponse(response);
+    } catch (error) {
+      console.error('Error accepting request:', error);
+      return handleError(error);
+    }
+  },
+  
+  // Reject a request
+  rejectRequest: async (itemId) => {
+    try {
+      console.log(`Rejecting request for item ${itemId}...`);
+      const response = await api.put(`/api/security/items/${itemId}/revert-status`, { status: 'found' });
+      console.log('Request rejection response:', response);
+      return handleResponse(response);
+    } catch (error) {
+      console.error('Error rejecting request:', error);
       return handleError(error);
     }
   },
@@ -774,6 +874,16 @@ export const adminApi = {
   restoreItem: async (itemId) => {
     try {
       const response = await api.put(`/api/admin/items/${itemId}/restore`);
+      return handleResponse(response);
+    } catch (error) {
+      return handleError(error);
+    }
+  },
+  
+  // Update user role
+  updateUserRole: async (userId, role) => {
+    try {
+      const response = await api.put(`/api/admin/users/${userId}/role`, { role });
       return handleResponse(response);
     } catch (error) {
       return handleError(error);

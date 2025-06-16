@@ -142,7 +142,7 @@ app.get('/api/health', (req, res) => {
   res.status(200).json({ status: 'ok', message: 'Server is running' });
 });
 
-// Public endpoint to get found items
+// Public endpoint to get found items (not lost items)
 app.get('/api/public/items', async (req, res) => {
   try {
     const [items] = await pool.query(
@@ -1013,6 +1013,7 @@ app.post('/items/lost', authenticateToken, async (req, res) => {
     console.log('Inserting lost item into database with JSON data');
     
     try {
+      // Lost items are automatically approved (is_approved = TRUE)
       const [result] = await pool.query(`
         INSERT INTO Items 
           (title, category, subcategory, description, location, status, date, user_id, is_approved) 
@@ -1020,7 +1021,7 @@ app.post('/items/lost', authenticateToken, async (req, res) => {
       `, [title, category, subcategory, description, location, 'lost', date, userId]);
 
       const lostItemId = result.insertId;
-      console.log('Lost item inserted successfully with ID:', lostItemId);
+      console.log('Lost item inserted successfully with ID:', lostItemId, '(automatically approved)');
       
       // Notify security staff about new lost item
       const message = `New lost item "${title}" has been reported.`;
@@ -1160,13 +1161,14 @@ app.post('/items/found', authenticateToken, async (req, res) => {
     console.log('SQL parameters:', [title, category, subcategory, description, location, status, date, userId, image]);
     
     try {
+      // Found items require security approval (is_approved = FALSE)
       const [result] = await pool.query(`
         INSERT INTO Items 
           (title, category, subcategory, description, location, status, date, user_id, image, is_approved) 
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, FALSE)
       `, [title, category, subcategory, description, location, status, date, userId, image || null]);
 
-      console.log('Item inserted successfully with ID:', result.insertId);
+      console.log('Found item inserted successfully with ID:', result.insertId);
       console.log('Item approval status set to FALSE - requires security approval');
       
       // Notify security staff about new found item
@@ -2038,11 +2040,8 @@ app.get('/api/security/pending-items', authenticateToken, async (req, res) => {
       FROM Items i
       JOIN Users u ON i.user_id = u.id
       WHERE i.is_deleted = FALSE 
-      AND (
-        (i.is_approved = FALSE AND i.status = 'found')
-        OR 
-        (i.status = 'lost')
-      )
+      AND i.is_approved = FALSE 
+      AND i.status = 'found'
       ORDER BY i.created_at DESC
     `);
 
@@ -3302,6 +3301,71 @@ app.put('/api/admin/items/:itemId/soft-delete', authenticateToken, async (req, r
   }
 });
 
+// Soft delete an item - security staff
+app.put('/api/security/items/:itemId/soft-delete', authenticateToken, async (req, res) => {
+  try {
+    // Check if user is security or admin
+    if (req.user.role !== 'security' && req.user.role !== 'admin') {
+      return res.status(403).json({ message: 'Unauthorized access' });
+    }
+
+    const { itemId } = req.params;
+    const reason = req.body.reason || 'No reason provided';
+    
+    console.log(`Attempting to soft delete item ${itemId} by security with reason: ${reason}`);
+
+    // Check if item exists and is not already deleted
+    const [itemCheck] = await pool.query(
+      'SELECT * FROM Items WHERE id = ? AND is_deleted = FALSE',
+      [itemId]
+    );
+    
+    if (itemCheck.length === 0) {
+      console.log(`Item with ID ${itemId} not found or already deleted`);
+      return res.status(404).json({ message: 'Item not found or already deleted' });
+    }
+    
+    const item = itemCheck[0];
+    console.log(`Found item: ${item.title || item.name}`);
+    
+    // Soft delete the item (set is_deleted to TRUE)
+    await pool.query(
+      'UPDATE Items SET is_deleted = TRUE WHERE id = ?',
+      [itemId]
+    );
+    
+    // Log the action
+    await pool.query(
+      'INSERT INTO Logs (action, by_user) VALUES (?, ?)',
+      [`Item "${item.title || item.name}" (ID: ${itemId}) soft deleted by security: ${reason}`, req.user.id]
+    );
+
+    // Create notification for item owner if applicable
+    if (item.user_id) {
+      try {
+        await pool.query(
+          'INSERT INTO Notifications (user_id, message, type, related_item_id) VALUES (?, ?, ?, ?)',
+          [
+            item.user_id,
+            `Your item "${item.title || item.name}" has been removed by security staff: ${reason}`,
+            'system',
+            itemId
+          ]
+        );
+        console.log('Notification created for item owner');
+      } catch (notificationError) {
+        console.error('Error creating notification:', notificationError);
+        // Continue even if notification creation fails
+      }
+    }
+
+    res.json({ message: 'Item soft deleted successfully' });
+  } catch (error) {
+    console.error('Error soft deleting item:', error);
+    res.status(500).json({ message: 'Error soft deleting item', error: error.message });
+  }
+});
+
 // Debug endpoint to check users table
 app.get('/api/debug/users', async (req, res) => {
   try {
@@ -3430,5 +3494,185 @@ app.get('/api/debug/set-security/:userId', async (req, res) => {
   } catch (error) {
     console.error('Error updating user role:', error);
     res.status(500).json({ message: 'Error updating user role' });
+  }
+});
+
+// Security API - Get dashboard statistics
+app.get('/api/security/statistics', authenticateToken, async (req, res) => {
+  // Check if user has security role
+  if (req.user.role !== 'security' && req.user.role !== 'admin') {
+    return res.status(403).json({ message: 'Unauthorized: Insufficient permissions' });
+  }
+  
+  try {
+    // Get counts for various item statuses
+    const [lostItemsCount] = await pool.query(
+      'SELECT COUNT(*) as count FROM Items WHERE status = "lost" AND is_deleted = 0'
+    );
+    
+    const [foundItemsCount] = await pool.query(
+      'SELECT COUNT(*) as count FROM Items WHERE status = "found" AND is_deleted = 0'
+    );
+    
+    const [requestedItemsCount] = await pool.query(
+      'SELECT COUNT(*) as count FROM Items WHERE status = "requested" AND is_deleted = 0'
+    );
+    
+    const [receivedItemsCount] = await pool.query(
+      'SELECT COUNT(*) as count FROM Items WHERE status = "received" AND is_deleted = 0'
+    );
+    
+    const [returnedItemsCount] = await pool.query(
+      'SELECT COUNT(*) as count FROM Items WHERE status = "returned" AND is_deleted = 0'
+    );
+    
+    const [pendingItemsCount] = await pool.query(
+      'SELECT COUNT(*) as count FROM Items WHERE is_approved = 0 AND is_deleted = 0'
+    );
+    
+    const [pendingClaimsCount] = await pool.query(
+      'SELECT COUNT(*) as count FROM Claims WHERE status = "pending" AND is_deleted = 0'
+    );
+    
+    const [usersCount] = await pool.query(
+      'SELECT COUNT(*) as count FROM Users WHERE is_deleted = 0'
+    );
+    
+    // Get monthly statistics for the last 6 months
+    const [monthlyStats] = await pool.query(`
+      SELECT 
+        DATE_FORMAT(created_at, '%Y-%m') as month,
+        COUNT(*) as total,
+        SUM(CASE WHEN status = 'found' THEN 1 ELSE 0 END) as found,
+        SUM(CASE WHEN status = 'lost' THEN 1 ELSE 0 END) as lost,
+        SUM(CASE WHEN status = 'requested' THEN 1 ELSE 0 END) as requested,
+        SUM(CASE WHEN status = 'received' THEN 1 ELSE 0 END) as received,
+        SUM(CASE WHEN status = 'returned' THEN 1 ELSE 0 END) as returned
+      FROM Items
+      WHERE created_at >= DATE_SUB(CURRENT_DATE(), INTERVAL 6 MONTH)
+      GROUP BY DATE_FORMAT(created_at, '%Y-%m')
+      ORDER BY month
+    `);
+    
+    // Get category distribution
+    const [categoryDistribution] = await pool.query(`
+      SELECT 
+        category,
+        COUNT(*) as count
+      FROM Items
+      WHERE is_deleted = 0
+      GROUP BY category
+      ORDER BY count DESC
+    `);
+    
+    // Return all statistics
+    res.status(200).json({
+      itemCounts: {
+        lost: lostItemsCount[0].count,
+        found: foundItemsCount[0].count,
+        requested: requestedItemsCount[0].count,
+        received: receivedItemsCount[0].count,
+        returned: returnedItemsCount[0].count,
+        pending: pendingItemsCount[0].count,
+      },
+      claimCounts: {
+        pending: pendingClaimsCount[0].count
+      },
+      userCounts: {
+        total: usersCount[0].count
+      },
+      monthlyStats,
+      categoryDistribution
+    });
+  } catch (error) {
+    console.error('Error fetching security statistics:', error);
+    res.status(500).json({ message: 'Error fetching security statistics' });
+  }
+});
+
+// Security API - Get security activity logs
+app.get('/api/security/activity-logs', authenticateToken, async (req, res) => {
+  // Check if user has security role
+  if (req.user.role !== 'security' && req.user.role !== 'admin') {
+    return res.status(403).json({ message: 'Unauthorized: Insufficient permissions' });
+  }
+  
+  try {
+    // Get logs related to security activities
+    const [logs] = await pool.query(`
+      SELECT l.*, u.name as user_name
+      FROM Logs l
+      LEFT JOIN Users u ON l.by_user = u.id
+      WHERE l.action LIKE '%security%' OR l.action LIKE '%approve%' OR l.action LIKE '%reject%'
+      ORDER BY l.created_at DESC
+      LIMIT 100
+    `);
+    
+    res.status(200).json({ logs });
+  } catch (error) {
+    console.error('Error fetching security activity logs:', error);
+    res.status(500).json({ message: 'Error fetching security activity logs' });
+  }
+});
+
+// Security API - Advanced item search
+app.get('/api/security/search-items', authenticateToken, async (req, res) => {
+  // Check if user has security role
+  if (req.user.role !== 'security' && req.user.role !== 'admin') {
+    return res.status(403).json({ message: 'Unauthorized: Insufficient permissions' });
+  }
+  
+  try {
+    const { query, status, category, dateFrom, dateTo } = req.query;
+    
+    // Build the SQL query with filters
+    let sql = `
+      SELECT i.*, u.name as reporter_name
+      FROM Items i
+      LEFT JOIN Users u ON i.user_id = u.id
+      WHERE i.is_deleted = 0
+    `;
+    
+    const params = [];
+    
+    // Add search query filter
+    if (query) {
+      sql += ` AND (i.title LIKE ? OR i.description LIKE ? OR i.location LIKE ?)`;
+      params.push(`%${query}%`, `%${query}%`, `%${query}%`);
+    }
+    
+    // Add status filter
+    if (status) {
+      sql += ` AND i.status = ?`;
+      params.push(status);
+    }
+    
+    // Add category filter
+    if (category) {
+      sql += ` AND i.category = ?`;
+      params.push(category);
+    }
+    
+    // Add date range filter
+    if (dateFrom) {
+      sql += ` AND i.date >= ?`;
+      params.push(dateFrom);
+    }
+    
+    if (dateTo) {
+      sql += ` AND i.date <= ?`;
+      params.push(dateTo);
+    }
+    
+    // Add ordering
+    sql += ` ORDER BY i.created_at DESC`;
+    
+    // Execute the query
+    const [items] = await pool.query(sql, params);
+    
+    res.status(200).json({ items });
+  } catch (error) {
+    console.error('Error searching items:', error);
+    res.status(500).json({ message: 'Error searching items' });
   }
 });

@@ -131,28 +131,16 @@ function Profile() {
         {error && <div className="login-error">{error}</div>}
         {success && <div className="login-success">{success}</div>}
         
-        {/* Role-based access panels */}
-        {currentUser && (currentUser.role === 'admin' || currentUser.role === 'security') && (
+        {/* Admin access panel only */}
+        {currentUser && currentUser.role === 'admin' && (
           <div className="role-panels">
-            {currentUser.role === 'admin' && (
-              <div className="admin-panel-access">
-                <h3>Admin Access</h3>
-                <p>You have administrator privileges.</p>
-                <Link to="/admin" className="panel-access-btn admin-btn">
-                  Go to Admin Panel
-                </Link>
-              </div>
-            )}
-            
-            {currentUser.role === 'security' && (
-              <div className="security-panel-access">
-                <h3>Security Staff Access</h3>
-                <p>You can approve found items and manage requests.</p>
-                <Link to="/security-dashboard" className="panel-access-btn security-btn">
-                  Go to Security Panel
-                </Link>
-              </div>
-            )}
+            <div className="admin-panel-access">
+              <h3>Admin Access</h3>
+              <p>You have administrator privileges.</p>
+              <Link to="/admin" className="panel-access-btn admin-btn">
+                Go to Admin Panel
+              </Link>
+            </div>
           </div>
         )}
         

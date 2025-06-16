@@ -200,18 +200,19 @@ const SecurityDashboard = () => {
       const response = await securityApi.approveItem(itemId);
       console.log('Item approval response:', response);
       
+      // Update the item in the local state
+      setPendingItems(prevItems => prevItems.filter(item => item.id !== itemId));
+      
       setActionStatus({
         type: 'success',
         message: 'Item approved successfully'
       });
       
       // Refresh data to update the UI
-      refreshData();
-      
-      // Clear status after a delay
       setTimeout(() => {
+        refreshData();
         setActionStatus(null);
-      }, 5000);
+      }, 2000);
     } catch (error) {
       console.error('Error approving item:', error);
       setActionStatus({
@@ -224,6 +225,7 @@ const SecurityDashboard = () => {
   };
 
   const handleRejectItem = (itemId) => {
+    console.log(`Opening reject modal for item ${itemId}`);
     setItemToReject(itemId);
     setShowRejectModal(true);
   };
@@ -245,6 +247,9 @@ const SecurityDashboard = () => {
       const response = await securityApi.rejectItem(itemToReject, rejectReason);
       console.log('Item rejection response:', response);
       
+      // Update the item in the local state
+      setPendingItems(prevItems => prevItems.filter(item => item.id !== itemToReject));
+      
       setActionStatus({
         type: 'success',
         message: 'Item rejected successfully'
@@ -256,12 +261,10 @@ const SecurityDashboard = () => {
       setRejectReason('');
       
       // Refresh data to update the UI
-      refreshData();
-      
-      // Clear status after a delay
       setTimeout(() => {
+        refreshData();
         setActionStatus(null);
-      }, 5000);
+      }, 2000);
     } catch (error) {
       console.error('Error rejecting item:', error);
       setActionStatus({
@@ -396,10 +399,12 @@ const SecurityDashboard = () => {
       setActionLoading(true);
       setActionStatus({
         type: 'loading',
-        message: `Deleting item ${itemToDelete.name || ''}...`
+        message: `Deleting item ${itemToDelete.name || itemToDelete.title || ''}...`
       });
       
-      await securityApi.softDeleteItem(itemToDelete.id, deleteReason);
+      console.log(`Soft deleting item ${itemToDelete.id} with reason: ${deleteReason}...`);
+      const response = await securityApi.softDeleteItem(itemToDelete.id, deleteReason);
+      console.log('Soft delete response:', response);
       
       // Update the items list (filter out soft-deleted items)
       setPendingItems(prev => prev.filter(item => item.id !== itemToDelete.id));
@@ -408,22 +413,23 @@ const SecurityDashboard = () => {
 
       setActionStatus({
         type: 'success',
-        message: `Item \'${itemToDelete.name || ''}\' soft-deleted successfully.`
+        message: `Item '${itemToDelete.name || itemToDelete.title || ''}' soft-deleted successfully.`
       });
       
       setShowDeleteModal(false);
       setItemToDelete(null);
       setDeleteReason('');
 
-      refreshData();
+      // Refresh data to update the UI
       setTimeout(() => {
+        refreshData();
         setActionStatus(null);
-      }, 3000);
+      }, 2000);
     } catch (err) {
       console.error('Error soft deleting item:', err);
       setActionStatus({
         type: 'error',
-        message: 'Failed to soft delete item. Please try again.'
+        message: `Failed to soft delete item: ${err.message || 'Unknown error'}`
       });
     } finally {
       setActionLoading(false);
@@ -488,19 +494,19 @@ const SecurityDashboard = () => {
     <div className="table-responsive">
       {activeKey === 'pendingItems' && (
         <div className="pending-items-header">
-          <h3>Items Pending Approval</h3>
+          <h3>Found Items Pending Approval</h3>
           <div className="approval-instructions">
             <p>
               <i className="fas fa-info-circle"></i> Found items require your approval before they become visible to users. 
-              Review each item carefully and either approve or reject it.
+              Lost items are automatically approved and don't appear here.
             </p>
             {itemsToRender.length === 0 ? (
               <div className="no-pending-items">
-                <i className="fas fa-check-circle"></i> No items pending approval at this time.
+                <i className="fas fa-check-circle"></i> No found items pending approval at this time.
               </div>
             ) : (
               <div className="pending-count">
-                <span className="badge bg-warning">{itemsToRender.length}</span> items waiting for your review
+                <span className="badge bg-warning">{itemsToRender.length}</span> found items waiting for your review
               </div>
             )}
           </div>

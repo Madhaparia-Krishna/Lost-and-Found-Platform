@@ -542,4 +542,84 @@
 
 .info-banner a:hover {
   color: #003d82;
+}
+
+/* Perfect Square Card Layout Styles */
+.item-perfect-square {
+  position: relative;
+  width: 100%;
+  padding-bottom: 100%; /* Creates a 1:1 aspect ratio */
+  height: 0;
+  margin-bottom: 1rem;
+}
+
+.item-square-card {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+  border: none;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.item-square-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
+}
+
+.square-image-container {
+  position: relative;
+  width: 100%;
+  height: 60%; /* Image takes 60% of the square */
+  overflow: hidden;
+}
+
+.item-square-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.3s ease;
+}
+
+.item-square-card:hover .item-square-image {
+  transform: scale(1.05);
+}
+
+.item-square-card .card-body {
+  height: 40%; /* Card body takes 40% of the square */
+  padding: 0.75rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  overflow: hidden;
+}
+
+.item-title {
+  font-size: 1rem;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+  margin-bottom: 0.5rem !important;
+}
+
+.item-square-card .btn {
+  padding: 0.25rem 0.5rem;
+  font-size: 0.875rem;
+}
+
+@media (max-width: 576px) {
+  .item-title {
+    font-size: 0.85rem;
+  }
+  
+  .item-square-card .btn {
+    padding: 0.2rem 0.4rem;
+    font-size: 0.75rem;
+  }
 } 
