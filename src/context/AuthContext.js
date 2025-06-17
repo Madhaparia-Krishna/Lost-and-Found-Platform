@@ -18,59 +18,14 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true); // Set to true while checking localStorage
   const [authError, setAuthError] = useState(null);
 
-  // Initialize auth state from localStorage
+  // Clear any stored user data when the application loads
   useEffect(() => {
-    const initAuth = async () => {
-      console.log('Initializing AuthContext, stored user:', localStorage.getItem('user'));
-      
-      // Get stored user from localStorage
-      try {
-        const storedUser = localStorage.getItem('user');
-        if (storedUser) {
-          const user = JSON.parse(storedUser);
-          
-          // Also set the authorization header for future requests
-          if (user && user.token) {
-            axios.defaults.headers.common['Authorization'] = `Bearer ${user.token}`;
-            
-            // Verify token with the server
-            try {
-              const response = await axios.get(`${API_BASE_URL}/api/verify-token`, {
-                headers: { Authorization: `Bearer ${user.token}` }
-              });
-              
-              // If token is valid, set user in state
-              if (response.data && response.data.valid) {
-                console.log('Token verified successfully');
-                setCurrentUser(user);
-              } else {
-                // Token invalid - clear it
-                console.log('Token invalid, logging out');
-                localStorage.removeItem('user');
-                delete axios.defaults.headers.common['Authorization'];
-              }
-            } catch (verifyError) {
-              console.error('Error verifying token:', verifyError);
-              // Don't logout automatically, still set the user from localStorage
-              // This allows offline usage and handles temporary server issues
-              setCurrentUser(user);
-            }
-          } else {
-            // No token in stored user
-            console.log('No token in stored user data');
-            localStorage.removeItem('user');
-          }
-        }
-      } catch (error) {
-        console.error('Error parsing stored user:', error);
-        // Handle error by logging out
-        localStorage.removeItem('user');
-      } finally {
-        setLoading(false);
-      }
-    };
-    
-    initAuth();
+    // Clear stored user data to ensure no user is logged in by default
+    localStorage.removeItem('user');
+    delete axios.defaults.headers.common['Authorization'];
+    setCurrentUser(null);
+    setLoading(false);
+    console.log('AuthContext initialized: No user logged in by default');
   }, []);
   
   // Add a separate effect to log the current value

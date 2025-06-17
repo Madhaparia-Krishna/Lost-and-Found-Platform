@@ -99,6 +99,13 @@ const handleError = (error) => {
   if (error.response) {
     // The server responded with a status code outside the 2xx range
     const errorMessage = error.response.data?.message || 'An unknown error occurred';
+    
+    // Specific handling for authentication errors
+    if (error.response.status === 401) {
+      console.error('Authentication error (401):', error.response.data);
+      return Promise.reject(new Error('Wrong password. Please try again.'));
+    }
+    
     console.error('Server error response:', error.response.data);
     return Promise.reject(new Error(errorMessage));
   } else if (error.request) {
@@ -505,6 +512,14 @@ export const authApi = {
       const response = await axios.post('/api/login', credentials);
       return handleResponse(response).user; // Extract user from response
     } catch (error) {
+      console.error('Login error details:', error);
+      
+      // Specific error handling for authentication failures
+      if (error.response && error.response.status === 401) {
+        return Promise.reject(new Error('Wrong password. Please try again.'));
+      }
+      
+      // For other errors, use the standard error handler
       return handleError(error);
     }
   },

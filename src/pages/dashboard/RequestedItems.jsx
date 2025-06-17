@@ -115,10 +115,6 @@ const RequestedItems = () => {
   return (
     <div className="dashboard-page">
       <h1 className="page-title">Requested Items</h1>
-      <p className="page-description">
-        This page shows all the items you have claimed. Security staff will review your requests and update 
-        their status. Approved claims will be ready for pickup at the security office.
-      </p>
 
       {loading ? (
         <LoadingSpinner message="Loading your requested items..." />
@@ -139,9 +135,6 @@ const RequestedItems = () => {
         <div className="items-grid">
           {items.map(item => (
             <div key={item.id} className="item-card">
-              <div className={`item-status ${getStatusClass(item.claim_status)}`}>
-                {formatClaimStatus(item)}
-              </div>
               <div className="item-image">
                 {item.image ? (
                   <img 
@@ -158,27 +151,12 @@ const RequestedItems = () => {
               </div>
               <div className="item-details">
                 <h3>{item.title}</h3>
-                <div className="item-meta">
-                  <i className="fas fa-tag"></i> {item.category || 'Uncategorized'}
+                <div className="item-actions">
+                  <button className="view-button">View Details</button>
+                  <button className="request-button" disabled>
+                    {formatClaimStatus(item)}
+                  </button>
                 </div>
-                <div className="item-meta">
-                  <i className="fas fa-map-marker-alt"></i> {item.location || 'Location not specified'}
-                </div>
-                <div className="item-meta">
-                  <i className="fas fa-calendar-alt"></i> Claimed: {item.date ? new Date(item.date).toLocaleDateString() : 'Date not specified'}
-                </div>
-                {item.claim_notes && (
-                  <div className="claim-notes">
-                    <h4>Your Claim Details:</h4>
-                    <p>{item.claim_notes}</p>
-                  </div>
-                )}
-                {item.security_notes && (
-                  <div className="security-notes">
-                    <h4>Security Notes:</h4>
-                    <p>{item.security_notes}</p>
-                  </div>
-                )}
               </div>
             </div>
           ))}

@@ -43,9 +43,10 @@ const Login = () => {
       if (err.message && (
           err.message.includes('Invalid email or password') || 
           err.message.includes('credentials') ||
-          err.message.includes('Authentication failed')
+          err.message.includes('Authentication failed') ||
+          err.message.includes('401')
         )) {
-        setError('Incorrect email or password. Please try again.');
+        setError('Wrong password. Please try again.');
       } else {
         setError(err.message || 'Failed to login. Please try again.');
       }

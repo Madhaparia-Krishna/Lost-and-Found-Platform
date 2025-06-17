@@ -1,23 +1,27 @@
-.page-description {
-  color: #666;
-  margin-bottom: 20px;
-  line-height: 1.5;
+.page-title {
+  font-size: 1.8rem;
+  margin: 0 0 20px 0;
+  color: #333;
 }
 
 .items-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-  gap: 25px;
+  grid-template-columns: repeat(auto-fit, 350px);
+  gap: 2rem;
   margin-top: 20px;
+  justify-content: center;
 }
 
 .item-card {
   background-color: white;
-  border-radius: 8px;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+  border-radius: 10px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
   overflow: hidden;
   position: relative;
   transition: transform 0.2s, box-shadow 0.2s;
+  width: 300px;
+  height: 300px;
+  border: 1px solid #D8C3A5;
 }
 
 .item-card:hover {
@@ -60,7 +64,7 @@
 }
 
 .item-image {
-  height: 200px;
+  height: 70%;
   width: 100%;
   background-color: #f5f5f5;
   position: relative;
@@ -83,22 +87,30 @@
 }
 
 .item-details {
-  padding: 15px;
+  padding: 0.75rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
 }
 
 .item-details h3 {
-  margin-top: 0;
-  margin-bottom: 10px;
-  font-size: 1.3rem;
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
   color: #333;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-align: center;
+  padding: 0.5rem 0;
 }
 
 .item-meta {
   margin-bottom: 8px;
   color: #666;
   display: flex;
-  align-items: center;
-  gap: 8px;
+  flex-direction: column;
+  gap: 4px;
 }
 
 .item-meta i {
@@ -181,7 +193,7 @@
 }
 
 .retry-btn {
-  background-color: #E98074;
+  background-color: #8E8D8A;
   color: white;
   border: none;
   border-radius: 4px;
@@ -195,7 +207,43 @@
 }
 
 .retry-btn:hover {
+  background-color: #6D6C6A;
+}
+
+.item-actions {
+  display: flex;
+  margin-top: 0.5rem;
+  gap: 8px;
+}
+
+.view-button, .request-button {
+  flex: 1;
+  padding: 0.4rem 0;
+  border-radius: 4px;
+  border: none;
+  font-weight: 600;
+  text-align: center;
+  cursor: pointer;
+  font-size: 0.8rem;
+  transition: background-color 0.2s;
+}
+
+.view-button {
+  background-color: #8E8D8A;
+  color: white;
+}
+
+.view-button:hover {
+  background-color: #6D6C6A;
+}
+
+.request-button {
   background-color: #E85A4F;
+  color: white;
+}
+
+.request-button:hover {
+  background-color: #d44d42;
 }
 
 @media (max-width: 768px) {

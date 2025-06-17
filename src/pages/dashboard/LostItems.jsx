@@ -143,10 +143,6 @@ const LostItems = () => {
     <div className="dashboard-page">
       <div className="page-header">
         <h1>Your Lost Items</h1>
-        <p className="page-description">
-          This page shows items that you have reported as lost. You can manage your lost item reports 
-          and see if any potential matches have been found.
-        </p>
         <button className="primary-btn" onClick={navigateToReportLostItem}>
           <i className="fas fa-plus"></i> Report Lost Item
         </button>
@@ -202,7 +198,6 @@ const LostItems = () => {
         <div className="items-grid">
           {getFilteredItems().map(item => (
             <div key={item.id} className="item-card">
-              {formatMatchStatus(item)}
               <div className="item-image">
                 {item.image ? (
                   <img 
@@ -220,32 +215,18 @@ const LostItems = () => {
               </div>
               <div className="item-details">
                 <h3>{item.title}</h3>
-                <div className="item-meta">
-                  <i className="fas fa-tag"></i> {item.category || 'Uncategorized'}
-                </div>
-                <div className="item-meta">
-                  <i className="fas fa-map-marker-alt"></i> {item.location || 'Location not specified'}
-                </div>
-                <div className="item-meta">
-                  <i className="fas fa-calendar-alt"></i> {item.date ? new Date(item.date).toLocaleDateString() : 'Date not specified'}
-                </div>
-                {item.description && (
-                  <p className="item-description">{item.description}</p>
-                )}
                 <div className="item-actions">
                   <button 
-                    className="edit-btn" 
-                    title="Edit this item"
+                    className="view-button"
                     onClick={() => navigateToEditItem(item.id)}
                   >
-                    <i className="fas fa-edit"></i> Edit
+                    Edit
                   </button>
                   <button 
-                    className="delete-btn" 
-                    title="Remove this item"
+                    className="request-button"
                     onClick={() => handleDeleteItem(item.id)}
                   >
-                    <i className="fas fa-trash-alt"></i> Remove
+                    Remove
                   </button>
                 </div>
               </div>
