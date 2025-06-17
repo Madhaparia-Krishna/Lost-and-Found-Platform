@@ -129,7 +129,7 @@
 }
 
 .status-found {
-  background-color: #8E8D8A;
+  background-color: #3a5683;
 }
 
 .status-lost {
@@ -137,11 +137,11 @@
 }
 
 .status-claimed {
-  background-color: #D8C3A5;
+  background-color: #E98074;
 }
 
 .status-requested {
-  background-color: #8E8D8A;
+  background-color: #f39c12;
 }
 
 .item-details {
@@ -205,18 +205,37 @@
   background-color: #e9ecef;
 }
 
-.request-button {
+.request-button,
+.claim-button {
   background-color: #E98074;
   color: white;
 }
 
-.request-button:hover {
+.request-button:hover,
+.claim-button:hover {
   background-color: #E85A4F;
 }
 
-.request-button:disabled {
+.request-button:disabled,
+.claim-button:disabled {
   background-color: #bdc3c7;
   cursor: not-allowed;
+}
+
+/* Update filter button */
+.filter-button {
+  background-color: #3a5683;
+  color: white;
+  padding: 10px 20px;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: all 0.3s ease;
+}
+
+.filter-button:hover {
+  background-color: #1f3a60;
 }
 
 /* Empty state / No items message */
@@ -266,4 +285,23 @@
   .found-items-container {
     padding: 15px;
   }
+}
+
+/* Update retry button */
+.retry-button {
+  background-color: #E98074;
+  color: white;
+  border: none;
+  border-radius: 5px;
+  padding: 10px 20px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.retry-button:hover {
+  background-color: #E85A4F;
 } 

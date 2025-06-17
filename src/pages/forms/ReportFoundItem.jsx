@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { itemsApi } from '../../utils/api';
 import { AuthContext } from '../../context/AuthContext';
 import '../../styles/ItemForms.css';
+import SuccessMessage from '../../components/SuccessMessage';
 
 const ReportFoundItem = () => {
   const { currentUser } = useContext(AuthContext);
@@ -100,36 +101,25 @@ const ReportFoundItem = () => {
           <h1>Report Found Item</h1>
         </div>
         
-        <div className="success-message">
-          <h2>Thank You!</h2>
-          <p>Your found item has been reported successfully.</p>
-          <p className="approval-note">Your submission will be reviewed by security staff before being published.</p>
-          <div className="success-actions">
-            <button 
-              onClick={() => {
-                setSubmitSuccess(false);
-                setFormData({
-                  title: '',
-                  category: '',
-                  location: '',
-                  date: '',
-                  description: '',
-                  image: null
-                });
-                setImagePreview(null);
-              }}
-              className="report-another-btn"
-            >
-              Report Another Item
-            </button>
-            <button 
-              onClick={() => navigate('/dashboard/found-items')}
-              className="dashboard-btn"
-            >
-              Go to Dashboard
-            </button>
-          </div>
-        </div>
+        <SuccessMessage 
+          title="Thank You!"
+          message="Your found item has been reported successfully."
+          submessage="Your submission will be reviewed by security staff before being published."
+          onReset={() => {
+            setSubmitSuccess(false);
+            setFormData({
+              title: '',
+              category: '',
+              location: '',
+              date: '',
+              description: '',
+              image: null
+            });
+            setImagePreview(null);
+          }}
+          resetButtonText="Report Another Item"
+          showDashboardLink={true}
+        />
       </div>
     );
   }

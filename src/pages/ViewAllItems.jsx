@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useContext } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { AuthContext } from '../context/AuthContext';
 import { itemsApi, API_BASE_URL } from '../utils/api';
 import '../styles/ViewAllItems.css';
@@ -9,6 +9,7 @@ import ItemModal from '../components/ItemModal';
 
 const ViewAllItems = () => {
   const { currentUser } = useContext(AuthContext);
+  const navigate = useNavigate();
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -22,6 +23,7 @@ const ViewAllItems = () => {
   const [actionStatus, setActionStatus] = useState(null);
   const [showModal, setShowModal] = useState(false);
   const [selectedItemId, setSelectedItemId] = useState(null);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   
   // Fallback image for when image loading fails
   const fallbackImageSrc = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' fill='%23f0f0f0'/%3E%3Cpath d='M30,40 L70,40 L70,60 L30,60 Z' fill='%23d0d0d0'/%3E%3Ctext x='50' y='50' font-family='Arial' font-size='12' text-anchor='middle' alignment-baseline='middle' fill='%23909090'%3ENo Image%3C/text%3E%3C/svg%3E";
@@ -216,249 +218,276 @@ const ViewAllItems = () => {
     }
   };
   
+  // Handle logout
+  const handleLogout = () => {
+    if (currentUser && currentUser.logout) {
+      currentUser.logout();
+    }
+    navigate('/login');
+  };
+  
   // Get filtered items based on active tab
   const filteredItems = getFilteredItems();
 
   if (loading) {
     return (
-      <Container className="d-flex justify-content-center align-items-center" style={{ minHeight: '50vh' }}>
-        <div className="text-center">
-          <Spinner animation="border" variant="primary" />
-          <p className="mt-3">Loading items...</p>
-        </div>
-      </Container>
+      <div className="loading-state">
+        <div className="spinner"></div>
+        <p>Loading items...</p>
+      </div>
     );
   }
 
   if (error && !error.includes('Using sample data')) {
     return (
-      <Container className="py-4">
-        <Alert variant="danger">
-          <Alert.Heading>Error Loading Items</Alert.Heading>
-          <p>{error}</p>
-          <hr />
-          <div className="d-flex justify-content-end">
-            <Button variant="outline-danger" onClick={handleRefresh}>Try Again</Button>
-          </div>
-        </Alert>
-        <div className="mt-4">
-          <h5>Troubleshooting tips:</h5>
-          <ul>
-            <li>Check if the server is running</li>
-            <li>Ensure you're connected to the internet</li>
-            <li>The server might be using a different port (currently trying port 5000)</li>
-          </ul>
+      <div className="error-state">
+        <div className="error-icon">
+          <i className="fas fa-exclamation-triangle"></i>
         </div>
-      </Container>
+        <h3>Error Loading Items</h3>
+        <p>{error}</p>
+        <button className="retry-btn" onClick={handleRefresh}>
+          <i className="fas fa-sync-alt"></i> Try Again
+        </button>
+      </div>
     );
   }
 
   return (
-    <Container fluid className="py-4">
-      {/* Header Section */}
-      <div className="bg-light p-4 rounded-3 mb-4 shadow-sm">
-        <Container>
-          <div className="d-flex justify-content-between align-items-center flex-wrap">
-            <h1 className="display-5">Found Items</h1>
-            {currentUser && (
-              <div className="d-flex align-items-center">
-                <span className="me-2">Logged in as: {currentUser.name || currentUser.email}</span>
-                <Badge bg={currentUser.role === 'admin' ? 'danger' : currentUser.role === 'security' ? 'warning' : 'info'}>
-                  {currentUser.role}
-                </Badge>
-              </div>
-            )}
+    <div className="dashboard-layout">
+      <header className="dashboard-header">
+        <div className="header-brand">
+          <Link to="/" className="brand-link">Lost@Campus</Link>
+        </div>
+        
+        <button 
+          className="mobile-menu-toggle" 
+          onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+        >
+          <i className={mobileMenuOpen ? "fas fa-times" : "fas fa-bars"}></i>
+        </button>
+        
+        <nav className={`dashboard-nav ${mobileMenuOpen ? 'mobile-open' : ''}`}>
+          <div className="nav-section main-nav">
+            <Link to="/dashboard/found" className="nav-link">
+              <i className="fas fa-search"></i> Found Items
+            </Link>
+            <Link to="/dashboard/lost" className="nav-link">
+              <i className="fas fa-question-circle"></i> Lost Items
+            </Link>
+            <Link to="/" className="nav-link active">
+              <i className="fas fa-list"></i> All Items
+            </Link>
           </div>
           
-          <div className="mt-3">
-            <Link to="/" className="btn btn-outline-secondary me-2">Home</Link>
-            <Link to="/found" className="btn btn-outline-primary me-2">Report Found Item</Link>
-            <Link to="/lost" className="btn btn-outline-primary me-2">Report Lost Item</Link>
-            {currentUser && currentUser.role === 'security' && (
-              <Link to="/security" className="btn btn-outline-warning me-2">Security Dashboard</Link>
-            )}
-            {currentUser && currentUser.role === 'admin' && (
-              <Link to="/admin" className="btn btn-outline-danger me-2">Admin Panel</Link>
-            )}
+          <div className="nav-section actions-nav">
+            <Link to="/found" className="action-btn">
+              <i className="fas fa-plus-circle"></i> Report Found
+            </Link>
+            <Link to="/lost" className="action-btn">
+              <i className="fas fa-plus-circle"></i> Report Lost
+            </Link>
           </div>
-        </Container>
-      </div>
-      
-      <Container>
-        {/* Info Banner */}
-        <Alert variant="info" className="mb-4">
-          <p className="mb-0">This page displays only items that have been approved by security staff. If you've reported an item that's not visible here, it may still be pending approval.</p>
-          {currentUser && currentUser.role === 'security' && (
-            <p className="mb-0 mt-2">Security staff: To approve pending items, please visit the <Link to="/security">Security Dashboard</Link>.</p>
+          
+          {currentUser ? (
+            <div className="nav-section user-nav">
+              {(currentUser.role === 'security' || currentUser.role === 'admin') && (
+                <Link to="/security" className="admin-link">
+                  <i className="fas fa-shield-alt"></i>
+                  <span className="link-text">Security</span>
+                </Link>
+              )}
+              {currentUser.role === 'admin' && (
+                <Link to="/admin" className="admin-link">
+                  <i className="fas fa-cog"></i>
+                  <span className="link-text">Admin</span>
+                </Link>
+              )}
+              <div className="user-dropdown">
+                <div className="user-info">
+                  <div className="avatar">
+                    {currentUser.name ? currentUser.name.charAt(0).toUpperCase() : 'U'}
+                  </div>
+                  <span className="username">{currentUser.name || currentUser.email}</span>
+                  <i className="fas fa-chevron-down"></i>
+                </div>
+                <div className="dropdown-menu">
+                  <Link to="/profile" className="dropdown-item">
+                    <i className="fas fa-user"></i> Profile
+                  </Link>
+                  <button onClick={handleLogout} className="dropdown-item">
+                    <i className="fas fa-sign-out-alt"></i> Logout
+                  </button>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="nav-section auth-nav">
+              <Link to="/login" className="auth-link">Login</Link>
+              <Link to="/register" className="auth-link register">Register</Link>
+            </div>
           )}
-        </Alert>
+        </nav>
+      </header>
+      
+      <main className="dashboard-main">
+        <div className="page-header">
+          <h1>Found Items</h1>
+          <button className="refresh-btn" onClick={handleRefresh}>
+            <i className="fas fa-sync-alt"></i> Refresh
+          </button>
+        </div>
+        
+        {/* Info Banner */}
+        <div className="info-banner">
+          <p>This page displays only items that have been approved by security staff. If you've reported an item that's not visible here, it may still be pending approval.</p>
+          {currentUser && currentUser.role === 'security' && (
+            <p>Security staff: To approve pending items, please visit the <Link to="/security">Security Dashboard</Link>.</p>
+          )}
+        </div>
         
         {/* Action Status */}
         {actionStatus && (
-          <Alert variant={actionStatus.type === 'error' ? 'danger' : actionStatus.type === 'success' ? 'success' : 'info'} 
-                 className="mb-4" dismissible>
+          <div className={`action-status ${actionStatus.type}`}>
             {actionStatus.message}
-          </Alert>
+          </div>
         )}
         
         {/* Search Form */}
-        <Card className="mb-4 shadow-sm">
-          <Card.Body>
-            <Form onSubmit={handleSearch}>
-              <Row className="g-3">
-                <Col md={6}>
-                  <Form.Control
-                    type="text"
-                    name="search"
-                    placeholder="Search items..."
-                    defaultValue={searchParams.search}
-                  />
-                </Col>
-                <Col md={3}>
-                  <Form.Select name="category" defaultValue={searchParams.category}>
-                    <option value="">All Categories</option>
-                    <option value="Electronics">Electronics</option>
-                    <option value="Clothing">Clothing</option>
-                    <option value="Books">Books</option>
-                    <option value="Bags">Bags</option>
-                    <option value="Documents">Documents</option>
-                    <option value="Bottle">Bottle</option>
-                    <option value="Other">Other</option>
-                  </Form.Select>
-                </Col>
-                <Col md={3} className="d-flex">
-                  <Button type="submit" variant="primary" className="me-2">Search</Button>
-                  <Button type="button" variant="outline-secondary" onClick={handleRefresh}>
-                    <i className="fas fa-sync-alt"></i> Refresh
-                  </Button>
-                </Col>
-              </Row>
-            </Form>
-          </Card.Body>
-        </Card>
+        <div className="search-filters">
+          <form className="search-form" onSubmit={handleSearch}>
+            <div className="form-group">
+              <input
+                type="text"
+                name="search"
+                placeholder="Search items..."
+                defaultValue={searchParams.search}
+                className="search-input"
+              />
+            </div>
+            <div className="form-group">
+              <select 
+                name="category" 
+                defaultValue={searchParams.category}
+                className="search-input"
+              >
+                <option value="">All Categories</option>
+                <option value="Electronics">Electronics</option>
+                <option value="Clothing">Clothing</option>
+                <option value="Books">Books</option>
+                <option value="Bags">Bags</option>
+                <option value="Documents">Documents</option>
+                <option value="Bottle">Bottle</option>
+                <option value="Other">Other</option>
+              </select>
+            </div>
+            <button type="submit" className="search-btn">
+              <i className="fas fa-search"></i> Search
+            </button>
+            <button type="button" className="search-btn refresh-btn" onClick={handleRefresh}>
+              <i className="fas fa-sync-alt"></i> Refresh
+            </button>
+          </form>
+        </div>
         
         {/* Filter Tabs */}
-        <div className="mb-4">
-          <div className="d-flex flex-wrap gap-2">
-            <Button 
-              variant={activeTab === 'all' ? 'primary' : 'outline-primary'}
-              onClick={() => setActiveTab('all')}
-            >
-              All Items ({items.length})
-            </Button>
-            <Button 
-              variant={activeTab === 'electronics' ? 'primary' : 'outline-primary'}
-              onClick={() => setActiveTab('electronics')}
-            >
-              Electronics ({items.filter(item => item.category === 'Electronics').length})
-            </Button>
-            <Button 
-              variant={activeTab === 'documents' ? 'primary' : 'outline-primary'}
-              onClick={() => setActiveTab('documents')}
-            >
-              Documents ({items.filter(item => item.category === 'Documents').length})
-            </Button>
-            <Button 
-              variant={activeTab === 'clothing' ? 'primary' : 'outline-primary'}
-              onClick={() => setActiveTab('clothing')}
-            >
-              Clothing ({items.filter(item => item.category === 'Clothing').length})
-            </Button>
-            <Button 
-              variant={activeTab === 'other' ? 'primary' : 'outline-primary'}
-              onClick={() => setActiveTab('other')}
-            >
-              Other ({items.filter(item => 
-                item.category !== 'Electronics' && 
-                item.category !== 'Documents' && 
-                item.category !== 'Clothing'
-              ).length})
-            </Button>
-          </div>
+        <div className="filter-tabs">
+          <button 
+            className={`filter-tab ${activeTab === 'all' ? 'active' : ''}`}
+            onClick={() => setActiveTab('all')}
+          >
+            All Items ({items.length})
+          </button>
+          <button 
+            className={`filter-tab ${activeTab === 'electronics' ? 'active' : ''}`}
+            onClick={() => setActiveTab('electronics')}
+          >
+            Electronics ({items.filter(item => item.category === 'Electronics').length})
+          </button>
+          <button 
+            className={`filter-tab ${activeTab === 'documents' ? 'active' : ''}`}
+            onClick={() => setActiveTab('documents')}
+          >
+            Documents ({items.filter(item => item.category === 'Documents').length})
+          </button>
+          <button 
+            className={`filter-tab ${activeTab === 'clothing' ? 'active' : ''}`}
+            onClick={() => setActiveTab('clothing')}
+          >
+            Clothing ({items.filter(item => item.category === 'Clothing').length})
+          </button>
+          <button 
+            className={`filter-tab ${activeTab === 'other' ? 'active' : ''}`}
+            onClick={() => setActiveTab('other')}
+          >
+            Other ({items.filter(item => 
+              item.category !== 'Electronics' && 
+              item.category !== 'Documents' && 
+              item.category !== 'Clothing'
+            ).length})
+          </button>
         </div>
         
         {/* Items Grid */}
-        {filteredItems.length === 0 ? (
-          <Alert variant="light" className="text-center py-5">
-            <i className="fas fa-search fa-3x mb-3 text-muted"></i>
-            <h4>No Items Found</h4>
-            <p className="mb-0">
-              {searchParams.search || searchParams.category ? 
-                "No items match your search criteria" : 
-                "No approved items available at the moment. Check back later."}
-            </p>
-          </Alert>
-        ) : (
-          <Row xs={2} md={3} lg={4} className="g-4">
-            {filteredItems.map(item => (
-              <Col key={item.id || Math.random()}>
-                <div className="item-perfect-square">
-                  <Card className="item-square-card shadow-sm hover-effect">
-                    <div className="square-image-container">
-                      {item.image && !imageErrors[item.id] ? (
-                        <Card.Img 
-                          variant="top" 
-                          src={`${API_BASE_URL}/uploads/${item.image}`}
-                          alt={item.title || 'Found Item'}
-                          className="item-square-image"
-                          onError={(e) => {
-                            e.target.onerror = null;
-                            e.target.src = fallbackImageSrc;
-                            handleImageError(item.id);
-                          }}
-                        />
-                      ) : (
-                        <div className="bg-light d-flex justify-content-center align-items-center h-100">
-                          <i className="fas fa-image fa-3x text-muted"></i>
-                        </div>
-                      )}
-                      <Badge 
-                        bg={
-                          item.status === 'found' ? 'success' : 
-                          item.status === 'requested' ? 'warning' : 
-                          item.status === 'received' ? 'primary' : 
-                          'secondary'
-                        }
-                        className="position-absolute top-0 end-0 m-2"
-                      >
-                        {item.status === 'found' ? 'Found' : 
-                         item.status === 'requested' ? 'Requested' : 
-                         item.status === 'received' ? 'Received' : 
-                         'Unknown'}
-                      </Badge>
-                    </div>
-                    <Card.Body className="d-flex flex-column align-items-center text-center">
-                      <Card.Title className="item-title mb-3">{item.title || 'Untitled Item'}</Card.Title>
-                      <div className="d-grid gap-2 w-100">
-                        <Button 
-                          variant="outline-primary" 
-                          onClick={() => openItemModal(item.id)}
-                          size="sm"
-                        >
-                          <i className="fas fa-search me-1"></i> View Details
-                        </Button>
-                        {currentUser && item.status === 'found' && (
-                          <Button 
-                            variant="outline-success"
-                            onClick={() => {
-                              setSelectedItemId(item.id);
-                              setShowModal(true);
-                            }}
-                            disabled={item.status !== 'found'}
-                            size="sm"
-                          >
-                            <i className="fas fa-hand-paper me-1"></i> Request
-                          </Button>
-                        )}
+        <div className="dashboard-content">
+          {filteredItems.length === 0 ? (
+            <div className="empty-state">
+              <div className="empty-state-icon">
+                <i className="fas fa-search"></i>
+              </div>
+              <h3>No Items Found</h3>
+              <p>
+                {searchParams.search || searchParams.category ? 
+                  "No items match your search criteria. Try different keywords or filters." : 
+                  "No approved items available at the moment. Check back later."}
+              </p>
+              {(searchParams.search || searchParams.category) && (
+                <button className="primary-btn" onClick={() => setSearchParams({ search: '', category: '' })}>
+                  <i className="fas fa-times"></i> Clear Filters
+                </button>
+              )}
+            </div>
+          ) : (
+            <div className="items-square-grid">
+              {filteredItems.map(item => (
+                <div 
+                  key={item.id || Math.random()} 
+                  className="square-item" 
+                  onClick={() => openItemModal(item.id)}
+                >
+                  <div className={`item-badge status-${item.status}`}>
+                    {item.status === 'found' ? 'Found' : 
+                     item.status === 'requested' ? 'Requested' : 
+                     item.status === 'received' ? 'Received' : 'Unknown'}
+                  </div>
+                  
+                  <div className="square-image">
+                    {item.image && !imageErrors[item.id] ? (
+                      <img 
+                        src={`${API_BASE_URL}/uploads/${item.image}`}
+                        alt={item.title || 'Found Item'}
+                        onError={(e) => {
+                          e.target.onerror = null;
+                          e.target.src = fallbackImageSrc;
+                          handleImageError(item.id);
+                        }}
+                      />
+                    ) : (
+                      <div className="no-image">
+                        <i className="fas fa-image"></i>
                       </div>
-                    </Card.Body>
-                  </Card>
+                    )}
+                  </div>
+                  
+                  <div className="square-info">
+                    <h3>{item.title || 'Untitled Item'}</h3>
+                  </div>
                 </div>
-              </Col>
-            ))}
-          </Row>
-        )}
-      </Container>
+              ))}
+            </div>
+          )}
+        </div>
+      </main>
       
       {/* Item Detail Modal using the enhanced ItemModal component */}
       {showModal && selectedItemId && (
@@ -469,7 +498,7 @@ const ViewAllItems = () => {
           refreshItems={handleRefresh}
         />
       )}
-    </Container>
+    </div>
   );
 };
 

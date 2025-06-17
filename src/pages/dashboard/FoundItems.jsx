@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useContext, useMemo } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { AuthContext } from '../../context/AuthContext';
 import { itemsApi, API_BASE_URL } from '../../utils/api';
 import LoadingSpinner from '../../components/LoadingSpinner';
@@ -10,6 +10,7 @@ import { toast } from 'react-hot-toast';
 
 const FoundItems = () => {
   const { currentUser } = useContext(AuthContext);
+  const navigate = useNavigate();
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -198,6 +199,11 @@ const FoundItems = () => {
     setSearchTerm(e.target.value);
   };
 
+  // Navigate to report found item form
+  const navigateToReportFoundItem = () => {
+    navigate('/found');
+  };
+
   if (loading) {
     return <LoadingSpinner />;
   }
@@ -225,6 +231,10 @@ const FoundItems = () => {
           Browse items that have been found and are waiting to be claimed. 
           You can request an item if you believe it belongs to you.
         </p>
+        
+        <button className="primary-btn" onClick={navigateToReportFoundItem}>
+          <i className="fas fa-plus"></i> Report Found Item
+        </button>
         
         {currentUser && currentUser.role === 'admin' && (
           <div className="admin-actions">

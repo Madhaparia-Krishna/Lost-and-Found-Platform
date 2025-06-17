@@ -3,6 +3,7 @@ import { useParams, useNavigate, Link } from 'react-router-dom';
 import { AuthContext } from '../context/AuthContext';
 import { itemsApi, API_BASE_URL } from '../utils/api';
 import '../styles/ClaimForm.css';
+import SuccessMessage from '../components/SuccessMessage';
 
 const ClaimForm = () => {
   const { itemId } = useParams();
@@ -201,27 +202,14 @@ const ClaimForm = () => {
   if (submitSuccess) {
     return (
       <div className="claim-form-container">
-        <div className="success-message">
-          <h2>Claim Submitted Successfully!</h2>
-          <p>Your claim has been submitted for review by our security team.</p>
-          <p>You will be notified when your claim is processed.</p>
-          <div className="form-actions">
-            <button 
-              type="button" 
-              onClick={() => navigate('/')}
-              className="primary-button"
-            >
-              Go to Dashboard
-            </button>
-            <button 
-              type="button" 
-              onClick={() => navigate('/items')}
-              className="secondary-button"
-            >
-              Return to Items
-            </button>
-          </div>
-        </div>
+        <SuccessMessage 
+          title="Claim Submitted Successfully!"
+          message="Your claim has been submitted for review by our security team."
+          submessage="You will be notified when your claim is processed."
+          onReset={() => navigate('/')}
+          resetButtonText="Go to Dashboard"
+          showDashboardLink={false}
+        />
       </div>
     );
   }
