@@ -202,4 +202,64 @@ label {
   h2 {
     font-size: 1.75rem;
   }
+}
+
+/* Override any blue buttons with the homepage color scheme */
+.btn-primary,
+.submit-btn,
+button[type="submit"],
+input[type="submit"],
+.btn-submit,
+.primary-button {
+  background-color: #E98074 !important;
+  border-color: #E98074 !important;
+  color: white !important;
+}
+
+.btn-primary:hover,
+.submit-btn:hover,
+button[type="submit"]:hover,
+input[type="submit"]:hover,
+.btn-submit:hover,
+.primary-button:hover {
+  background-color: #E85A4F !important;
+  border-color: #E85A4F !important;
+}
+
+/* Override Bootstrap blue focus styles */
+.form-control:focus,
+.btn:focus,
+button:focus,
+input:focus,
+select:focus,
+textarea:focus {
+  border-color: #E98074 !important;
+  box-shadow: 0 0 0 0.2rem rgba(233, 128, 116, 0.25) !important;
+}
+
+/* Override Bootstrap blue links */
+a {
+  color: #E98074;
+}
+
+a:hover {
+  color: #E85A4F;
+}
+
+/* Fix button spinner */
+.btn-spinner {
+  width: 1.25rem;
+  height: 1.25rem;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-radius: 50%;
+  border-top-color: white;
+  animation: spin 1s linear infinite;
+  margin-right: 0.5rem;
+  display: inline-block;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
 } 

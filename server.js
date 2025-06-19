@@ -46,7 +46,40 @@ const io = socketIo(server, {
 });
 
 // Middleware
-app.use(cors(config.serverConfig.corsOptions));
+app.use(cors({
+  origin: config.serverConfig.corsOptions.origin,
+  methods: config.serverConfig.corsOptions.methods,
+  credentials: true,
+  allowedHeaders: config.serverConfig.corsOptions.allowedHeaders,
+  exposedHeaders: ['Authorization'],
+}));
+
+// Handle preflight requests for all routes
+app.options('*', cors(config.serverConfig.corsOptions));
+
+// Add custom response headers for all responses
+app.use((req, res, next) => {
+  // Ensure proper CORS headers are set
+  res.header('Access-Control-Allow-Origin', req.headers.origin || '*');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
+  res.header('Access-Control-Allow-Credentials', 'true');
+  res.header('Access-Control-Max-Age', '86400'); // 24 hours
+  
+  // For API error responses, ensure content type is set to JSON
+  const originalSend = res.send;
+  res.send = function(body) {
+    // Set Content-Type for API responses
+    if (req.path.startsWith('/api/') && res.statusCode >= 400) {
+      res.header('Content-Type', 'application/json');
+      console.log('Sending error response:', body);
+    }
+    return originalSend.call(this, body);
+  };
+  
+  next();
+});
+
 app.use(bodyParser.json());
 
 // Ensure uploads directory is properly served with absolute path
@@ -213,27 +246,52 @@ app.post('/api/register', async (req, res) => {
 
 // Login endpoint
 app.post('/api/login', async (req, res) => {
+  console.log('Login request received:', req.body);
   const { email, password } = req.body;
   
   if (!email || !password) {
-    return res.status(400).json({ message: 'Email and password are required' });
+    console.log('Login validation error: Email and password are required');
+    return res.status(400)
+      .header('Content-Type', 'application/json')
+      .json({ 
+        message: 'Email and password are required',
+        success: false
+      });
   }
   
   try {
     // Find user in database
+    console.log('Attempting to find user with email:', email);
     const [users] = await pool.query('SELECT * FROM Users WHERE email = ? AND is_deleted = FALSE', [email]);
     
+    console.log('Users found with that email:', users.length);
     if (users.length === 0) {
-      return res.status(401).json({ message: 'Invalid email or password' });
+      console.log('No account found with email:', email);
+      return res.status(401)
+        .header('Content-Type', 'application/json')
+        .json({ 
+          message: 'No account found with this email address',
+          success: false,
+          errorType: 'account_not_found'
+        });
     }
     
     const user = users[0];
     
     // Compare password
+    console.log('Comparing password for user:', user.id);
     const isPasswordValid = await bcrypt.compare(password, user.password);
     
+    console.log('Password valid?', isPasswordValid);
     if (!isPasswordValid) {
-      return res.status(401).json({ message: 'Invalid email or password' });
+      console.log('Wrong password for user:', user.id);
+      return res.status(401)
+        .header('Content-Type', 'application/json')
+        .json({ 
+          message: 'Wrong password. Please try again',
+          success: false,
+          errorType: 'wrong_password'
+        });
     }
     
     // Generate JWT token
@@ -3185,7 +3243,7 @@ app.post('/api/admin/login', async (req, res) => {
     
     if (users.length === 0) {
       console.log(`No user found with email: ${email}`);
-      return res.status(401).json({ message: 'Invalid email or password' });
+      return res.status(401).json({ message: 'No account found with this email address' });
     }
     
     const user = users[0];
@@ -3201,7 +3259,7 @@ app.post('/api/admin/login', async (req, res) => {
     
     if (!passwordMatch) {
       console.log(`Invalid password for admin user: ${email}`);
-      return res.status(401).json({ message: 'Invalid email or password' });
+      return res.status(401).json({ message: 'Wrong password. Please try again' });
     }
     
     // Create token

@@ -7,29 +7,6 @@ import axios from 'axios';
 import { API_BASE_URL } from '../utils/api';
 import '../styles/AdminDashboard.css';
 
-// Dummy data for charts - replace with actual data from backend if available
-const userRolesData = {
-  labels: ['Admins', 'Users', 'Security'], // Assuming roles could be these
-  datasets: [
-    {
-      data: [1, 5, 2], // Example counts
-      backgroundColor: ['#e83e8c', '#28a745', '#007bff'],
-      hoverBackgroundColor: ['#d6287c', '#218838', '#0056b3'],
-    },
-  ],
-};
-
-const itemStatusData = {
-  labels: ['Lost', 'Found', 'Requested', 'Returned'],
-  datasets: [
-    {
-      data: [10, 15, 5, 8], // Example counts
-      backgroundColor: ['#e74c3c', '#2ecc71', '#f1c40f', '#95a5a6'],
-      hoverBackgroundColor: ['#c0392b', '#27ae60', '#f39c12', '#7f8c8d'],
-    },
-  ],
-};
-
 const AdminDashboard = () => {
   const { currentUser } = useContext(AuthContext);
   const navigate = useNavigate();
@@ -62,6 +39,12 @@ const AdminDashboard = () => {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [itemToDelete, setItemToDelete] = useState(null);
   const [deleteReason, setDeleteReason] = useState('');
+  
+  // Donation modal states
+  const [showDonateModal, setShowDonateModal] = useState(false);
+  const [itemToDonate, setItemToDonate] = useState(null);
+  const [donationReason, setDonationReason] = useState('Unclaimed for over a year');
+  const [donationOrganization, setDonationOrganization] = useState('');
   
   // Role change states
   const [showRoleModal, setShowRoleModal] = useState(false);
@@ -199,36 +182,84 @@ const AdminDashboard = () => {
       const usersArray = Array.isArray(usersData) ? usersData : [];
       const itemsArray = Array.isArray(itemsData) ? itemsData : [];
       
+      // Calculate user statistics
       const totalUsers = usersArray.length;
-      const totalBannedUsers = usersArray.filter(user => user.is_deleted).length;
-      const totalLostItems = itemsArray.filter(item => item.status === 'lost').length;
-      const totalFoundItems = itemsArray.filter(item => item.status === 'found').length;
-      const totalPendingItems = itemsArray.filter(item => 
-        (item.status === 'found' && !item.is_approved) || 
-        item.status === 'requested'
-      ).length;
-      const totalReturnedItems = itemsArray.filter(item => item.status === 'returned').length;
-
+      const bannedUsers = usersArray.filter(user => user.is_deleted).length;
+      
+      // Calculate item statistics
+      const lostItems = itemsArray.filter(item => item.status === 'lost').length;
+      const foundItems = itemsArray.filter(item => item.status === 'found').length;
+      const requestedItems = itemsArray.filter(item => item.status === 'requested').length;
+      const returnedItems = itemsArray.filter(item => item.status === 'returned').length;
+      
+      // Update stats state
       setStats({
         totalUsers,
-        totalBannedUsers,
-        totalLostItems,
-        totalFoundItems,
-        totalPendingItems,
-        totalReturnedItems
+        totalBannedUsers: bannedUsers,
+        totalLostItems: lostItems,
+        totalFoundItems: foundItems,
+        totalPendingItems: requestedItems,
+        totalReturnedItems: returnedItems
       });
-
     } catch (error) {
       console.error('Error calculating stats:', error);
-      // Set default stats
-      setStats({
-        totalUsers: 0,
-        totalBannedUsers: 0,
-        totalLostItems: 0,
-        totalFoundItems: 0,
-        totalPendingItems: 0,
-        totalReturnedItems: 0
+    }
+  };
+
+  // Handle donating an item
+  const handleDonateItem = (item) => {
+    setItemToDonate(item);
+    setShowDonateModal(true);
+  };
+
+  // Confirm donating an item
+  const confirmDonateItem = async () => {
+    if (!itemToDonate || !donationReason) {
+      setActionStatus({ type: 'error', message: 'Please provide a reason for donation.' });
+      return;
+    }
+    
+    try {
+      setActionLoading(true);
+      setActionStatus({
+        type: 'loading',
+        message: `Marking item ${itemToDonate.name || itemToDonate.title || ''} for donation...`
       });
+      
+      console.log(`Marking item ${itemToDonate.id} for donation with reason: ${donationReason}...`);
+      const response = await adminApi.markItemForDonation(
+        itemToDonate.id, 
+        donationReason, 
+        donationOrganization
+      );
+      console.log('Donation response:', response);
+      
+      // Update the items list
+      setOldItems(prev => prev.filter(item => item.id !== itemToDonate.id));
+
+      setActionStatus({
+        type: 'success',
+        message: `Item '${itemToDonate.name || itemToDonate.title || ''}' marked for donation successfully.`
+      });
+      
+      setShowDonateModal(false);
+      setItemToDonate(null);
+      setDonationReason('Unclaimed for over a year');
+      setDonationOrganization('');
+
+      // Refresh data to update the UI
+      setTimeout(() => {
+        setRefreshTrigger(prev => prev + 1);
+        setActionStatus(null);
+      }, 2000);
+    } catch (err) {
+      console.error('Error marking item for donation:', err);
+      setActionStatus({
+        type: 'error',
+        message: `Failed to mark item for donation: ${err.message || 'Unknown error'}`
+      });
+    } finally {
+      setActionLoading(false);
     }
   };
 
@@ -810,7 +841,7 @@ const AdminDashboard = () => {
   const renderOldItemsTab = () => (
     <div className="admin-old-items-section">
       <h2 className="page-title">Old/Archived Items</h2>
-      <p className="section-description">These items are older than one year and can be permanently deleted to free up space, or restored if needed.</p>
+      <p className="section-description">These items are older than one year and can be permanently deleted to free up space, donated to charity, or restored if needed.</p>
       {actionStatus && (
         <Alert variant={actionStatus.type === 'success' ? 'success' : 'danger'} className="mb-3">
           {actionStatus.message}
@@ -821,7 +852,52 @@ const AdminDashboard = () => {
           <span className="visually-hidden">Loading old items...</span>
         </Spinner>
       ) : (
-        renderItemsTable(oldItems) // Re-use the renderItemsTable for old items
+        <div className="table-responsive">
+          <Table striped bordered hover className="admin-table">
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Name</th>
+                <th>Category</th>
+                <th>Status</th>
+                <th>Date Found</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {oldItems.length > 0 ? (
+                oldItems.map(item => (
+                  <tr key={item.id}>
+                    <td>{item.id}</td>
+                    <td>{item.name || item.title}</td>
+                    <td>{item.category}</td>
+                    <td><Badge bg={item.status === 'lost' ? 'danger' : 'success'}>{item.status}</Badge></td>
+                    <td>{formatDate(item.date)}</td>
+                    <td>
+                      <ButtonGroup aria-label="Item Actions" size="sm">
+                        <Button variant="info" size="sm" onClick={() => navigate(`/items/${item.id}`)}>
+                          View
+                        </Button>
+                        <Button variant="warning" size="sm" onClick={() => handleDonateItem(item)}>
+                          Donate
+                        </Button>
+                        <Button variant="danger" size="sm" onClick={() => handleDeleteItem(item)}>
+                          Delete
+                        </Button>
+                      </ButtonGroup>
+                    </td>
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td colSpan="6" className="text-center">
+                    <p>No old items to display.</p>
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </Table>
+        </div>
       )}
 
       {/* Delete Item Modal */}
@@ -850,6 +926,44 @@ const AdminDashboard = () => {
           </Button>
           <Button variant="danger" onClick={confirmDeleteItem} disabled={actionLoading}>
             {actionLoading ? <Spinner animation="border" size="sm" /> : 'Confirm Delete'}
+          </Button>
+        </Modal.Footer>
+      </Modal>
+
+      {/* Donate Item Modal */}
+      <Modal show={showDonateModal} onHide={() => setShowDonateModal(false)} centered>
+        <Modal.Header closeButton>
+          <Modal.Title>Donate Item</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          <p>You are about to mark item <strong>{itemToDonate?.name || itemToDonate?.title || itemToDonate?.id}</strong> for donation.</p>
+          <Form.Group className="mb-3">
+            <Form.Label>Reason for donation:</Form.Label>
+            <Form.Control
+              as="textarea"
+              rows={2}
+              value={donationReason}
+              onChange={(e) => setDonationReason(e.target.value)}
+              placeholder="e.g., Unclaimed for over a year"
+              required
+            />
+          </Form.Group>
+          <Form.Group className="mb-3">
+            <Form.Label>Donation Organization (optional):</Form.Label>
+            <Form.Control
+              type="text"
+              value={donationOrganization}
+              onChange={(e) => setDonationOrganization(e.target.value)}
+              placeholder="e.g., Local Charity, Goodwill"
+            />
+          </Form.Group>
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="secondary" onClick={() => setShowDonateModal(false)}>
+            Cancel
+          </Button>
+          <Button variant="warning" onClick={confirmDonateItem} disabled={actionLoading}>
+            {actionLoading ? <Spinner animation="border" size="sm" /> : 'Confirm Donation'}
           </Button>
         </Modal.Footer>
       </Modal>
@@ -901,19 +1015,51 @@ const AdminDashboard = () => {
         </div>
       )}
 
-      {/* Chart Placeholders */}
+      {/* Chart information text instead of actual charts */}
       <div className="dashboard-charts-container">
         <div className="chart-card">
           <h3 className="chart-title">Users by Role</h3>
-          <p>Chart for user roles would go here.</p>
-          {/* Example of where a chart component would be rendered */}
-          {/* <Doughnut data={userRolesData} /> */}
+          <div className="chart-placeholder">
+            <p>User role distribution information would be displayed here.</p>
+            <div className="role-stats">
+              <div className="role-stat">
+                <span className="role-label">Admins:</span>
+                <span className="role-value">{users.filter(user => user.role === 'admin').length}</span>
+              </div>
+              <div className="role-stat">
+                <span className="role-label">Users:</span>
+                <span className="role-value">{users.filter(user => user.role === 'user').length}</span>
+              </div>
+              <div className="role-stat">
+                <span className="role-label">Security:</span>
+                <span className="role-value">{users.filter(user => user.role === 'security').length}</span>
+              </div>
+            </div>
+          </div>
         </div>
         <div className="chart-card">
           <h3 className="chart-title">Item Status Distribution</h3>
-          <p>Chart for item status would go here.</p>
-          {/* Example of where a chart component would be rendered */}
-          {/* <Pie data={itemStatusData} /> */}
+          <div className="chart-placeholder">
+            <p>Item status distribution information would be displayed here.</p>
+            <div className="status-stats">
+              <div className="status-stat">
+                <span className="status-label">Lost:</span>
+                <span className="status-value">{items.filter(item => item.status === 'lost').length}</span>
+              </div>
+              <div className="status-stat">
+                <span className="status-label">Found:</span>
+                <span className="status-value">{items.filter(item => item.status === 'found').length}</span>
+              </div>
+              <div className="status-stat">
+                <span className="status-label">Requested:</span>
+                <span className="status-value">{items.filter(item => item.status === 'requested').length}</span>
+              </div>
+              <div className="status-stat">
+                <span className="status-label">Returned:</span>
+                <span className="status-value">{items.filter(item => item.status === 'returned').length}</span>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -962,74 +1108,16 @@ const AdminDashboard = () => {
             Old Items
           </button>
         </div>
-
-        <div className="tab-content">
-          {activeTab === 'dashboard' && renderDashboardStats()}
-          {activeTab === 'users' && renderUsersTab()}
-          {activeTab === 'items' && renderItemsTable(items.filter(item => !item.is_deleted))}
-          {activeTab === 'logs' && renderLogsTab()}
-          {activeTab === 'oldItems' && renderOldItemsTab()}
-        </div>
       </div>
 
-      {/* Delete Item Modal (kept as is) */}
-      <Modal show={showDeleteModal} onHide={() => setShowDeleteModal(false)} centered>
-        <Modal.Header closeButton>
-          <Modal.Title>Delete Item Permanently</Modal.Title>
-        </Modal.Header>
-        <Modal.Body>
-          <p>Are you sure you want to permanently delete item <strong>{itemToDelete?.name || itemToDelete?.id}</strong>?</p>
-          <p className="text-danger">This action cannot be undone.</p>
-          <Form.Group className="mb-3">
-            <Form.Label>Reason for permanent deletion:</Form.Label>
-            <Form.Control
-              as="textarea"
-              rows={3}
-              value={deleteReason}
-              onChange={(e) => setDeleteReason(e.target.value)}
-              placeholder="e.g., Item unclaimed for over a year, data cleanup"
-              required
-            />
-          </Form.Group>
-        </Modal.Body>
-        <Modal.Footer>
-          <Button variant="secondary" onClick={() => setShowDeleteModal(false)}>
-            Cancel
-          </Button>
-          <Button variant="danger" onClick={confirmDeleteItem} disabled={actionLoading}>
-            {actionLoading ? <Spinner animation="border" size="sm" /> : 'Confirm Delete'}
-          </Button>
-        </Modal.Footer>
-      </Modal>
-
-      {/* Ban User Modal (kept as is) */}
-      <Modal show={showBanModal} onHide={() => setShowBanModal(false)} centered>
-        <Modal.Header closeButton>
-          <Modal.Title>Ban User</Modal.Title>
-        </Modal.Header>
-        <Modal.Body>
-          <p>Are you sure you want to ban user <strong>{userToBan?.name || userToBan?.id}</strong>?</p>
-          <Form.Group className="mb-3">
-            <Form.Label>Reason for banning:</Form.Label>
-            <Form.Control
-              as="textarea"
-              rows={3}
-              value={banReason}
-              onChange={(e) => setBanReason(e.target.value)}
-              placeholder="e.g., Repeated policy violations, fraudulent activity"
-              required
-            />
-          </Form.Group>
-        </Modal.Body>
-        <Modal.Footer>
-          <Button variant="secondary" onClick={() => setShowBanModal(false)}>
-            Cancel
-          </Button>
-          <Button variant="danger" onClick={confirmBanUser} disabled={actionLoading}>
-            {actionLoading ? <Spinner animation="border" size="sm" /> : 'Confirm Ban'}
-          </Button>
-        </Modal.Footer>
-      </Modal>
+      {/* Tab content */}
+      <div className="tab-content">
+        {activeTab === 'dashboard' && renderDashboardStats()}
+        {activeTab === 'users' && renderUsersTab()}
+        {activeTab === 'items' && renderItemsTable(items)}
+        {activeTab === 'logs' && renderLogsTab()}
+        {activeTab === 'oldItems' && renderOldItemsTab()}
+      </div>
     </div>
   );
 };

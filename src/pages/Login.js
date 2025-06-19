@@ -8,6 +8,7 @@ const Login = () => {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [animateError, setAnimateError] = useState(false);
   
   const { login, currentUser } = useContext(AuthContext);
   const navigate = useNavigate();
@@ -19,6 +20,18 @@ const Login = () => {
       navigate('/');
     }
   }, [currentUser, navigate]);
+
+  // Add effect to animate error message when it changes
+  useEffect(() => {
+    if (error) {
+      console.log('Login component error state updated:', error);
+      setAnimateError(true);
+      const timer = setTimeout(() => {
+        setAnimateError(false);
+      }, 600);
+      return () => clearTimeout(timer);
+    }
+  }, [error]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -39,16 +52,36 @@ const Login = () => {
     } catch (err) {
       console.error('Login error:', err);
       
-      // Show specific message for invalid credentials
-      if (err.message && (
-          err.message.includes('Invalid email or password') || 
-          err.message.includes('credentials') ||
-          err.message.includes('Authentication failed') ||
-          err.message.includes('401')
-        )) {
-        setError('Wrong password. Please try again.');
+      // Handle specific error types based on error message or code
+      if (err.message) {
+        // Check for wrong password errors
+        if (err.message.includes('Wrong password') || 
+            err.message.includes('Invalid password') ||
+            err.message.includes('password is incorrect') ||
+            err.message.includes('INVALID_PASSWORD')) {
+          setError('Wrong password. Please try again.');
+        }
+        // Check for user not found errors
+        else if (err.message.includes('User not found') || 
+            err.message.includes('No account') ||
+            err.message.includes('user does not exist') ||
+            err.message.includes('account not found') ||
+            err.message.includes('USER_NOT_FOUND')) {
+          setError('No account found with this email address.');
+        }
+        // Check for general invalid credentials
+        else if (err.message.includes('Invalid email or password') || 
+                 err.message.includes('credentials') ||
+                 err.message.includes('Authentication failed') ||
+                 err.message.includes('401')) {
+          setError('Invalid email or password. Please check your credentials.');
+        }
+        // Default error message
+        else {
+          setError(err.message || 'Failed to login. Please try again.');
+        }
       } else {
-        setError(err.message || 'Failed to login. Please try again.');
+        setError('Failed to login. Please try again.');
       }
     } finally {
       setIsLoading(false);
@@ -59,7 +92,14 @@ const Login = () => {
     <div className="login-template-container">
       <form className="login-card" onSubmit={handleSubmit}>
         <h1 className="login-title">Sign In</h1>
-        {error && <div className="login-error">{error}</div>}
+        
+        {/* Display error message with enhanced visibility */}
+        {error && (
+          <div className={`login-error ${animateError ? 'animate' : ''}`}>
+            <i className="fas fa-exclamation-circle"></i> {error}
+          </div>
+        )}
+        
         <div className="login-input-group">
           <input
             type="email"
@@ -86,7 +126,7 @@ const Login = () => {
           <Link to="/forgot-password" className="login-forgot-link">Forgot Password ?</Link>
         </div>
         <button type="submit" className="login-btn" disabled={isLoading}>
-          {isLoading ? <span className="button-spinner"></span> : 'Sign In'}
+          {isLoading ? <span className="button-spinner"></span> : ''} Sign In
         </button>
         <p className="signup-prompt">
           Don't have an account? <Link to="/register" className="signup-link">Sign up</Link>

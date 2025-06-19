@@ -333,9 +333,16 @@ const ViewAllItems = () => {
       <main className="dashboard-main">
         <div className="page-header">
           <h1>Found Items</h1>
-          <button className="refresh-btn" onClick={handleRefresh}>
-            <i className="fas fa-sync-alt"></i> Refresh
-          </button>
+          <div className="header-actions">
+            {currentUser && (
+              <Link to="/forms/report-found" className="report-btn">
+                <i className="fas fa-plus"></i> Report Found Item
+              </Link>
+            )}
+            <button className="refresh-btn" onClick={handleRefresh}>
+              <i className="fas fa-sync-alt"></i> Refresh
+            </button>
+          </div>
         </div>
         
         {/* Info Banner */}

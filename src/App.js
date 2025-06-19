@@ -83,6 +83,11 @@ const AppContent = () => {
               <ReportFoundItem />
             </PrivateRoute>
           } />
+          <Route path="/forms/report-found" element={
+            <PrivateRoute>
+              <ReportFoundItem />
+            </PrivateRoute>
+          } />
           <Route path="/edit-item/:id" element={
             <PrivateRoute>
               <EditItem />

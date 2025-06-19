@@ -103,7 +103,14 @@ const handleError = (error) => {
     // Specific handling for authentication errors
     if (error.response.status === 401) {
       console.error('Authentication error (401):', error.response.data);
-      return Promise.reject(new Error('Wrong password. Please try again.'));
+      
+      // Check for wrong password error
+      if (error.response.data?.errorType === 'wrong_password' || 
+          error.response.data?.message.includes('Wrong password')) {
+        return Promise.reject(new Error('Wrong password. Please try again.'));
+      }
+      
+      return Promise.reject(new Error(errorMessage || 'Authentication failed'));
     }
     
     console.error('Server error response:', error.response.data);
@@ -516,7 +523,18 @@ export const authApi = {
       
       // Specific error handling for authentication failures
       if (error.response && error.response.status === 401) {
-        return Promise.reject(new Error('Wrong password. Please try again.'));
+        const errorMessage = error.response.data?.message || 'Authentication failed';
+        const errorType = error.response.data?.errorType || '';
+        
+        console.log('Server error response:', error.response.data);
+        
+        // Check for wrong password error
+        if (errorType === 'wrong_password' || errorMessage.includes('Wrong password')) {
+          return Promise.reject(new Error('Wrong password. Please try again.'));
+        }
+        
+        // For other 401 errors
+        return Promise.reject(new Error(errorMessage));
       }
       
       // For other errors, use the standard error handler
@@ -595,14 +613,26 @@ export const notificationsApi = {
 
 // Security API for security staff operations
 export const securityApi = {
-  // Get pending items for approval
+  // Get pending items
   getPendingItems: async () => {
     try {
+      console.log('Fetching pending items for security panel...');
       const response = await api.get('/api/security/pending-items');
+      console.log('Pending items response:', response.data);
       return handleResponse(response);
     } catch (error) {
       console.error('Error fetching pending items:', error);
-      return [];
+      
+      // Try alternative endpoint if the first one fails
+      try {
+        console.log('Trying alternative endpoint for pending items...');
+        const response = await api.get('/items?status=found&is_approved=false');
+        console.log('Alternative pending items response:', response.data);
+        return handleResponse(response);
+      } catch (altError) {
+        console.error('Alternative endpoint also failed:', altError);
+        return [];
+      }
     }
   },
   
@@ -913,6 +943,29 @@ export const adminApi = {
     } catch (error) {
       console.error('Error fetching dashboard statistics:', error);
       return {};
+    }
+  },
+  
+  // Mark item for donation
+  markItemForDonation: async (itemId, reason, organization = '') => {
+    try {
+      const response = await api.put(`/api/admin/items/${itemId}/donate`, { 
+        reason, 
+        organization 
+      });
+      return handleResponse(response);
+    } catch (error) {
+      console.error('Error marking item for donation:', error);
+      // Try alternative endpoint if the first one fails
+      try {
+        const altResponse = await api.put(`/api/items/${itemId}/donate`, { 
+          reason, 
+          organization 
+        });
+        return handleResponse(altResponse);
+      } catch (altError) {
+        return handleError(altError);
+      }
     }
   }
 };

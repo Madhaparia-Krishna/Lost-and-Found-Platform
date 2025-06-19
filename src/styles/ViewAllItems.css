@@ -265,23 +265,22 @@
 }
 
 .refresh-btn {
+  background-color: #D8C3A5;
+  color: #4D4C4A;
+  border: none;
+  padding: 0.5rem 1rem;
+  border-radius: 2px;
+  cursor: pointer;
   display: flex;
   align-items: center;
-  background-color: #E98074;
-  color: white;
-  border: none;
-  padding: 0.6rem 1.2rem;
-  border-radius: 4px;
-  cursor: pointer;
-  transition: background-color 0.2s;
-}
-
-.refresh-btn i {
-  margin-right: 8px;
+  gap: 0.5rem;
+  font-weight: 600;
+  font-size: 0.9rem;
+  transition: all 0.2s;
 }
 
 .refresh-btn:hover {
-  background-color: #E85A4F;
+  background-color: #c9b08e;
 }
 
 /* Info banner */
@@ -896,4 +895,34 @@
   .square-info h3 {
     font-size: 12px;
   }
+}
+
+.header-actions {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+}
+
+.report-btn {
+  background-color: #E98074;
+  color: white;
+  padding: 0.5rem 1rem;
+  border-radius: 2px;
+  text-decoration: none;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-weight: 600;
+  font-size: 0.9rem;
+  transition: all 0.2s;
+}
+
+.report-btn:hover {
+  background-color: #E85A4F;
+  color: white;
+  text-decoration: none;
+}
+
+.report-btn i {
+  font-size: 0.8rem;
 } 

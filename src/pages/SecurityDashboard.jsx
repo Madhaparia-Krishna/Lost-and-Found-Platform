@@ -5,6 +5,7 @@ import emailService from '../utils/emailService';
 import { AuthContext } from '../context/AuthContext';
 import { Alert, Spinner, Form, Modal, Button, Badge, ButtonGroup, InputGroup } from 'react-bootstrap';
 import '../styles/SecurityDashboard.css';
+import axios from 'axios';
 
 const SecurityDashboard = () => {
   const { currentUser } = useContext(AuthContext);
@@ -12,6 +13,7 @@ const SecurityDashboard = () => {
   const [pendingItems, setPendingItems] = useState([]);
   const [approvedItems, setApprovedItems] = useState([]);
   const [requestedItems, setRequestedItems] = useState([]);
+  const [returnedItems, setReturnedItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -103,14 +105,20 @@ const SecurityDashboard = () => {
     try {
       console.log("Fetching pending items...");
       const itemsArray = await securityApi.getPendingItems();
-      console.log("Received pending items:", itemsArray.length);
+      console.log("Received pending items:", itemsArray);
       
       // If there are pending items, automatically show the pending items tab
-      if (itemsArray.length > 0 && activeKey === 'dashboard') {
+      if (itemsArray && itemsArray.length > 0 && activeKey === 'dashboard') {
         setActiveKey('pendingItems');
       }
       
-      setPendingItems(itemsArray);
+      setPendingItems(Array.isArray(itemsArray) ? itemsArray : []);
+      
+      // Update stats
+      setStats(prevStats => ({
+        ...prevStats,
+        pendingItems: Array.isArray(itemsArray) ? itemsArray.length : 0
+      }));
     } catch (error) {
       console.error('Error fetching pending items:', error);
       setPendingItems([]);
@@ -403,17 +411,24 @@ const SecurityDashboard = () => {
       });
       
       console.log(`Soft deleting item ${itemToDelete.id} with reason: ${deleteReason}...`);
+      
+      // Make the API call with proper error handling
       const response = await securityApi.softDeleteItem(itemToDelete.id, deleteReason);
       console.log('Soft delete response:', response);
       
-      // Update the items list (filter out soft-deleted items)
+      if (!response || response.error) {
+        throw new Error(response?.error || 'Failed to delete item');
+      }
+      
+      // Update all item lists to remove the deleted item
       setPendingItems(prev => prev.filter(item => item.id !== itemToDelete.id));
       setApprovedItems(prev => prev.filter(item => item.id !== itemToDelete.id));
       setRequestedItems(prev => prev.filter(item => item.id !== itemToDelete.id));
+      setReturnedItems(prev => prev.filter(item => item.id !== itemToDelete.id));
 
       setActionStatus({
         type: 'success',
-        message: `Item '${itemToDelete.name || itemToDelete.title || ''}' soft-deleted successfully.`
+        message: `Item '${itemToDelete.name || itemToDelete.title || ''}' deleted successfully.`
       });
       
       setShowDeleteModal(false);
@@ -429,8 +444,49 @@ const SecurityDashboard = () => {
       console.error('Error soft deleting item:', err);
       setActionStatus({
         type: 'error',
-        message: `Failed to soft delete item: ${err.message || 'Unknown error'}`
+        message: `Failed to delete item: ${err.message || 'Unknown error'}`
       });
+      
+      // Try an alternative approach if the first one failed
+      try {
+        console.log('Trying alternative delete approach...');
+        const altResponse = await axios.put(
+          `${API_BASE_URL}/api/items/${itemToDelete.id}/delete`, 
+          { reason: deleteReason },
+          { headers: { Authorization: `Bearer ${currentUser.token}` } }
+        );
+        
+        console.log('Alternative delete response:', altResponse);
+        
+        if (altResponse.status === 200 || altResponse.status === 204) {
+          // Update all item lists to remove the deleted item
+          setPendingItems(prev => prev.filter(item => item.id !== itemToDelete.id));
+          setApprovedItems(prev => prev.filter(item => item.id !== itemToDelete.id));
+          setRequestedItems(prev => prev.filter(item => item.id !== itemToDelete.id));
+          setReturnedItems(prev => prev.filter(item => item.id !== itemToDelete.id));
+          
+          setActionStatus({
+            type: 'success',
+            message: `Item deleted successfully using alternative method.`
+          });
+          
+          setShowDeleteModal(false);
+          setItemToDelete(null);
+          setDeleteReason('');
+          
+          // Refresh data
+          setTimeout(() => {
+            refreshData();
+            setActionStatus(null);
+          }, 2000);
+        }
+      } catch (altErr) {
+        console.error('Alternative delete also failed:', altErr);
+        setActionStatus({
+          type: 'error',
+          message: `All delete attempts failed. Please try again later.`
+        });
+      }
     } finally {
       setActionLoading(false);
     }
