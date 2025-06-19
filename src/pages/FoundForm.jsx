@@ -1,9 +1,10 @@
 // FoundForm.jsx
 import React, { useState, useContext, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { AuthContext } from '../context/AuthContext';
 import { itemsApi } from '../utils/api';
 import '../styles/form.css';
+import SuccessMessage from '../components/SuccessMessage';
 
 const categories = [
   'Electronics',
@@ -266,25 +267,16 @@ const FoundForm = ({ currentUserId }) => {
 
       <div className="form-content">
         {submitSuccess ? (
-          <div className="success-message">
-            <h2>Thank You!</h2>
-            <p>Your found item has been reported successfully.</p>
-            <p>Security staff will review your submission shortly.</p>
-            <div className="success-actions">
-              <button 
-                onClick={() => {
-                  setSubmitSuccess(false);
-                  setActionStatus(null);
-                }}
-                className="btn primary-btn"
-              >
-                Report Another Item
-              </button>
-              <Link to="/" className="btn secondary-btn">
-                Go to Dashboard
-              </Link>
-            </div>
-          </div>
+          <SuccessMessage 
+            title="Thank You!"
+            message="Your found item has been reported successfully."
+            submessage="Security staff will review your submission shortly."
+            onReset={() => {
+              setSubmitSuccess(false);
+              setActionStatus(null);
+            }}
+            resetButtonText="Report Another Item"
+          />
         ) : (
           <>
             <div className="form-instructions">

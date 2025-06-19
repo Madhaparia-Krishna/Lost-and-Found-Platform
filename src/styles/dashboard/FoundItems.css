@@ -2,18 +2,24 @@
 .found-items-container {
   max-width: 1200px;
   margin: 0 auto;
-  padding: 20px;
+  padding: 0 2rem; /* Only horizontal padding */
+  background-color: #EAE7DC;
 }
 
 .found-items-header {
-  margin-bottom: 24px;
-  text-align: center;
+  margin: 0;
+  padding: 0.5rem 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 2px solid #D8C3A5;
 }
 
 .found-items-header h1 {
-  font-size: 2.2rem;
-  margin-bottom: 10px;
+  font-size: 2rem;
+  margin: 0;
   color: #2c3e50;
+  font-weight: 600;
 }
 
 .found-items-description {
@@ -29,49 +35,68 @@
 }
 
 /* Filters */
-.found-items-filters {
-  background-color: #f8f9fa;
-  padding: 20px;
-  border-radius: 10px;
-  margin-bottom: 30px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+.search-filters {
+  background-color: #f9f9f9;
+  padding: 8px;
+  border-radius: 8px;
+  margin: 10px 0;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
 }
 
-.found-items-filters h3 {
-  margin-top: 0;
-  margin-bottom: 15px;
-  font-size: 1.3rem;
-  color: #2c3e50;
-  border-bottom: 1px solid #e0e0e0;
-  padding-bottom: 10px;
+.search-form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 15px;
+  align-items: flex-end;
 }
 
-.filter-group {
-  margin-bottom: 15px;
+.form-group {
+  flex: 1;
+  min-width: 200px;
 }
 
-.filter-group label {
-  display: block;
-  margin-bottom: 5px;
-  font-weight: 500;
-  color: #444;
-}
-
-.filter-input,
-.filter-select {
+.search-input, .category-select {
   width: 100%;
-  padding: 10px;
+  padding: 10px 15px;
   border: 1px solid #ddd;
-  border-radius: 5px;
+  border-radius: 4px;
   font-size: 1rem;
-  outline: none;
-  transition: border 0.3s ease;
 }
 
-.filter-input:focus,
-.filter-select:focus {
-  border-color: #E98074;
-  box-shadow: 0 0 0 3px rgba(233, 128, 116, 0.2);
+.primary-btn {
+  background-color: #E85A4F;
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 5px;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: background-color 0.2s;
+}
+
+.primary-btn:hover {
+  background-color: #d44d42;
+}
+
+.search-btn {
+  background-color: #8E8D8A;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  padding: 10px 20px;
+  cursor: pointer;
+  font-size: 1rem;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: background-color 0.2s;
+}
+
+.search-btn:hover {
+  background-color: #6D6C6A;
 }
 
 /* Items Grid */
@@ -79,7 +104,7 @@
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
   gap: 25px;
-  margin-top: 20px;
+  margin-top: 10px;
 }
 
 .item-card {
@@ -91,6 +116,7 @@
   height: 100%;
   display: flex;
   flex-direction: column;
+  border: 1px solid #D8C3A5;
 }
 
 .item-card:hover {
@@ -129,7 +155,7 @@
 }
 
 .status-found {
-  background-color: #8E8D8A;
+  background-color: #3a5683;
 }
 
 .status-lost {
@@ -137,11 +163,11 @@
 }
 
 .status-claimed {
-  background-color: #D8C3A5;
+  background-color: #E98074;
 }
 
 .status-requested {
-  background-color: #8E8D8A;
+  background-color: #f39c12;
 }
 
 .item-details {
@@ -197,26 +223,57 @@
 }
 
 .view-button {
-  background-color: #f8f9fa;
-  color: #2c3e50;
+  background-color: #8E8D8A;
+  color: white;
+  padding: 8px 15px;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: background-color 0.3s ease;
 }
 
 .view-button:hover {
-  background-color: #e9ecef;
+  background-color: #6D6C6A;
 }
 
-.request-button {
-  background-color: #E98074;
-  color: white;
-}
-
-.request-button:hover {
+.request-button,
+.claim-button {
   background-color: #E85A4F;
+  color: white;
+  padding: 8px 15px;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: background-color 0.3s ease;
 }
 
-.request-button:disabled {
+.request-button:hover,
+.claim-button:hover {
+  background-color: #d44d42;
+}
+
+.request-button:disabled,
+.claim-button:disabled {
   background-color: #bdc3c7;
   cursor: not-allowed;
+}
+
+/* Update filter button */
+.filter-button {
+  background-color: #3a5683;
+  color: white;
+  padding: 10px 20px;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: all 0.3s ease;
+}
+
+.filter-button:hover {
+  background-color: #1f3a60;
 }
 
 /* Empty state / No items message */
@@ -266,4 +323,23 @@
   .found-items-container {
     padding: 15px;
   }
+}
+
+/* Update retry button */
+.retry-button {
+  background-color: #8E8D8A;
+  color: white;
+  border: none;
+  border-radius: 5px;
+  padding: 10px 20px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.retry-button:hover {
+  background-color: #6D6C6A;
 } 

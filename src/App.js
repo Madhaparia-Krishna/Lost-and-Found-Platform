@@ -22,6 +22,7 @@ import Admin from './pages/Admin';
 import Unauthorized from './pages/Unauthorized';
 import Profile from './pages/Profile';
 import ForgotPassword from './pages/ForgotPassword';
+import TestRole from './pages/TestRole';
 
 // Dashboard Pages
 import FoundItems from './pages/dashboard/FoundItems';
@@ -82,6 +83,11 @@ const AppContent = () => {
               <ReportFoundItem />
             </PrivateRoute>
           } />
+          <Route path="/forms/report-found" element={
+            <PrivateRoute>
+              <ReportFoundItem />
+            </PrivateRoute>
+          } />
           <Route path="/edit-item/:id" element={
             <PrivateRoute>
               <EditItem />
@@ -101,7 +107,7 @@ const AppContent = () => {
               <Security />
             </PrivateRoute>
           } />
-          <Route path="/security/dashboard" element={
+          <Route path="/security-dashboard" element={
             <PrivateRoute requireRole="security">
               <Security />
             </PrivateRoute>
@@ -129,6 +135,9 @@ const AppContent = () => {
           {/* Password reset routes */}
           <Route path="/forgot-password" element={<PublicRoute><ForgotPassword /></PublicRoute>} />
           <Route path="/reset-password" element={<PublicRoute><ForgotPassword /></PublicRoute>} />
+          
+          {/* Test role route */}
+          <Route path="/test-role" element={<TestRole />} />
           
           {/* Catch-all route */}
           <Route path="*" element={<NotFound />} />

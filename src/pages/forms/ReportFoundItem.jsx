@@ -3,10 +3,15 @@ import { useNavigate } from 'react-router-dom';
 import { itemsApi } from '../../utils/api';
 import { AuthContext } from '../../context/AuthContext';
 import '../../styles/ItemForms.css';
+import SuccessMessage from '../../components/SuccessMessage';
 
 const ReportFoundItem = () => {
   const { currentUser } = useContext(AuthContext);
   const navigate = useNavigate();
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [imagePreview, setImagePreview] = useState(null);
+  const [submitSuccess, setSubmitSuccess] = useState(false);
   const [formData, setFormData] = useState({
     title: '',
     category: '',
@@ -15,9 +20,6 @@ const ReportFoundItem = () => {
     description: '',
     image: null
   });
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
-  const [imagePreview, setImagePreview] = useState(null);
 
   // Handle form input changes
   const handleChange = (e) => {
@@ -81,8 +83,8 @@ const ReportFoundItem = () => {
       const response = await itemsApi.createItem(submitData);
       console.log('Item created:', response);
 
-      // Redirect to the dashboard
-      navigate('/dashboard/found-items');
+      // Show success message
+      setSubmitSuccess(true);
       
     } catch (err) {
       console.error('Error creating item:', err);
@@ -92,11 +94,42 @@ const ReportFoundItem = () => {
     }
   };
 
+  if (submitSuccess) {
+    return (
+      <div className="form-container">
+        <div className="form-header">
+          <h1>Report Found Item</h1>
+        </div>
+        
+        <SuccessMessage 
+          title="Thank You!"
+          message="Your found item has been reported successfully."
+          submessage="Your submission will be reviewed by security staff before being published."
+          onReset={() => {
+            setSubmitSuccess(false);
+            setFormData({
+              title: '',
+              category: '',
+              location: '',
+              date: '',
+              description: '',
+              image: null
+            });
+            setImagePreview(null);
+          }}
+          resetButtonText="Report Another Item"
+          showDashboardLink={true}
+        />
+      </div>
+    );
+  }
+
   return (
     <div className="form-container">
       <div className="form-header">
         <h1>Report Found Item</h1>
         <p>Please provide details about the item you found. The more information you provide, the easier it will be for the owner to identify it.</p>
+        <p className="approval-note"><strong>Note:</strong> All found items will be reviewed by security staff before being published.</p>
       </div>
 
       {error && (

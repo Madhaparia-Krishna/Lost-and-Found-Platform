@@ -94,15 +94,6 @@ const DashboardLayout = () => {
             <Link to="/report-found" className="header-action-button found-btn">
               <i className="fas fa-hand-holding"></i> Report Found
             </Link>
-            <div className="user-profile-widget">
-              <div className="user-avatar">
-                {getInitials(currentUser?.name)}
-              </div>
-              <span className="user-name-display">{currentUser?.name || currentUser?.email}</span>
-              <button onClick={handleLogout} className="logout-button">
-                <i className="fas fa-sign-out-alt"></i> Logout
-              </button>
-            </div>
           </div>
         </header>
         

@@ -1,4 +1,4 @@
-import React, { useState, useContext, useEffect } from 'react';
+import React, { useState, useContext, useEffect, useRef } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { AuthContext } from '../context/AuthContext';
 import '../styles/AuthForms.css';
@@ -18,6 +18,8 @@ const AuthForms = ({ initialForm = 'login' }) => {
   });
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [animateError, setAnimateError] = useState(false);
+  const errorRef = useRef(null);
   
   const { login, register, currentUser } = useContext(AuthContext);
   const navigate = useNavigate();
@@ -26,6 +28,18 @@ const AuthForms = ({ initialForm = 'login' }) => {
   useEffect(() => {
     setActiveForm(initialForm);
   }, [initialForm]);
+  
+  // Add effect to animate error message
+  useEffect(() => {
+    if (error) {
+      console.log('AuthForms error state updated:', error);
+      setAnimateError(true);
+      const timer = setTimeout(() => {
+        setAnimateError(false);
+      }, 600);
+      return () => clearTimeout(timer);
+    }
+  }, [error]);
 
   const handleLoginChange = (e) => {
     const { name, value } = e.target;
@@ -61,7 +75,29 @@ const AuthForms = ({ initialForm = 'login' }) => {
       }
     } catch (err) {
       console.error('Login error:', err);
-      setError(err.message || 'Failed to login. Please check your credentials.');
+      
+      // Show specific message for different error types
+      if (err.message) {
+        if (err.message.includes('Wrong password') || 
+            err.message.includes('Invalid password') ||
+            err.message.includes('password is incorrect') ||
+            err.message.includes('INVALID_PASSWORD')) {
+          setError('Wrong password. Please try again.');
+        } else if (err.message.includes('User not found') || 
+            err.message.includes('No account') ||
+            err.message.includes('user does not exist') ||
+            err.message.includes('account not found')) {
+          setError('No account found with this email address.');
+        } else if (err.message.includes('Invalid email or password') || 
+            err.message.includes('credentials') ||
+            err.message.includes('Authentication failed')) {
+          setError('Invalid email or password. Please check your credentials.');
+        } else {
+          setError(err.message || 'Failed to login. Please try again.');
+        }
+      } else {
+        setError('Failed to login. Please try again.');
+      }
     } finally {
       setIsLoading(false);
     }
@@ -121,7 +157,17 @@ const AuthForms = ({ initialForm = 'login' }) => {
         <div className="auth-header">
           <h1>Sign In</h1>
         </div>
-        {error && activeForm === 'login' && <div className="auth-error">{error}</div>}
+        
+        {/* Display error message with enhanced visibility */}
+        {error && activeForm === 'login' && (
+          <div 
+            ref={errorRef}
+            className={`auth-error ${animateError ? 'animate' : ''}`}
+          >
+            <i className="fas fa-exclamation-circle"></i> {error}
+          </div>
+        )}
+        
         <form onSubmit={handleLoginSubmit} style={{width: '100%'}}>
           <div className="form-group">
             <input

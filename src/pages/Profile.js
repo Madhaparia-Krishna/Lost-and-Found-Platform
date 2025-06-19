@@ -130,6 +130,20 @@ function Profile() {
         <h1 className="login-title">Your Profile</h1>
         {error && <div className="login-error">{error}</div>}
         {success && <div className="login-success">{success}</div>}
+        
+        {/* Admin access panel only */}
+        {currentUser && currentUser.role === 'admin' && (
+          <div className="role-panels">
+            <div className="admin-panel-access">
+              <h3>Admin Access</h3>
+              <p>You have administrator privileges.</p>
+              <Link to="/admin" className="panel-access-btn admin-btn">
+                Go to Admin Panel
+              </Link>
+            </div>
+          </div>
+        )}
+        
         <div className="login-input-group">
           <input
             type="text"

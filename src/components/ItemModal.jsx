@@ -202,7 +202,6 @@ const ItemModal = ({ itemId, onClose, onRequestItem, refreshItems }) => {
                     src={item.image}
                     alt={item.title}
                     className="modal-image"
-                    style={{ maxHeight: '300px', width: '100%' }}
                   />
                 </div>
               )}

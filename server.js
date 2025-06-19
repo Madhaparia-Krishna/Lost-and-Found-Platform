@@ -46,7 +46,40 @@ const io = socketIo(server, {
 });
 
 // Middleware
-app.use(cors(config.serverConfig.corsOptions));
+app.use(cors({
+  origin: config.serverConfig.corsOptions.origin,
+  methods: config.serverConfig.corsOptions.methods,
+  credentials: true,
+  allowedHeaders: config.serverConfig.corsOptions.allowedHeaders,
+  exposedHeaders: ['Authorization'],
+}));
+
+// Handle preflight requests for all routes
+app.options('*', cors(config.serverConfig.corsOptions));
+
+// Add custom response headers for all responses
+app.use((req, res, next) => {
+  // Ensure proper CORS headers are set
+  res.header('Access-Control-Allow-Origin', req.headers.origin || '*');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
+  res.header('Access-Control-Allow-Credentials', 'true');
+  res.header('Access-Control-Max-Age', '86400'); // 24 hours
+  
+  // For API error responses, ensure content type is set to JSON
+  const originalSend = res.send;
+  res.send = function(body) {
+    // Set Content-Type for API responses
+    if (req.path.startsWith('/api/') && res.statusCode >= 400) {
+      res.header('Content-Type', 'application/json');
+      console.log('Sending error response:', body);
+    }
+    return originalSend.call(this, body);
+  };
+  
+  next();
+});
+
 app.use(bodyParser.json());
 
 // Ensure uploads directory is properly served with absolute path
@@ -142,7 +175,7 @@ app.get('/api/health', (req, res) => {
   res.status(200).json({ status: 'ok', message: 'Server is running' });
 });
 
-// Public endpoint to get found items
+// Public endpoint to get found items (not lost items)
 app.get('/api/public/items', async (req, res) => {
   try {
     const [items] = await pool.query(
@@ -213,27 +246,52 @@ app.post('/api/register', async (req, res) => {
 
 // Login endpoint
 app.post('/api/login', async (req, res) => {
+  console.log('Login request received:', req.body);
   const { email, password } = req.body;
   
   if (!email || !password) {
-    return res.status(400).json({ message: 'Email and password are required' });
+    console.log('Login validation error: Email and password are required');
+    return res.status(400)
+      .header('Content-Type', 'application/json')
+      .json({ 
+        message: 'Email and password are required',
+        success: false
+      });
   }
   
   try {
     // Find user in database
+    console.log('Attempting to find user with email:', email);
     const [users] = await pool.query('SELECT * FROM Users WHERE email = ? AND is_deleted = FALSE', [email]);
     
+    console.log('Users found with that email:', users.length);
     if (users.length === 0) {
-      return res.status(401).json({ message: 'Invalid email or password' });
+      console.log('No account found with email:', email);
+      return res.status(401)
+        .header('Content-Type', 'application/json')
+        .json({ 
+          message: 'No account found with this email address',
+          success: false,
+          errorType: 'account_not_found'
+        });
     }
     
     const user = users[0];
     
     // Compare password
+    console.log('Comparing password for user:', user.id);
     const isPasswordValid = await bcrypt.compare(password, user.password);
     
+    console.log('Password valid?', isPasswordValid);
     if (!isPasswordValid) {
-      return res.status(401).json({ message: 'Invalid email or password' });
+      console.log('Wrong password for user:', user.id);
+      return res.status(401)
+        .header('Content-Type', 'application/json')
+        .json({ 
+          message: 'Wrong password. Please try again',
+          success: false,
+          errorType: 'wrong_password'
+        });
     }
     
     // Generate JWT token
@@ -796,11 +854,13 @@ app.get('/items/found', async (req, res) => {
       `SELECT i.*, u.name as reporter_name 
        FROM Items i 
        LEFT JOIN Users u ON i.user_id = u.id
-       WHERE i.is_deleted = FALSE AND i.status = 'found'
+       WHERE i.is_deleted = FALSE 
+       AND i.status = 'found'
+       AND i.is_approved = TRUE
        ORDER BY i.created_at DESC`
     );
     
-    console.log(`Retrieved ${items.length} found items`);
+    console.log(`Retrieved ${items.length} approved found items`);
     res.json(items);
   } catch (error) {
     console.error('Error fetching found items:', error);
@@ -1011,6 +1071,7 @@ app.post('/items/lost', authenticateToken, async (req, res) => {
     console.log('Inserting lost item into database with JSON data');
     
     try {
+      // Lost items are automatically approved (is_approved = TRUE)
       const [result] = await pool.query(`
         INSERT INTO Items 
           (title, category, subcategory, description, location, status, date, user_id, is_approved) 
@@ -1018,7 +1079,7 @@ app.post('/items/lost', authenticateToken, async (req, res) => {
       `, [title, category, subcategory, description, location, 'lost', date, userId]);
 
       const lostItemId = result.insertId;
-      console.log('Lost item inserted successfully with ID:', lostItemId);
+      console.log('Lost item inserted successfully with ID:', lostItemId, '(automatically approved)');
       
       // Notify security staff about new lost item
       const message = `New lost item "${title}" has been reported.`;
@@ -1158,13 +1219,14 @@ app.post('/items/found', authenticateToken, async (req, res) => {
     console.log('SQL parameters:', [title, category, subcategory, description, location, status, date, userId, image]);
     
     try {
+      // Found items require security approval (is_approved = FALSE)
       const [result] = await pool.query(`
         INSERT INTO Items 
           (title, category, subcategory, description, location, status, date, user_id, image, is_approved) 
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, FALSE)
       `, [title, category, subcategory, description, location, status, date, userId, image || null]);
 
-      console.log('Item inserted successfully with ID:', result.insertId);
+      console.log('Found item inserted successfully with ID:', result.insertId);
       console.log('Item approval status set to FALSE - requires security approval');
       
       // Notify security staff about new found item
@@ -1551,6 +1613,7 @@ app.post('/api/items/matches', async (req, res) => {
       JOIN Users u ON i.user_id = u.id
       WHERE i.is_deleted = FALSE
       AND i.status = ?
+      ${isFoundItem ? 'AND i.is_approved = TRUE' : ''}
     `, [isFoundItem ? 'lost' : 'found']);
 
     const matches = [];
@@ -1590,7 +1653,38 @@ app.post('/api/items/matches', async (req, res) => {
           ]
         );
 
-        // We'll handle email notifications from the frontend
+        // Send email notification to the user who lost the item
+        try {
+          const matchId = matchResult.insertId;
+          const lostItem = isFoundItem ? compareItem : item;
+          const foundItem = isFoundItem ? item : compareItem;
+          const userEmail = compareItem.email;
+          const userName = compareItem.name;
+          
+          // If this is a lost item, send email to the user who reported it lost
+          if (!isFoundItem || (isFoundItem && compareItem.status === 'lost')) {
+            // Import email sending functionality
+            const { sendMatchNotification } = require('./server-email');
+            
+            console.log(`Sending match notification email to ${userEmail}`);
+            await sendMatchNotification(
+              userEmail,
+              userName,
+              lostItem.title,
+              matchId,
+              {
+                category: lostItem.category,
+                date: lostItem.date,
+                description: lostItem.description
+              }
+            );
+            console.log('Match notification email sent successfully');
+          }
+        } catch (emailError) {
+          console.error('Error sending match notification email:', emailError);
+          // Continue even if email fails
+        }
+
         matches.push({
           matchId: matchResult.insertId,
           score,
@@ -1624,7 +1718,7 @@ app.put('/api/security/items/:itemId/approve', authenticateToken, async (req, re
 
     // Get item details for notification
     const [items] = await pool.query(
-      'SELECT user_id, title FROM Items WHERE id = ?',
+      'SELECT i.*, u.email, u.name FROM Items i JOIN Users u ON i.user_id = u.id WHERE i.id = ?',
       [itemId]
     );
 
@@ -1641,6 +1735,77 @@ app.put('/api/security/items/:itemId/approve', authenticateToken, async (req, re
           itemId
         ]
       );
+
+      // Check for matches with lost items
+      if (item.status === 'found') {
+        try {
+          // Get lost items to compare against
+          const [lostItems] = await pool.query(`
+            SELECT i.*, u.email, u.name
+            FROM Items i
+            JOIN Users u ON i.user_id = u.id
+            WHERE i.is_deleted = FALSE
+            AND i.status = 'lost'
+          `);
+
+          const MATCH_THRESHOLD = 0.7; // Minimum score to consider a match
+          const { calculateMatchScore } = require('./server-utils');
+          const { sendMatchNotification } = require('./server-email');
+
+          for (const lostItem of lostItems) {
+            const score = calculateMatchScore(lostItem, item);
+
+            if (score >= MATCH_THRESHOLD) {
+              console.log(`Match found with score ${score} between found item ${item.id} and lost item ${lostItem.id}`);
+              
+              // Create match record
+              const [matchResult] = await pool.query(
+                `INSERT INTO ItemMatches 
+                (lost_item_id, found_item_id, match_score) 
+                VALUES (?, ?, ?)`,
+                [lostItem.id, item.id, score]
+              );
+
+              // Create notification for lost item owner
+              await pool.query(
+                `INSERT INTO Notifications 
+                (user_id, message, type, related_item_id) 
+                VALUES (?, ?, 'match', ?)`,
+                [
+                  lostItem.user_id,
+                  `A potential match has been found for your lost item "${lostItem.title}"`,
+                  lostItem.id
+                ]
+              );
+
+              // Send email notification to the user who reported the lost item
+              try {
+                const matchId = matchResult.insertId;
+                
+                console.log(`Sending match notification email to ${lostItem.email}`);
+                await sendMatchNotification(
+                  lostItem.email,
+                  lostItem.name,
+                  lostItem.title,
+                  matchId,
+                  {
+                    category: lostItem.category,
+                    date: lostItem.date,
+                    description: lostItem.description
+                  }
+                );
+                console.log('Match notification email sent successfully');
+              } catch (emailError) {
+                console.error('Error sending match notification email:', emailError);
+                // Continue even if email fails
+              }
+            }
+          }
+        } catch (matchError) {
+          console.error('Error checking for matches after approval:', matchError);
+          // Continue even if matching fails
+        }
+      }
     }
 
     res.json({ message: 'Item approved successfully' });
@@ -1933,11 +2098,8 @@ app.get('/api/security/pending-items', authenticateToken, async (req, res) => {
       FROM Items i
       JOIN Users u ON i.user_id = u.id
       WHERE i.is_deleted = FALSE 
-      AND (
-        (i.is_approved = FALSE AND i.status = 'found')
-        OR 
-        (i.status = 'lost')
-      )
+      AND i.is_approved = FALSE 
+      AND i.status = 'found'
       ORDER BY i.created_at DESC
     `);
 
@@ -3081,7 +3243,7 @@ app.post('/api/admin/login', async (req, res) => {
     
     if (users.length === 0) {
       console.log(`No user found with email: ${email}`);
-      return res.status(401).json({ message: 'Invalid email or password' });
+      return res.status(401).json({ message: 'No account found with this email address' });
     }
     
     const user = users[0];
@@ -3097,7 +3259,7 @@ app.post('/api/admin/login', async (req, res) => {
     
     if (!passwordMatch) {
       console.log(`Invalid password for admin user: ${email}`);
-      return res.status(401).json({ message: 'Invalid email or password' });
+      return res.status(401).json({ message: 'Wrong password. Please try again' });
     }
     
     // Create token
@@ -3197,6 +3359,71 @@ app.put('/api/admin/items/:itemId/soft-delete', authenticateToken, async (req, r
   }
 });
 
+// Soft delete an item - security staff
+app.put('/api/security/items/:itemId/soft-delete', authenticateToken, async (req, res) => {
+  try {
+    // Check if user is security or admin
+    if (req.user.role !== 'security' && req.user.role !== 'admin') {
+      return res.status(403).json({ message: 'Unauthorized access' });
+    }
+
+    const { itemId } = req.params;
+    const reason = req.body.reason || 'No reason provided';
+    
+    console.log(`Attempting to soft delete item ${itemId} by security with reason: ${reason}`);
+
+    // Check if item exists and is not already deleted
+    const [itemCheck] = await pool.query(
+      'SELECT * FROM Items WHERE id = ? AND is_deleted = FALSE',
+      [itemId]
+    );
+    
+    if (itemCheck.length === 0) {
+      console.log(`Item with ID ${itemId} not found or already deleted`);
+      return res.status(404).json({ message: 'Item not found or already deleted' });
+    }
+    
+    const item = itemCheck[0];
+    console.log(`Found item: ${item.title || item.name}`);
+    
+    // Soft delete the item (set is_deleted to TRUE)
+    await pool.query(
+      'UPDATE Items SET is_deleted = TRUE WHERE id = ?',
+      [itemId]
+    );
+    
+    // Log the action
+    await pool.query(
+      'INSERT INTO Logs (action, by_user) VALUES (?, ?)',
+      [`Item "${item.title || item.name}" (ID: ${itemId}) soft deleted by security: ${reason}`, req.user.id]
+    );
+
+    // Create notification for item owner if applicable
+    if (item.user_id) {
+      try {
+        await pool.query(
+          'INSERT INTO Notifications (user_id, message, type, related_item_id) VALUES (?, ?, ?, ?)',
+          [
+            item.user_id,
+            `Your item "${item.title || item.name}" has been removed by security staff: ${reason}`,
+            'system',
+            itemId
+          ]
+        );
+        console.log('Notification created for item owner');
+      } catch (notificationError) {
+        console.error('Error creating notification:', notificationError);
+        // Continue even if notification creation fails
+      }
+    }
+
+    res.json({ message: 'Item soft deleted successfully' });
+  } catch (error) {
+    console.error('Error soft deleting item:', error);
+    res.status(500).json({ message: 'Error soft deleting item', error: error.message });
+  }
+});
+
 // Debug endpoint to check users table
 app.get('/api/debug/users', async (req, res) => {
   try {
@@ -3251,5 +3478,259 @@ app.get('/api/debug/create-admin', async (req, res) => {
   } catch (error) {
     console.error('Error creating admin user:', error);
     res.status(500).json({ message: 'Error creating admin user' });
+  }
+});
+
+// Debug endpoint to create a security user if none exists
+app.get('/api/debug/create-security', async (req, res) => {
+  try {
+    // Check if security user exists
+    const [securityUsers] = await pool.query('SELECT * FROM Users WHERE role = ?', ['security']);
+    
+    if (securityUsers.length > 0) {
+      return res.json({
+        message: 'Security user already exists',
+        security: {
+          id: securityUsers[0].id,
+          name: securityUsers[0].name,
+          email: securityUsers[0].email,
+          role: securityUsers[0].role
+        }
+      });
+    }
+    
+    // Create security user if none exists
+    const saltRounds = 10;
+    const hashedPassword = await bcrypt.hash('Security@123', saltRounds);
+    
+    const [result] = await pool.query(
+      'INSERT INTO Users (name, email, password, role) VALUES (?, ?, ?, ?)',
+      ['Security Officer', 'security@example.com', hashedPassword, 'security']
+    );
+    
+    res.json({
+      message: 'Security user created successfully',
+      security: {
+        id: result.insertId,
+        name: 'Security Officer',
+        email: 'security@example.com',
+        role: 'security'
+      },
+      note: 'Default password is Security@123'
+    });
+  } catch (error) {
+    console.error('Error creating security user:', error);
+    res.status(500).json({ message: 'Error creating security user' });
+  }
+});
+
+// Debug endpoint to set a user's role to security
+app.get('/api/debug/set-security/:userId', async (req, res) => {
+  try {
+    const { userId } = req.params;
+    
+    // Update user role to security
+    const [result] = await pool.query(
+      'UPDATE Users SET role = ? WHERE id = ?',
+      ['security', userId]
+    );
+    
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+    
+    // Get updated user info
+    const [users] = await pool.query(
+      'SELECT id, name, email, role FROM Users WHERE id = ?',
+      [userId]
+    );
+    
+    res.json({
+      message: 'User role updated to security successfully',
+      user: users[0]
+    });
+  } catch (error) {
+    console.error('Error updating user role:', error);
+    res.status(500).json({ message: 'Error updating user role' });
+  }
+});
+
+// Security API - Get dashboard statistics
+app.get('/api/security/statistics', authenticateToken, async (req, res) => {
+  // Check if user has security role
+  if (req.user.role !== 'security' && req.user.role !== 'admin') {
+    return res.status(403).json({ message: 'Unauthorized: Insufficient permissions' });
+  }
+  
+  try {
+    // Get counts for various item statuses
+    const [lostItemsCount] = await pool.query(
+      'SELECT COUNT(*) as count FROM Items WHERE status = "lost" AND is_deleted = 0'
+    );
+    
+    const [foundItemsCount] = await pool.query(
+      'SELECT COUNT(*) as count FROM Items WHERE status = "found" AND is_deleted = 0'
+    );
+    
+    const [requestedItemsCount] = await pool.query(
+      'SELECT COUNT(*) as count FROM Items WHERE status = "requested" AND is_deleted = 0'
+    );
+    
+    const [receivedItemsCount] = await pool.query(
+      'SELECT COUNT(*) as count FROM Items WHERE status = "received" AND is_deleted = 0'
+    );
+    
+    const [returnedItemsCount] = await pool.query(
+      'SELECT COUNT(*) as count FROM Items WHERE status = "returned" AND is_deleted = 0'
+    );
+    
+    const [pendingItemsCount] = await pool.query(
+      'SELECT COUNT(*) as count FROM Items WHERE is_approved = 0 AND is_deleted = 0'
+    );
+    
+    const [pendingClaimsCount] = await pool.query(
+      'SELECT COUNT(*) as count FROM Claims WHERE status = "pending" AND is_deleted = 0'
+    );
+    
+    const [usersCount] = await pool.query(
+      'SELECT COUNT(*) as count FROM Users WHERE is_deleted = 0'
+    );
+    
+    // Get monthly statistics for the last 6 months
+    const [monthlyStats] = await pool.query(`
+      SELECT 
+        DATE_FORMAT(created_at, '%Y-%m') as month,
+        COUNT(*) as total,
+        SUM(CASE WHEN status = 'found' THEN 1 ELSE 0 END) as found,
+        SUM(CASE WHEN status = 'lost' THEN 1 ELSE 0 END) as lost,
+        SUM(CASE WHEN status = 'requested' THEN 1 ELSE 0 END) as requested,
+        SUM(CASE WHEN status = 'received' THEN 1 ELSE 0 END) as received,
+        SUM(CASE WHEN status = 'returned' THEN 1 ELSE 0 END) as returned
+      FROM Items
+      WHERE created_at >= DATE_SUB(CURRENT_DATE(), INTERVAL 6 MONTH)
+      GROUP BY DATE_FORMAT(created_at, '%Y-%m')
+      ORDER BY month
+    `);
+    
+    // Get category distribution
+    const [categoryDistribution] = await pool.query(`
+      SELECT 
+        category,
+        COUNT(*) as count
+      FROM Items
+      WHERE is_deleted = 0
+      GROUP BY category
+      ORDER BY count DESC
+    `);
+    
+    // Return all statistics
+    res.status(200).json({
+      itemCounts: {
+        lost: lostItemsCount[0].count,
+        found: foundItemsCount[0].count,
+        requested: requestedItemsCount[0].count,
+        received: receivedItemsCount[0].count,
+        returned: returnedItemsCount[0].count,
+        pending: pendingItemsCount[0].count,
+      },
+      claimCounts: {
+        pending: pendingClaimsCount[0].count
+      },
+      userCounts: {
+        total: usersCount[0].count
+      },
+      monthlyStats,
+      categoryDistribution
+    });
+  } catch (error) {
+    console.error('Error fetching security statistics:', error);
+    res.status(500).json({ message: 'Error fetching security statistics' });
+  }
+});
+
+// Security API - Get security activity logs
+app.get('/api/security/activity-logs', authenticateToken, async (req, res) => {
+  // Check if user has security role
+  if (req.user.role !== 'security' && req.user.role !== 'admin') {
+    return res.status(403).json({ message: 'Unauthorized: Insufficient permissions' });
+  }
+  
+  try {
+    // Get logs related to security activities
+    const [logs] = await pool.query(`
+      SELECT l.*, u.name as user_name
+      FROM Logs l
+      LEFT JOIN Users u ON l.by_user = u.id
+      WHERE l.action LIKE '%security%' OR l.action LIKE '%approve%' OR l.action LIKE '%reject%'
+      ORDER BY l.created_at DESC
+      LIMIT 100
+    `);
+    
+    res.status(200).json({ logs });
+  } catch (error) {
+    console.error('Error fetching security activity logs:', error);
+    res.status(500).json({ message: 'Error fetching security activity logs' });
+  }
+});
+
+// Security API - Advanced item search
+app.get('/api/security/search-items', authenticateToken, async (req, res) => {
+  // Check if user has security role
+  if (req.user.role !== 'security' && req.user.role !== 'admin') {
+    return res.status(403).json({ message: 'Unauthorized: Insufficient permissions' });
+  }
+  
+  try {
+    const { query, status, category, dateFrom, dateTo } = req.query;
+    
+    // Build the SQL query with filters
+    let sql = `
+      SELECT i.*, u.name as reporter_name
+      FROM Items i
+      LEFT JOIN Users u ON i.user_id = u.id
+      WHERE i.is_deleted = 0
+    `;
+    
+    const params = [];
+    
+    // Add search query filter
+    if (query) {
+      sql += ` AND (i.title LIKE ? OR i.description LIKE ? OR i.location LIKE ?)`;
+      params.push(`%${query}%`, `%${query}%`, `%${query}%`);
+    }
+    
+    // Add status filter
+    if (status) {
+      sql += ` AND i.status = ?`;
+      params.push(status);
+    }
+    
+    // Add category filter
+    if (category) {
+      sql += ` AND i.category = ?`;
+      params.push(category);
+    }
+    
+    // Add date range filter
+    if (dateFrom) {
+      sql += ` AND i.date >= ?`;
+      params.push(dateFrom);
+    }
+    
+    if (dateTo) {
+      sql += ` AND i.date <= ?`;
+      params.push(dateTo);
+    }
+    
+    // Add ordering
+    sql += ` ORDER BY i.created_at DESC`;
+    
+    // Execute the query
+    const [items] = await pool.query(sql, params);
+    
+    res.status(200).json({ items });
+  } catch (error) {
+    console.error('Error searching items:', error);
+    res.status(500).json({ message: 'Error searching items' });
   }
 });

@@ -100,10 +100,6 @@ const ReturnedItems = () => {
   return (
     <div className="dashboard-page">
       <h1 className="page-title">Returned Items</h1>
-      <p className="page-description">
-        This page shows all the items that have been successfully returned to their owners. 
-        These records are kept for reference purposes.
-      </p>
 
       {loading ? (
         <LoadingSpinner message="Loading your returned items..." />
@@ -124,9 +120,6 @@ const ReturnedItems = () => {
         <div className="items-grid">
           {items.map(item => (
             <div key={item.id} className="item-card">
-              <div className="item-status status-returned">
-                Returned
-              </div>
               <div className="item-image">
                 {item.image ? (
                   <img 
@@ -143,29 +136,12 @@ const ReturnedItems = () => {
               </div>
               <div className="item-details">
                 <h3>{item.title}</h3>
-                <div className="item-meta">
-                  <i className="fas fa-tag"></i> {item.category || 'Uncategorized'}
+                <div className="item-actions">
+                  <button className="view-button">View Details</button>
+                  <button className="request-button" disabled>
+                    Returned
+                  </button>
                 </div>
-                <div className="item-meta">
-                  <i className="fas fa-map-marker-alt"></i> {item.location || 'Location not specified'}
-                </div>
-                <div className="item-meta">
-                  <i className="fas fa-calendar-alt"></i> Found: {formatDate(item.date)}
-                </div>
-                <div className="item-meta">
-                  <i className="fas fa-calendar-check"></i> Returned: {formatDate(item.returned_date || item.updated_at)}
-                </div>
-                {item.recipient_name && (
-                  <div className="item-meta">
-                    <i className="fas fa-user"></i> Returned to: {item.recipient_name}
-                  </div>
-                )}
-                {item.return_notes && (
-                  <div className="return-notes">
-                    <h4>Return Notes:</h4>
-                    <p>{item.return_notes}</p>
-                  </div>
-                )}
               </div>
             </div>
           ))}

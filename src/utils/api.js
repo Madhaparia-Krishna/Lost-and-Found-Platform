@@ -99,6 +99,20 @@ const handleError = (error) => {
   if (error.response) {
     // The server responded with a status code outside the 2xx range
     const errorMessage = error.response.data?.message || 'An unknown error occurred';
+    
+    // Specific handling for authentication errors
+    if (error.response.status === 401) {
+      console.error('Authentication error (401):', error.response.data);
+      
+      // Check for wrong password error
+      if (error.response.data?.errorType === 'wrong_password' || 
+          error.response.data?.message.includes('Wrong password')) {
+        return Promise.reject(new Error('Wrong password. Please try again.'));
+      }
+      
+      return Promise.reject(new Error(errorMessage || 'Authentication failed'));
+    }
+    
     console.error('Server error response:', error.response.data);
     return Promise.reject(new Error(errorMessage));
   } else if (error.request) {
@@ -447,12 +461,26 @@ export const itemsApi = {
   },
   
   // Approve item (security staff only)
-  approveItem: async (itemId, token) => {
+  approveItem: async (itemId) => {
     try {
+      // Get token from localStorage
+      let token = null;
+      const user = localStorage.getItem('user');
+      if (user) {
+        try {
+          const userData = JSON.parse(user);
+          token = userData.token;
+        } catch (error) {
+          console.error('Error parsing user data:', error);
+        }
+      }
+      
       const config = token ? { headers: { Authorization: `Bearer ${token}` } } : {};
-      const response = await axios.put(`/security/items/${itemId}/approve`, {}, config);
+      console.log(`Approving item ${itemId} with auth token`);
+      const response = await axios.put(`/api/security/items/${itemId}/approve`, {}, config);
       return handleResponse(response);
     } catch (error) {
+      console.error('Error approving item:', error);
       return handleError(error);
     }
   },
@@ -460,9 +488,24 @@ export const itemsApi = {
   // Reject item (security staff only)
   rejectItem: async (itemId, reason = '') => {
     try {
-      const response = await axios.put(`/security/items/${itemId}/reject`, { reason });
+      // Get token from localStorage
+      let token = null;
+      const user = localStorage.getItem('user');
+      if (user) {
+        try {
+          const userData = JSON.parse(user);
+          token = userData.token;
+        } catch (error) {
+          console.error('Error parsing user data:', error);
+        }
+      }
+      
+      const config = token ? { headers: { Authorization: `Bearer ${token}` } } : {};
+      console.log(`Rejecting item ${itemId} with reason: ${reason}`);
+      const response = await axios.put(`/api/security/items/${itemId}/reject`, { reason }, config);
       return handleResponse(response);
     } catch (error) {
+      console.error('Error rejecting item:', error);
       return handleError(error);
     }
   }
@@ -476,6 +519,25 @@ export const authApi = {
       const response = await axios.post('/api/login', credentials);
       return handleResponse(response).user; // Extract user from response
     } catch (error) {
+      console.error('Login error details:', error);
+      
+      // Specific error handling for authentication failures
+      if (error.response && error.response.status === 401) {
+        const errorMessage = error.response.data?.message || 'Authentication failed';
+        const errorType = error.response.data?.errorType || '';
+        
+        console.log('Server error response:', error.response.data);
+        
+        // Check for wrong password error
+        if (errorType === 'wrong_password' || errorMessage.includes('Wrong password')) {
+          return Promise.reject(new Error('Wrong password. Please try again.'));
+        }
+        
+        // For other 401 errors
+        return Promise.reject(new Error(errorMessage));
+      }
+      
+      // For other errors, use the standard error handler
       return handleError(error);
     }
   },
@@ -551,14 +613,26 @@ export const notificationsApi = {
 
 // Security API for security staff operations
 export const securityApi = {
-  // Get pending items for approval
+  // Get pending items
   getPendingItems: async () => {
     try {
+      console.log('Fetching pending items for security panel...');
       const response = await api.get('/api/security/pending-items');
+      console.log('Pending items response:', response.data);
       return handleResponse(response);
     } catch (error) {
       console.error('Error fetching pending items:', error);
-      return [];
+      
+      // Try alternative endpoint if the first one fails
+      try {
+        console.log('Trying alternative endpoint for pending items...');
+        const response = await api.get('/items?status=found&is_approved=false');
+        console.log('Alternative pending items response:', response.data);
+        return handleResponse(response);
+      } catch (altError) {
+        console.error('Alternative endpoint also failed:', altError);
+        return [];
+      }
     }
   },
   
@@ -592,6 +666,45 @@ export const securityApi = {
     }
   },
   
+  // Get dashboard statistics
+  getStatistics: async () => {
+    try {
+      const response = await api.get('/api/security/statistics');
+      return handleResponse(response);
+    } catch (error) {
+      console.error('Error fetching security statistics:', error);
+      return {
+        itemCounts: { lost: 0, found: 0, requested: 0, received: 0, returned: 0, pending: 0 },
+        claimCounts: { pending: 0 },
+        userCounts: { total: 0 },
+        monthlyStats: [],
+        categoryDistribution: []
+      };
+    }
+  },
+  
+  // Get security activity logs
+  getActivityLogs: async () => {
+    try {
+      const response = await api.get('/api/security/activity-logs');
+      return handleResponse(response);
+    } catch (error) {
+      console.error('Error fetching security activity logs:', error);
+      return { logs: [] };
+    }
+  },
+  
+  // Advanced item search
+  searchItems: async (params) => {
+    try {
+      const response = await api.get('/api/security/search-items', { params });
+      return handleResponse(response);
+    } catch (error) {
+      console.error('Error searching items:', error);
+      return { items: [] };
+    }
+  },
+  
   // Get pending claims
   getPendingClaims: async () => {
     try {
@@ -606,9 +719,12 @@ export const securityApi = {
   // Approve an item
   approveItem: async (itemId) => {
     try {
+      console.log(`Approving item ${itemId}...`);
       const response = await api.put(`/api/security/items/${itemId}/approve`);
+      console.log('Approval response:', response);
       return handleResponse(response);
     } catch (error) {
+      console.error('Error approving item:', error);
       return handleError(error);
     }
   },
@@ -616,9 +732,38 @@ export const securityApi = {
   // Reject an item
   rejectItem: async (itemId, reason = '') => {
     try {
+      console.log(`Rejecting item ${itemId} with reason: ${reason}`);
       const response = await api.put(`/api/security/items/${itemId}/reject`, { reason });
+      console.log('Rejection response:', response);
       return handleResponse(response);
     } catch (error) {
+      console.error('Error rejecting item:', error);
+      return handleError(error);
+    }
+  },
+  
+  // Accept a request (mark item as returned)
+  acceptRequest: async (itemId) => {
+    try {
+      console.log(`Accepting request for item ${itemId}...`);
+      const response = await api.put(`/api/security/items/${itemId}/return`);
+      console.log('Request acceptance response:', response);
+      return handleResponse(response);
+    } catch (error) {
+      console.error('Error accepting request:', error);
+      return handleError(error);
+    }
+  },
+  
+  // Reject a request
+  rejectRequest: async (itemId) => {
+    try {
+      console.log(`Rejecting request for item ${itemId}...`);
+      const response = await api.put(`/api/security/items/${itemId}/revert-status`, { status: 'found' });
+      console.log('Request rejection response:', response);
+      return handleResponse(response);
+    } catch (error) {
+      console.error('Error rejecting request:', error);
       return handleError(error);
     }
   },
@@ -780,6 +925,16 @@ export const adminApi = {
     }
   },
   
+  // Update user role
+  updateUserRole: async (userId, role) => {
+    try {
+      const response = await api.put(`/api/admin/users/${userId}/role`, { role });
+      return handleResponse(response);
+    } catch (error) {
+      return handleError(error);
+    }
+  },
+  
   // Get dashboard statistics
   getDashboardStats: async () => {
     try {
@@ -788,6 +943,29 @@ export const adminApi = {
     } catch (error) {
       console.error('Error fetching dashboard statistics:', error);
       return {};
+    }
+  },
+  
+  // Mark item for donation
+  markItemForDonation: async (itemId, reason, organization = '') => {
+    try {
+      const response = await api.put(`/api/admin/items/${itemId}/donate`, { 
+        reason, 
+        organization 
+      });
+      return handleResponse(response);
+    } catch (error) {
+      console.error('Error marking item for donation:', error);
+      // Try alternative endpoint if the first one fails
+      try {
+        const altResponse = await api.put(`/api/items/${itemId}/donate`, { 
+          reason, 
+          organization 
+        });
+        return handleResponse(altResponse);
+      } catch (altError) {
+        return handleError(altError);
+      }
     }
   }
 };

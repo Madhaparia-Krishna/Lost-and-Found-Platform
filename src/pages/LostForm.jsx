@@ -1,9 +1,10 @@
 // LostForm.jsx
 import React, { useState, useContext, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { AuthContext } from '../context/AuthContext';
 import { itemsApi } from '../utils/api';
 import '../styles/form.css';
+import SuccessMessage from '../components/SuccessMessage';
 
 const categories = [
   'Electronics',
@@ -264,27 +265,16 @@ const LostForm = ({ currentUserId }) => {
           </div>
         )}
         
-        <div className="success-message">
-          <h2>Thank You!</h2>
-          <p>Your lost item has been reported successfully.</p>
-          <div className="success-actions">
-            <button 
-              onClick={() => {
-                setSubmitSuccess(false);
-                setActionStatus(null);
-              }}
-              className="report-another-btn"
-            >
-              Report Another Item
-            </button>
-            <Link to="/" className="view-items-link">
-              Go to Dashboard
-            </Link>
-            <Link to="/items" className="view-items-link">
-              View All Items
-            </Link>
-          </div>
-        </div>
+        <SuccessMessage 
+          title="Thank You!"
+          message="Your lost item has been reported successfully."
+          submessage="We will notify you if a matching item is found."
+          onReset={() => {
+            setSubmitSuccess(false);
+            setActionStatus(null);
+          }}
+          resetButtonText="Report Another Item"
+        />
       </div>
     );
   }

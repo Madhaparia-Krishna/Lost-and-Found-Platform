@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useContext, useMemo } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { AuthContext } from '../../context/AuthContext';
 import { itemsApi, API_BASE_URL } from '../../utils/api';
 import LoadingSpinner from '../../components/LoadingSpinner';
@@ -10,6 +10,7 @@ import { toast } from 'react-hot-toast';
 
 const FoundItems = () => {
   const { currentUser } = useContext(AuthContext);
+  const navigate = useNavigate();
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -198,6 +199,11 @@ const FoundItems = () => {
     setSearchTerm(e.target.value);
   };
 
+  // Navigate to report found item form
+  const navigateToReportFoundItem = () => {
+    navigate('/found');
+  };
+
   if (loading) {
     return <LoadingSpinner />;
   }
@@ -218,153 +224,74 @@ const FoundItems = () => {
   }
 
   return (
-    <div className="found-items-container">
+    <div className="found-items-container" style={{ marginTop: '-10px' }}>
       <div className="found-items-header">
         <h1>Found Items</h1>
-        <p className="found-items-description">
-          Browse items that have been found and are waiting to be claimed. 
-          You can request an item if you believe it belongs to you.
-        </p>
-        
-        {currentUser && currentUser.role === 'admin' && (
-          <div className="admin-actions">
-            <Link to="/dashboard/manage-items" className="button secondary">
-              Manage All Items
-            </Link>
-          </div>
-        )}
+        <button className="primary-btn" onClick={navigateToReportFoundItem}>
+          <i className="fas fa-plus"></i> Report Found Item
+        </button>
       </div>
       
-      <div className="found-items-filters">
-        <h3>Filters</h3>
-        
-        {/* Search input */}
-        <div className="filter-group">
-          <label htmlFor="search">Search:</label>
-          <input
-            type="text"
-            id="search"
-            placeholder="Search items..."
-            value={searchTerm}
-            onChange={handleSearchChange}
-            className="filter-input"
-          />
-        </div>
-        
-        <div className="filter-group">
-          <label htmlFor="category">Category:</label>
-          <select
-            id="category"
-            value={filters.category}
-            onChange={(e) => handleFilterChange('category', e.target.value)}
-            className="filter-select"
-          >
-            <option value="">All Categories</option>
-            <option value="Electronics">Electronics</option>
-            <option value="Clothing">Clothing</option>
-            <option value="Books">Books</option>
-            <option value="Personal">Personal</option>
-            <option value="Other">Other</option>
-          </select>
-        </div>
-        
-        <div className="filter-group">
-          <label htmlFor="location">Location:</label>
-          <select
-            id="location"
-            value={filters.location}
-            onChange={(e) => handleFilterChange('location', e.target.value)}
-            className="filter-select"
-          >
-            <option value="">All Locations</option>
-            <option value="Library">Library</option>
-            <option value="Cafeteria">Cafeteria</option>
-            <option value="Classroom">Classroom</option>
-            <option value="Hallway">Hallway</option>
-            <option value="Parking">Parking Lot</option>
-            <option value="Other">Other</option>
-          </select>
-        </div>
-        
-        <div className="filter-group">
-          <label htmlFor="dateRange">Time Period:</label>
-          <select
-            id="dateRange"
-            value={filters.dateRange}
-            onChange={(e) => handleFilterChange('dateRange', e.target.value)}
-            className="filter-select"
-          >
-            <option value="">Any Time</option>
-            <option value="1">Last 24 Hours</option>
-            <option value="7">Last Week</option>
-            <option value="30">Last Month</option>
-            <option value="90">Last 3 Months</option>
-          </select>
-        </div>
-        
-        <button onClick={resetFilters} className="filter-button">
-          Reset Filters
-        </button>
+      <div className="search-filters">
+        <form onSubmit={(e) => e.preventDefault()} className="search-form">
+          <div className="form-group">
+            <input
+              type="text"
+              placeholder="Search by name, description..."
+              value={searchTerm}
+              onChange={handleSearchChange}
+              className="search-input"
+            />
+          </div>
+          <div className="form-group">
+            <select
+              value={filters.category}
+              onChange={(e) => handleFilterChange('category', e.target.value)}
+              className="category-select"
+            >
+              <option value="">All Categories</option>
+              <option value="Electronics">Electronics</option>
+              <option value="Clothing">Clothing</option>
+              <option value="Books">Books</option>
+              <option value="Personal">Personal</option>
+              <option value="Other">Other</option>
+            </select>
+          </div>
+          <button type="button" onClick={resetFilters} className="search-btn">
+            <i className="fas fa-search"></i> Search
+          </button>
+        </form>
       </div>
       
       <div className="items-grid">
         {filteredItems.length > 0 ? (
           filteredItems.map(item => (
             <div key={item.id} className="item-card">
-              <div className="item-image-container">
+              <div className="item-image">
                 <Image
                   src={item.image}
                   alt={item.title}
                   className="item-image"
-                  style={{ height: '180px', width: '100%' }}
                 />
-                <div className={`item-status status-${item.status || 'found'}`}>
-                  {item.status ? item.status.charAt(0).toUpperCase() + item.status.slice(1) : 'Found'}
-                </div>
               </div>
               
               <div className="item-details">
                 <h3>{item.title}</h3>
                 
-                <div className="item-meta">
-                  <div className="meta-item">
-                    <span>Category: {item.category || 'Uncategorized'}</span>
-                  </div>
-                  
-                  <div className="meta-item">
-                    <span>Location: {item.location || 'Unknown location'}</span>
-                  </div>
-                  
-                  <div className="meta-item">
-                    <span>Found on: {formatDate(item.date)}</span>
-                  </div>
-                </div>
-                
-                <div className="item-description">
-                  {item.description ? (
-                    <p>{item.description.length > 100 
-                      ? `${item.description.substring(0, 100)}...` 
-                      : item.description}
-                    </p>
-                  ) : (
-                    <p>No description provided</p>
-                  )}
-                </div>
-                
                 <div className="item-actions">
                   <button 
                     onClick={() => handleViewDetails(item.id)} 
-                    className="item-button view-button"
+                    className="view-button"
                   >
                     View Details
                   </button>
                   
                   <button 
                     onClick={() => handleRequestItem(item.id)} 
-                    className="item-button claim-button"
+                    className="request-button"
                     disabled={item.status === 'requested'}
                   >
-                    {item.status === 'requested' ? 'Requested' : 'Request Item'}
+                    {item.status === 'requested' ? 'Requested' : 'Request'}
                   </button>
                 </div>
               </div>

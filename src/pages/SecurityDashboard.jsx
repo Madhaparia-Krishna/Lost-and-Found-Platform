@@ -5,6 +5,7 @@ import emailService from '../utils/emailService';
 import { AuthContext } from '../context/AuthContext';
 import { Alert, Spinner, Form, Modal, Button, Badge, ButtonGroup, InputGroup } from 'react-bootstrap';
 import '../styles/SecurityDashboard.css';
+import axios from 'axios';
 
 const SecurityDashboard = () => {
   const { currentUser } = useContext(AuthContext);
@@ -12,6 +13,7 @@ const SecurityDashboard = () => {
   const [pendingItems, setPendingItems] = useState([]);
   const [approvedItems, setApprovedItems] = useState([]);
   const [requestedItems, setRequestedItems] = useState([]);
+  const [returnedItems, setReturnedItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -103,9 +105,20 @@ const SecurityDashboard = () => {
     try {
       console.log("Fetching pending items...");
       const itemsArray = await securityApi.getPendingItems();
-      console.log("Received pending items:", itemsArray.length);
+      console.log("Received pending items:", itemsArray);
       
-      setPendingItems(itemsArray);
+      // If there are pending items, automatically show the pending items tab
+      if (itemsArray && itemsArray.length > 0 && activeKey === 'dashboard') {
+        setActiveKey('pendingItems');
+      }
+      
+      setPendingItems(Array.isArray(itemsArray) ? itemsArray : []);
+      
+      // Update stats
+      setStats(prevStats => ({
+        ...prevStats,
+        pendingItems: Array.isArray(itemsArray) ? itemsArray.length : 0
+      }));
     } catch (error) {
       console.error('Error fetching pending items:', error);
       setPendingItems([]);
@@ -195,18 +208,19 @@ const SecurityDashboard = () => {
       const response = await securityApi.approveItem(itemId);
       console.log('Item approval response:', response);
       
+      // Update the item in the local state
+      setPendingItems(prevItems => prevItems.filter(item => item.id !== itemId));
+      
       setActionStatus({
         type: 'success',
         message: 'Item approved successfully'
       });
       
       // Refresh data to update the UI
-      refreshData();
-      
-      // Clear status after a delay
       setTimeout(() => {
+        refreshData();
         setActionStatus(null);
-      }, 5000);
+      }, 2000);
     } catch (error) {
       console.error('Error approving item:', error);
       setActionStatus({
@@ -219,6 +233,7 @@ const SecurityDashboard = () => {
   };
 
   const handleRejectItem = (itemId) => {
+    console.log(`Opening reject modal for item ${itemId}`);
     setItemToReject(itemId);
     setShowRejectModal(true);
   };
@@ -240,6 +255,9 @@ const SecurityDashboard = () => {
       const response = await securityApi.rejectItem(itemToReject, rejectReason);
       console.log('Item rejection response:', response);
       
+      // Update the item in the local state
+      setPendingItems(prevItems => prevItems.filter(item => item.id !== itemToReject));
+      
       setActionStatus({
         type: 'success',
         message: 'Item rejected successfully'
@@ -251,12 +269,10 @@ const SecurityDashboard = () => {
       setRejectReason('');
       
       // Refresh data to update the UI
-      refreshData();
-      
-      // Clear status after a delay
       setTimeout(() => {
+        refreshData();
         setActionStatus(null);
-      }, 5000);
+      }, 2000);
     } catch (error) {
       console.error('Error rejecting item:', error);
       setActionStatus({
@@ -391,35 +407,86 @@ const SecurityDashboard = () => {
       setActionLoading(true);
       setActionStatus({
         type: 'loading',
-        message: `Deleting item ${itemToDelete.name || ''}...`
+        message: `Deleting item ${itemToDelete.name || itemToDelete.title || ''}...`
       });
       
-      await securityApi.softDeleteItem(itemToDelete.id, deleteReason);
+      console.log(`Soft deleting item ${itemToDelete.id} with reason: ${deleteReason}...`);
       
-      // Update the items list (filter out soft-deleted items)
+      // Make the API call with proper error handling
+      const response = await securityApi.softDeleteItem(itemToDelete.id, deleteReason);
+      console.log('Soft delete response:', response);
+      
+      if (!response || response.error) {
+        throw new Error(response?.error || 'Failed to delete item');
+      }
+      
+      // Update all item lists to remove the deleted item
       setPendingItems(prev => prev.filter(item => item.id !== itemToDelete.id));
       setApprovedItems(prev => prev.filter(item => item.id !== itemToDelete.id));
       setRequestedItems(prev => prev.filter(item => item.id !== itemToDelete.id));
+      setReturnedItems(prev => prev.filter(item => item.id !== itemToDelete.id));
 
       setActionStatus({
         type: 'success',
-        message: `Item \'${itemToDelete.name || ''}\' soft-deleted successfully.`
+        message: `Item '${itemToDelete.name || itemToDelete.title || ''}' deleted successfully.`
       });
       
       setShowDeleteModal(false);
       setItemToDelete(null);
       setDeleteReason('');
 
-      refreshData();
+      // Refresh data to update the UI
       setTimeout(() => {
+        refreshData();
         setActionStatus(null);
-      }, 3000);
+      }, 2000);
     } catch (err) {
       console.error('Error soft deleting item:', err);
       setActionStatus({
         type: 'error',
-        message: 'Failed to soft delete item. Please try again.'
+        message: `Failed to delete item: ${err.message || 'Unknown error'}`
       });
+      
+      // Try an alternative approach if the first one failed
+      try {
+        console.log('Trying alternative delete approach...');
+        const altResponse = await axios.put(
+          `${API_BASE_URL}/api/items/${itemToDelete.id}/delete`, 
+          { reason: deleteReason },
+          { headers: { Authorization: `Bearer ${currentUser.token}` } }
+        );
+        
+        console.log('Alternative delete response:', altResponse);
+        
+        if (altResponse.status === 200 || altResponse.status === 204) {
+          // Update all item lists to remove the deleted item
+          setPendingItems(prev => prev.filter(item => item.id !== itemToDelete.id));
+          setApprovedItems(prev => prev.filter(item => item.id !== itemToDelete.id));
+          setRequestedItems(prev => prev.filter(item => item.id !== itemToDelete.id));
+          setReturnedItems(prev => prev.filter(item => item.id !== itemToDelete.id));
+          
+          setActionStatus({
+            type: 'success',
+            message: `Item deleted successfully using alternative method.`
+          });
+          
+          setShowDeleteModal(false);
+          setItemToDelete(null);
+          setDeleteReason('');
+          
+          // Refresh data
+          setTimeout(() => {
+            refreshData();
+            setActionStatus(null);
+          }, 2000);
+        }
+      } catch (altErr) {
+        console.error('Alternative delete also failed:', altErr);
+        setActionStatus({
+          type: 'error',
+          message: `All delete attempts failed. Please try again later.`
+        });
+      }
     } finally {
       setActionLoading(false);
     }
@@ -481,6 +548,27 @@ const SecurityDashboard = () => {
   // Render a table of items
   const renderItemsTable = (itemsToRender, showActions = true) => (
     <div className="table-responsive">
+      {activeKey === 'pendingItems' && (
+        <div className="pending-items-header">
+          <h3>Found Items Pending Approval</h3>
+          <div className="approval-instructions">
+            <p>
+              <i className="fas fa-info-circle"></i> Found items require your approval before they become visible to users. 
+              Lost items are automatically approved and don't appear here.
+            </p>
+            {itemsToRender.length === 0 ? (
+              <div className="no-pending-items">
+                <i className="fas fa-check-circle"></i> No found items pending approval at this time.
+              </div>
+            ) : (
+              <div className="pending-count">
+                <span className="badge bg-warning">{itemsToRender.length}</span> found items waiting for your review
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+      
       <table className="table security-table">
         <thead>
           <tr>
@@ -497,9 +585,9 @@ const SecurityDashboard = () => {
         <tbody>
           {itemsToRender.length > 0 ? (
             itemsToRender.map(item => (
-              <tr key={item.id}>
+              <tr key={item.id} className={item.status === 'found' && !item.is_approved ? 'pending-approval-row' : ''}>
                 <td>{item.id}</td>
-                <td>{item.name}</td>
+                <td>{item.name || item.title}</td>
                 <td>{item.category}</td>
                 <td><Badge bg={item.status === 'lost' ? 'danger' : 'success'}>{item.status}</Badge></td>
                 <td>
@@ -511,7 +599,7 @@ const SecurityDashboard = () => {
                     'N/A'
                   )}
                 </td>
-                <td>{formatDate(item.date_found || item.date_lost)}</td>
+                <td>{formatDate(item.date_found || item.date_lost || item.date)}</td>
                 <td>{item.reporter_name || 'N/A'}</td>
                 {showActions && (
                   <td>
@@ -522,10 +610,10 @@ const SecurityDashboard = () => {
                       {activeKey === 'pendingItems' && (
                         <>
                           <Button variant="success" size="sm" onClick={() => handleApproveItem(item.id)} disabled={actionLoading}> 
-                            Approve
+                            <i className="fas fa-check"></i> Approve
                           </Button>
                           <Button variant="warning" size="sm" onClick={() => handleRejectItem(item.id)} disabled={actionLoading}>
-                            Reject
+                            <i className="fas fa-times"></i> Reject
                           </Button>
                         </>
                       )}
