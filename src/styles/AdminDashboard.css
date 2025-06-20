@@ -10,6 +10,7 @@
   color: #4D4C4A;
   font-weight: 700;
   text-align: center;
+  padding-top: 1.5rem;
 }
 
 .admin-dashboard h2 {
@@ -26,6 +27,7 @@
   margin-bottom: 1.5rem;
   overflow: hidden;
   border: 1px solid #D8C3A5;
+  padding: 0.75rem;
 }
 
 .admin-dashboard .card:hover {
@@ -133,6 +135,7 @@
 
 .stats-section .row {
   margin-bottom: 2rem;
+  padding: 0 1rem;
 }
 
 /* Ensure charts are responsive */
@@ -238,6 +241,7 @@
   grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
   gap: 1.5rem;
   margin-top: 2rem;
+  padding: 0 1rem;
 }
 
 .chart-card {

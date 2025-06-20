@@ -154,7 +154,7 @@ export const itemsApi = {
           console.log(`After filtering: ${items.length} items`);
         }
         
-        // DO NOT filter for approval status - show all items
+        // DO NOT filter for approval status - show all items regardless of approval status
         return items;
       } catch (err) {
         console.log('First endpoint failed, trying alternatives...', err);

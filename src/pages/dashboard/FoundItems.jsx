@@ -201,7 +201,7 @@ const FoundItems = () => {
 
   // Navigate to report found item form
   const navigateToReportFoundItem = () => {
-    navigate('/found');
+    navigate('/report-found');
   };
 
   if (loading) {
