@@ -72,6 +72,13 @@
   background-color: #fff;
 }
 
+.login-input-error {
+  border-color: #E85A4F !important;
+  background-color: #fff0f0 !important;
+  box-shadow: 0 0 0 2px rgba(232, 90, 79, 0.15);
+  transition: border-color 0.2s, background-color 0.2s, box-shadow 0.2s;
+}
+
 .login-forgot-link,
 .login-forgot-row a {
   color: #E98074;

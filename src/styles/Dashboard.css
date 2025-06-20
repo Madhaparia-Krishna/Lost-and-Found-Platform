@@ -170,8 +170,7 @@
 }
 
 .dashboard-main {
-  padding: 0;
-  margin: -10px 0 0 0; /* Negative top margin to pull content up */
+  padding: 1.5rem 1rem 0; /* Added top and horizontal padding */
   flex-grow: 1;
   background-color: #EAE7DC; /* Match home page background */
 }

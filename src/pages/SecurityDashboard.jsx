@@ -456,6 +456,7 @@ const SecurityDashboard = () => {
       
       // Handle successful deletion - immediately update UI
       const itemId = itemToDelete.id;
+      const itemName = itemToDelete.title || itemToDelete.name || 'Item';
       
       // Update all item lists to remove the deleted item
       setPendingItems(prev => prev.filter(item => item.id !== itemId));
@@ -463,21 +464,23 @@ const SecurityDashboard = () => {
       setRequestedItems(prev => prev.filter(item => item.id !== itemId));
       setReturnedItems(prev => prev.filter(item => item.id !== itemId));
       
-      // Close modal and reset state
+      // Close modal immediately
       setShowDeleteModal(false);
-      setItemToDelete(null);
-      setDeleteReason('');
       
-      // Show success message
+      // Create success alert
       setActionStatus({
         type: 'success',
-        message: `Item deleted successfully.`
+        message: `Item "${itemName}" (ID: ${itemId}) has been successfully deleted.`
       });
+      
+      // Reset form state
+      setItemToDelete(null);
+      setDeleteReason('');
       
       // Clear success message after a delay
       setTimeout(() => {
         setActionStatus(null);
-      }, 3000);
+      }, 5000);
       
     } catch (error) {
       console.error('Error deleting item:', error);

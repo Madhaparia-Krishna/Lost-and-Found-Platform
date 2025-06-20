@@ -10,7 +10,7 @@ const Login = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [animateError, setAnimateError] = useState(false);
   
-  const { login, currentUser } = useContext(AuthContext);
+  const { login, currentUser, authError } = useContext(AuthContext);
   const navigate = useNavigate();
 
   // Monitor authentication state changes
@@ -33,6 +33,11 @@ const Login = () => {
     }
   }, [error]);
 
+  // Add effect to sync context error to local error
+  useEffect(() => {
+    if (authError) setError(authError);
+  }, [authError]);
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setIsLoading(true);
@@ -45,22 +50,21 @@ const Login = () => {
     }
 
     try {
-      console.log('Attempting login with email:', email);
-      await login(email, password);
+      console.log('Login form submitting with email:', email);
       
-      // Login successful - redirect will happen via the useEffect that monitors currentUser
-      console.log('Login successful, redirecting to homepage');
+      // Add more debugging
+      console.log('About to call login function from AuthContext');
+      const result = await login(email, password);
+      console.log('Login function returned:', result);
       
+      // Explicitly navigate to home on success
+      console.log('Login successful, navigating to homepage');
+      navigate('/');
     } catch (err) {
-      console.error('Login error:', err);
-      
-      // Set the error message from the error
-      setError(err.message || 'Failed to login. Please try again.');
-      
-      // Clear password field for security
+      console.error('Login error caught in component:', err);
+      // Set the error message from the error or context
+      setError(err?.message || authError || err || 'Failed to login. Please try again.');
       setPassword('');
-      
-      // Focus on the password field for better UX
       const passwordInput = document.getElementById('password');
       if (passwordInput) {
         passwordInput.focus();
@@ -86,10 +90,13 @@ const Login = () => {
           <input
             type="email"
             id="email"
-            className="login-input"
+            className={`login-input${error && error.toLowerCase().includes('email') ? ' login-input-error' : ''}`}
             placeholder="E-mail"
             value={email}
-            onChange={(e) => setEmail(e.target.value)}
+            onChange={(e) => {
+              setEmail(e.target.value);
+              if (error) setError('');
+            }}
             required
           />
         </div>
@@ -97,10 +104,13 @@ const Login = () => {
           <input
             type="password"
             id="password"
-            className="login-input"
+            className={`login-input${error ? ' login-input-error' : ''}`}
             placeholder="Password"
             value={password}
-            onChange={(e) => setPassword(e.target.value)}
+            onChange={(e) => {
+              setPassword(e.target.value);
+              if (error) setError('');
+            }}
             required
           />
         </div>

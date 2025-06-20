@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { itemsApi } from '../../utils/api';
 import { AuthContext } from '../../context/AuthContext';
 import '../../styles/ItemForms.css';
+import { checkForMatches, sendMatchNotification } from '../../utils/itemMatching';
+import { toast } from 'react-hot-toast';
 
 const ReportLostItem = () => {
   const { currentUser } = useContext(AuthContext);
@@ -82,6 +84,41 @@ const ReportLostItem = () => {
       // Submit the form with the token
       const response = await itemsApi.createItem(submitData, currentUser.token);
       console.log('Item created:', response);
+      
+      // Check for matches with existing found items
+      if (response && response.id) {
+        console.log('Checking for matches...');
+        const matches = await checkForMatches({
+          id: response.id,
+          title: formData.title,
+          category: formData.category,
+          location: formData.location,
+          date: formData.date,
+          description: formData.description,
+          status: 'lost'
+        }, false); // false indicates this is a lost item
+        
+        console.log('Matches found:', matches);
+        
+        // If matches found, send email notification
+        if (matches && matches.length > 0) {
+          toast.success('We found potential matches for your lost item! Check your email for details.');
+          
+          // Send email notification for the best match
+          const bestMatch = matches[0];
+          await sendMatchNotification(
+            currentUser.email,
+            currentUser.name,
+            formData.title,
+            bestMatch.id,
+            {
+              category: formData.category,
+              date: formData.date,
+              description: formData.description
+            }
+          );
+        }
+      }
 
       // Redirect to the dashboard
       navigate('/dashboard/lost-items');
