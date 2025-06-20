@@ -3734,3 +3734,117 @@ app.get('/api/security/search-items', authenticateToken, async (req, res) => {
     res.status(500).json({ message: 'Error searching items' });
   }
 });
+
+// Generic delete endpoint for items
+app.put('/api/items/:itemId/delete', authenticateToken, async (req, res) => {
+  try {
+    // Check if user is security or admin
+    if (req.user.role !== 'security' && req.user.role !== 'admin') {
+      return res.status(403).json({ message: 'Unauthorized access' });
+    }
+
+    const { itemId } = req.params;
+    const reason = req.body.reason || 'No reason provided';
+    
+    console.log(`Generic delete endpoint: Attempting to delete item ${itemId} with reason: ${reason}`);
+
+    // Check if item exists and is not already deleted
+    const [itemCheck] = await pool.query(
+      'SELECT * FROM Items WHERE id = ? AND is_deleted = FALSE',
+      [itemId]
+    );
+    
+    if (itemCheck.length === 0) {
+      console.log(`Item with ID ${itemId} not found or already deleted`);
+      return res.status(404).json({ message: 'Item not found or already deleted' });
+    }
+    
+    const item = itemCheck[0];
+    console.log(`Found item: ${item.title || item.name || 'Unknown'}`);
+    
+    // Soft delete the item (set is_deleted to TRUE)
+    await pool.query(
+      'UPDATE Items SET is_deleted = TRUE WHERE id = ?',
+      [itemId]
+    );
+    
+    // Log the action
+    await pool.query(
+      'INSERT INTO Logs (action, by_user) VALUES (?, ?)',
+      [`Item "${item.title || item.name || 'Unknown'}" (ID: ${itemId}) deleted: ${reason}`, req.user.id]
+    );
+
+    // Create notification for item owner if applicable
+    if (item.user_id) {
+      try {
+        await pool.query(
+          'INSERT INTO Notifications (user_id, message, type, related_item_id) VALUES (?, ?, ?, ?)',
+          [
+            item.user_id,
+            `Your item "${item.title || item.name || 'Unknown'}" has been removed: ${reason}`,
+            'system',
+            itemId
+          ]
+        );
+        console.log('Notification created for item owner');
+      } catch (notificationError) {
+        console.error('Error creating notification:', notificationError);
+        // Continue even if notification creation fails
+      }
+    }
+
+    res.json({ message: 'Item deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting item:', error);
+    res.status(500).json({ message: 'Error deleting item', error: error.message });
+  }
+});
+
+// Security soft-delete item endpoint
+app.put('/api/security/items/:itemId/soft-delete', authenticateToken, async (req, res) => {
+  try {
+    // Check if user is security or admin
+    if (req.user.role !== 'security' && req.user.role !== 'admin') {
+      console.log(`Unauthorized access attempt by ${req.user.role} user to soft-delete endpoint`);
+      return res.status(403).json({ message: 'Unauthorized access' });
+    }
+
+    const { itemId } = req.params;
+    const reason = req.body.reason || 'No reason provided';
+    
+    console.log(`Security soft-delete: Attempting to delete item ${itemId} with reason: ${reason}`);
+
+    // Check if item exists and is not already deleted
+    const [itemCheck] = await pool.query(
+      'SELECT * FROM Items WHERE id = ? AND is_deleted = FALSE',
+      [itemId]
+    );
+    
+    if (itemCheck.length === 0) {
+      console.log(`Item with ID ${itemId} not found or already deleted`);
+      return res.status(404).json({ message: 'Item not found or already deleted' });
+    }
+
+    // Perform soft delete
+    await pool.query(
+      'UPDATE Items SET is_deleted = TRUE, deleted_reason = ?, deleted_by = ?, deleted_at = NOW() WHERE id = ?',
+      [reason, req.user.id, itemId]
+    );
+
+    console.log(`Item ${itemId} soft-deleted successfully by user ${req.user.id}`);
+    
+    // Log the action
+    await logSystemAction(`Item ${itemId} soft-deleted`, { itemId, reason }, req.user.id);
+
+    return res.status(200).json({ 
+      message: 'Item soft-deleted successfully',
+      itemId
+    });
+  } catch (error) {
+    console.error('Error soft-deleting item:', error);
+    return res.status(500).json({ 
+      message: 'Error soft-deleting item',
+      error: error.message 
+    });
+  }
+});
