@@ -66,29 +66,44 @@ const ReportFoundItem = () => {
       setLoading(true);
       setError(null);
 
-      // Create form data for multipart submission
-      const submitData = new FormData();
-      submitData.append('title', formData.title);
-      submitData.append('category', formData.category);
-      submitData.append('location', formData.location);
-      submitData.append('date', formData.date);
-      submitData.append('description', formData.description);
-      submitData.append('status', 'found'); // Set status to 'found'
-      submitData.append('user_id', currentUser.id);
+      // First, upload the image if provided
+      let imageUrl = null;
       if (formData.image) {
-        submitData.append('image', formData.image);
+        try {
+          const imageResponse = await itemsApi.uploadImage(formData.image);
+          if (imageResponse && imageResponse.filename) {
+            imageUrl = imageResponse.filename;
+            console.log('Image uploaded successfully:', imageUrl);
+          }
+        } catch (imageError) {
+          console.error('Error uploading image:', imageError);
+          // Continue without image if upload fails
+        }
       }
 
-      // Submit the form
-      const response = await itemsApi.createItem(submitData);
-      console.log('Item created:', response);
+      // Prepare data for submission
+      const submitData = {
+        title: formData.title,
+        category: formData.category,
+        location: formData.location,
+        date: formData.date,
+        description: formData.description,
+        status: 'found',
+        image: imageUrl
+      };
+
+      console.log('Submitting found item:', submitData);
+      
+      // Use reportFound instead of createItem
+      const response = await itemsApi.reportFound(submitData, currentUser.token);
+      console.log('Found item reported:', response);
 
       // Show success message
       setSubmitSuccess(true);
       
     } catch (err) {
-      console.error('Error creating item:', err);
-      setError(err.message || 'Failed to create item. Please try again.');
+      console.error('Error reporting found item:', err);
+      setError(err.message || 'Failed to report found item. Please try again.');
     } finally {
       setLoading(false);
     }

@@ -18,19 +18,46 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true); // Set to true while checking localStorage
   const [authError, setAuthError] = useState(null);
 
-  // Clear any stored user data when the application loads
+  // Check for existing user in localStorage when the application loads
   useEffect(() => {
-    // Clear stored user data to ensure no user is logged in by default
-    localStorage.removeItem('user');
-    delete axios.defaults.headers.common['Authorization'];
-    setCurrentUser(null);
-    setLoading(false);
-    console.log('AuthContext initialized: No user logged in by default');
+    try {
+      // Try to get user from localStorage
+      const storedUser = localStorage.getItem('user');
+      if (storedUser) {
+        const userData = JSON.parse(storedUser);
+        
+        // Validate that we have the minimum required data
+        if (userData && userData.token) {
+          console.log('Found existing user in localStorage:', userData.email);
+          setCurrentUser(userData);
+          
+          // Set authorization header for all future requests
+          axios.defaults.headers.common['Authorization'] = `Bearer ${userData.token}`;
+        } else {
+          console.log('Invalid user data in localStorage, clearing');
+          localStorage.removeItem('user');
+        }
+      } else {
+        console.log('No user found in localStorage');
+      }
+    } catch (error) {
+      console.error('Error checking localStorage for user:', error);
+      localStorage.removeItem('user');
+    } finally {
+      setLoading(false);
+    }
+    
+    console.log('AuthContext initialized');
   }, []);
   
   // Add a separate effect to log the current value
   useEffect(() => {
-    console.log('AuthContext current value:', { currentUser, loading, authError });
+    console.log('AuthContext current value:', { 
+      isLoggedIn: !!currentUser, 
+      userEmail: currentUser?.email,
+      loading, 
+      authError 
+    });
   }, [currentUser, loading, authError]);
 
   // Login function

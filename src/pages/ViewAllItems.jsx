@@ -43,83 +43,29 @@ const ViewAllItems = () => {
     try {
       setLoading(true);
       setError(null);
-      setActionStatus(null);
+      console.log('Fetching all items...');
       
-      // Log the fetch attempt
-      console.log('Fetching items from server...');
+      // Get items from the API
+      const itemsArray = await itemsApi.getAll('found');
+      console.log('Items fetched:', itemsArray.length);
       
-      // Use the API utility for better error handling
-      const itemsArray = await itemsApi.getAll();
-      console.log('All items received:', itemsArray.length);
+      // No need to filter for approval status - show all found items
+      setItems(itemsArray);
       
-      // Check if data is in the expected format
-      if (!itemsArray || itemsArray.length === 0) {
-        console.log('No items received from server');
-        setItems([]);
-        setActionStatus({
-          type: 'info',
-          message: 'No approved items found. Items must be approved by security staff before appearing here.'
-        });
-        return;
-      }
+      // Log item statuses for debugging
+      const approvedCount = itemsArray.filter(item => 
+        item.is_approved === true || item.is_approved === 1 || item.is_approved === '1'
+      ).length;
       
-      console.log('Sample item:', itemsArray[0]);
+      const unapprovedCount = itemsArray.filter(item => 
+        item.is_approved === false || item.is_approved === 0 || item.is_approved === '0' || item.is_approved === null
+      ).length;
       
-      // Filter to only show approved found items
-      let filteredItems = itemsArray.filter(item => {
-        // Log each item's approval status for debugging
-        console.log(`Item ${item.id || 'unknown'}: title=${item.title}, status=${item.status}, approved=${item.is_approved === true ? 'true' : 'false'}, deleted=${item.is_deleted === true ? 'true' : 'false'}`);
-        
-        // Strict check to ensure item is approved
-        const isApproved = item.is_approved === true;
-        
-        // Check for valid status (found, requested, received)
-        // Exclude lost items from the view
-        const hasValidStatus = item.status === 'found' || item.status === 'requested' || item.status === 'received';
-        
-        // Ensure item is not deleted
-        const isNotDeleted = item.is_deleted !== true;
-        
-        // Only return true if all conditions are met
-        return isApproved && hasValidStatus && isNotDeleted;
-      });
+      console.log(`Found items: Total=${itemsArray.length}, Approved=${approvedCount}, Unapproved=${unapprovedCount}`);
       
-      console.log('Filtered approved items:', filteredItems.length);
-      
-      // Apply search filters if present
-      if (searchParams.search) {
-        const searchTerm = searchParams.search.toLowerCase();
-        filteredItems = filteredItems.filter(item => 
-          item.title?.toLowerCase().includes(searchTerm) || 
-          (item.description && item.description.toLowerCase().includes(searchTerm))
-        );
-      }
-      
-      if (searchParams.category) {
-        filteredItems = filteredItems.filter(item => 
-          item.category === searchParams.category
-        );
-      }
-      
-      setItems(filteredItems);
-      
-      // Show message if no items match the criteria
-      if (filteredItems.length === 0) {
-        setActionStatus({
-          type: 'info',
-          message: 'No approved items found. Items must be approved by security staff before appearing here.'
-        });
-      }
     } catch (err) {
       console.error('Error fetching items:', err);
-      if (err.code === 'ECONNABORTED') {
-        setError('Request timed out. Server may be down or overloaded.');
-      } else if (err.message === 'Network Error') {
-        setError('Network error. Please check your connection and ensure the server is running.');
-      } else {
-        setError(`Error fetching items: ${err.message || 'Unknown error'}`);
-      }
-      setItems([]);
+      setError('Failed to load items. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -186,35 +132,57 @@ const ViewAllItems = () => {
     setSelectedItemId(null);
   };
 
-  // Handle requesting an item (callback for ItemModal)
+  // Handle requesting an item
   const handleRequestItem = async (itemId) => {
+    if (!currentUser) {
+      navigate('/login', { state: { from: location.pathname } });
+      return;
+    }
+
     try {
-      // Update the item status locally
-      setItems(prevItems => 
-        prevItems.map(item => 
-          item.id === itemId 
-            ? { ...item, status: 'requested' } 
-            : item
-        )
-      );
+      setActionLoading(true);
+      setActionStatus({
+        type: 'loading',
+        message: 'Requesting item...'
+      });
+
+      const response = await itemsApi.requestItem(itemId);
+      console.log('Request response:', response);
+
+      // Find the item in the current items array
+      const updatedItems = items.map(item => {
+        if (item.id === itemId) {
+          // Update the item's status but keep it in the list
+          return { ...item, status: 'requested' };
+        }
+        return item;
+      });
       
+      // Update the items state with the modified array
+      setItems(updatedItems);
+
+      // Close the modal
+      closeItemModal();
+
       // Show success message
       setActionStatus({
         type: 'success',
-        message: 'Item requested successfully. The security team will review your request.'
+        message: 'Item requested successfully! Please visit the security office to collect it.'
       });
-      
-      // Clear message after 5 seconds
+
+      // Clear status after a delay
       setTimeout(() => {
         setActionStatus(null);
       }, 5000);
-      
-    } catch (error) {
-      console.error('Error requesting item:', error);
+
+    } catch (err) {
+      console.error('Error requesting item:', err);
       setActionStatus({
         type: 'error',
-        message: 'Failed to request item. Please try again.'
+        message: err.message || 'Failed to request item. Please try again.'
       });
+    } finally {
+      setActionLoading(false);
     }
   };
   
@@ -335,7 +303,7 @@ const ViewAllItems = () => {
           <h1>Found Items</h1>
           <div className="header-actions">
             {currentUser && (
-              <Link to="/forms/report-found" className="report-btn">
+              <Link to="/report-found" className="report-btn">
                 <i className="fas fa-plus"></i> Report Found Item
               </Link>
             )}

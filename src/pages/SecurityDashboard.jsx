@@ -133,13 +133,36 @@ const SecurityDashboard = () => {
       console.log("Received all items:", itemsArray.length);
       
       // Filter to only get approved found items
-      const approvedFoundItems = itemsArray.filter(item => 
-        item.status === 'found' && 
-        item.is_approved === true && 
-        item.is_deleted !== true
-      );
+      const approvedFoundItems = itemsArray.filter(item => {
+        // Debug logging to check item properties
+        console.log(`Item ${item.id}: status=${item.status}, is_approved=${item.is_approved}, is_deleted=${item.is_deleted}`);
+        
+        return item.status === 'found' && 
+               item.is_approved === true && 
+               item.is_deleted !== true;
+      });
       
       console.log("Filtered approved items count:", approvedFoundItems.length);
+      
+      // If no approved items found, double check if is_approved is a boolean or string
+      if (approvedFoundItems.length === 0 && itemsArray.length > 0) {
+        console.log("No approved items found, checking if is_approved might be a string value...");
+        
+        // Try with string '1' which might be how MySQL returns boolean TRUE
+        const alternativeApprovedItems = itemsArray.filter(item => 
+          item.status === 'found' && 
+          (item.is_approved === true || item.is_approved === 1 || item.is_approved === '1') && 
+          item.is_deleted !== true
+        );
+        
+        console.log("Alternative approved items count:", alternativeApprovedItems.length);
+        
+        if (alternativeApprovedItems.length > 0) {
+          setApprovedItems(alternativeApprovedItems);
+          return;
+        }
+      }
+      
       setApprovedItems(approvedFoundItems);
     } catch (error) {
       console.error('Error fetching approved items:', error);
@@ -407,86 +430,64 @@ const SecurityDashboard = () => {
       setActionLoading(true);
       setActionStatus({
         type: 'loading',
-        message: `Deleting item ${itemToDelete.name || itemToDelete.title || ''}...`
+        message: `Deleting item ${itemToDelete.title || itemToDelete.name || ''}...`
       });
       
       console.log(`Soft deleting item ${itemToDelete.id} with reason: ${deleteReason}...`);
       
-      // Make the API call with proper error handling
-      const response = await securityApi.softDeleteItem(itemToDelete.id, deleteReason);
-      console.log('Soft delete response:', response);
-      
-      if (!response || response.error) {
-        throw new Error(response?.error || 'Failed to delete item');
+      // Get token from current user
+      const token = currentUser?.token;
+      if (!token) {
+        throw new Error('Authentication token not available');
       }
       
-      // Update all item lists to remove the deleted item
-      setPendingItems(prev => prev.filter(item => item.id !== itemToDelete.id));
-      setApprovedItems(prev => prev.filter(item => item.id !== itemToDelete.id));
-      setRequestedItems(prev => prev.filter(item => item.id !== itemToDelete.id));
-      setReturnedItems(prev => prev.filter(item => item.id !== itemToDelete.id));
-
-      setActionStatus({
-        type: 'success',
-        message: `Item '${itemToDelete.name || itemToDelete.title || ''}' deleted successfully.`
+      // Make direct axios call to delete endpoint
+      const response = await axios({
+        method: 'put',
+        url: `${API_BASE_URL}/api/security/items/${itemToDelete.id}/soft-delete`,
+        headers: { 
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        data: { reason: deleteReason }
       });
       
+      console.log('Delete response:', response);
+      
+      // Handle successful deletion - immediately update UI
+      const itemId = itemToDelete.id;
+      
+      // Update all item lists to remove the deleted item
+      setPendingItems(prev => prev.filter(item => item.id !== itemId));
+      setApprovedItems(prev => prev.filter(item => item.id !== itemId));
+      setRequestedItems(prev => prev.filter(item => item.id !== itemId));
+      setReturnedItems(prev => prev.filter(item => item.id !== itemId));
+      
+      // Close modal and reset state
       setShowDeleteModal(false);
       setItemToDelete(null);
       setDeleteReason('');
-
-      // Refresh data to update the UI
-      setTimeout(() => {
-        refreshData();
-        setActionStatus(null);
-      }, 2000);
-    } catch (err) {
-      console.error('Error soft deleting item:', err);
+      
+      // Show success message
       setActionStatus({
-        type: 'error',
-        message: `Failed to delete item: ${err.message || 'Unknown error'}`
+        type: 'success',
+        message: `Item deleted successfully.`
       });
       
-      // Try an alternative approach if the first one failed
-      try {
-        console.log('Trying alternative delete approach...');
-        const altResponse = await axios.put(
-          `${API_BASE_URL}/api/items/${itemToDelete.id}/delete`, 
-          { reason: deleteReason },
-          { headers: { Authorization: `Bearer ${currentUser.token}` } }
-        );
-        
-        console.log('Alternative delete response:', altResponse);
-        
-        if (altResponse.status === 200 || altResponse.status === 204) {
-          // Update all item lists to remove the deleted item
-          setPendingItems(prev => prev.filter(item => item.id !== itemToDelete.id));
-          setApprovedItems(prev => prev.filter(item => item.id !== itemToDelete.id));
-          setRequestedItems(prev => prev.filter(item => item.id !== itemToDelete.id));
-          setReturnedItems(prev => prev.filter(item => item.id !== itemToDelete.id));
-          
-          setActionStatus({
-            type: 'success',
-            message: `Item deleted successfully using alternative method.`
-          });
-          
-          setShowDeleteModal(false);
-          setItemToDelete(null);
-          setDeleteReason('');
-          
-          // Refresh data
-          setTimeout(() => {
-            refreshData();
-            setActionStatus(null);
-          }, 2000);
-        }
-      } catch (altErr) {
-        console.error('Alternative delete also failed:', altErr);
-        setActionStatus({
-          type: 'error',
-          message: `All delete attempts failed. Please try again later.`
-        });
-      }
+      // Clear success message after a delay
+      setTimeout(() => {
+        setActionStatus(null);
+      }, 3000);
+      
+    } catch (error) {
+      console.error('Error deleting item:', error);
+      
+      setActionStatus({
+        type: 'error',
+        message: `Failed to delete item: ${error.message || 'Unknown error'}`
+      });
+      
+      // Don't close the modal so user can try again
     } finally {
       setActionLoading(false);
     }
@@ -849,16 +850,20 @@ const SecurityDashboard = () => {
       {/* Chart Placeholders */}
       <div className="dashboard-charts-container">
         <div className="chart-card">
-          <h3 className="chart-title">Item Approval Status</h3>
-          <p>Chart for item approval status would go here.</p>
-          {/* Example of where a chart component would be rendered */}
-          {/* <Pie data={itemApprovalData} /> */}
+          <h3 className="chart-title">Item Approval Info</h3>
+          <div className="info-content">
+            <p>Total items: {pendingItems.length + approvedItems.length}</p>
+            <p>Pending approval: {pendingItems.length}</p>
+            <p>Approved items: {approvedItems.length}</p>
+          </div>
         </div>
         <div className="chart-card">
-          <h3 className="chart-title">Request Resolution</h3>
-          <p>Chart for request resolution would go here.</p>
-          {/* Example of where a chart component would be rendered */}
-          {/* <Doughnut data={requestStatusData} /> */}
+          <h3 className="chart-title">Request Resolution Info</h3>
+          <div className="info-content">
+            <p>Total requests: {requestedItems.length}</p>
+            <p>Pending requests: {requestedItems.filter(item => item.status === 'requested').length}</p>
+            <p>Returned items: {returnedItems.length}</p>
+          </div>
         </div>
       </div>
     </div>

@@ -45,43 +45,25 @@ const Login = () => {
     }
 
     try {
+      console.log('Attempting login with email:', email);
       await login(email, password);
       
-      // Redirect to homepage after successful login
-      navigate('/');
+      // Login successful - redirect will happen via the useEffect that monitors currentUser
+      console.log('Login successful, redirecting to homepage');
+      
     } catch (err) {
       console.error('Login error:', err);
       
-      // Handle specific error types based on error message or code
-      if (err.message) {
-        // Check for wrong password errors
-        if (err.message.includes('Wrong password') || 
-            err.message.includes('Invalid password') ||
-            err.message.includes('password is incorrect') ||
-            err.message.includes('INVALID_PASSWORD')) {
-          setError('Wrong password. Please try again.');
-        }
-        // Check for user not found errors
-        else if (err.message.includes('User not found') || 
-            err.message.includes('No account') ||
-            err.message.includes('user does not exist') ||
-            err.message.includes('account not found') ||
-            err.message.includes('USER_NOT_FOUND')) {
-          setError('No account found with this email address.');
-        }
-        // Check for general invalid credentials
-        else if (err.message.includes('Invalid email or password') || 
-                 err.message.includes('credentials') ||
-                 err.message.includes('Authentication failed') ||
-                 err.message.includes('401')) {
-          setError('Invalid email or password. Please check your credentials.');
-        }
-        // Default error message
-        else {
-          setError(err.message || 'Failed to login. Please try again.');
-        }
-      } else {
-        setError('Failed to login. Please try again.');
+      // Set the error message from the error
+      setError(err.message || 'Failed to login. Please try again.');
+      
+      // Clear password field for security
+      setPassword('');
+      
+      // Focus on the password field for better UX
+      const passwordInput = document.getElementById('password');
+      if (passwordInput) {
+        passwordInput.focus();
       }
     } finally {
       setIsLoading(false);

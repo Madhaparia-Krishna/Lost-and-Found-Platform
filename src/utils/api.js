@@ -153,6 +153,18 @@ export const itemsApi = {
           console.log(`After filtering: ${items.length} items`);
         }
         
+        // Filter to ensure found items are approved
+        if (Array.isArray(items)) {
+          items = items.filter(item => {
+            // If it's a found item, it must be approved
+            if (item.status === 'found') {
+              return item.is_approved === true;
+            }
+            // Other item types don't need approval check
+            return true;
+          });
+        }
+        
         return items;
       } catch (err) {
         console.log('First endpoint failed, trying alternatives...', err);
@@ -189,27 +201,61 @@ export const itemsApi = {
               config.params = { status };
             }
             const response = await axios.get('/api/items', config);
-            return response.data;
+            
+            // Filter to ensure found items are approved
+            let items = response.data;
+            if (Array.isArray(items)) {
+              items = items.filter(item => {
+                // If it's a found item, it must be approved
+                if (item.status === 'found') {
+                  return item.is_approved === true;
+                }
+                // Other item types don't need approval check
+                return true;
+              });
+            }
+            
+            return items;
           } catch (err) {
             try {
               const response = await api.get('/api/security/all-items');
               
               // Filter by status if needed
-              if (status && Array.isArray(response.data)) {
-                return response.data.filter(item => item.status === status);
+              let items = response.data;
+              if (Array.isArray(items)) {
+                if (status) {
+                  items = items.filter(item => item.status === status);
+                }
+                
+                // Filter to ensure found items are approved for regular users
+                const userData = JSON.parse(localStorage.getItem('user'));
+                const userRole = userData?.role;
+                
+                // If not security/admin, filter out unapproved found items
+                if (userRole !== 'security' && userRole !== 'admin') {
+                  items = items.filter(item => {
+                    // If it's a found item, it must be approved
+                    if (item.status === 'found') {
+                      return item.is_approved === true;
+                    }
+                    // Other item types don't need approval check
+                    return true;
+                  });
+                }
               }
               
-              return response.data;
+              return items;
             } catch (innerErr) {
               // Last try with public endpoint
               const response = await axios.get('/api/public/items');
               
               // Filter by status if needed
-              if (status && Array.isArray(response.data)) {
-                return response.data.filter(item => item.status === status);
+              let items = response.data;
+              if (status && Array.isArray(items)) {
+                items = items.filter(item => item.status === status);
               }
               
-              return response.data;
+              return items;
             }
           }
         } else {
@@ -217,11 +263,12 @@ export const itemsApi = {
           const response = await axios.get('/api/public/items');
           
           // Filter by status if needed
-          if (status && Array.isArray(response.data)) {
-            return response.data.filter(item => item.status === status);
+          let items = response.data;
+          if (status && Array.isArray(items)) {
+            items = items.filter(item => item.status === status);
           }
           
-          return response.data;
+          return items;
         }
       }
     } catch (error) {
@@ -246,35 +293,40 @@ export const itemsApi = {
   },
   
   // Upload image
-  uploadImage: async (imageFile) => {
+  uploadImage: async (imageFile, token) => {
     try {
-      // Create a FormData object to send the file
-      const formData = new FormData();
-      formData.append('image', imageFile);
+      console.log('Uploading image:', imageFile.name);
       
-      // Set the correct headers for file upload
-      const config = {
-        headers: {
-          'Content-Type': 'multipart/form-data'
-        }
-      };
-      
-      // Add auth token if available
-      const user = localStorage.getItem('user');
-      if (user) {
-        try {
-          const { token } = JSON.parse(user);
-          if (token) {
-            config.headers.Authorization = `Bearer ${token}`;
+      // Get token if not provided
+      if (!token) {
+        const user = localStorage.getItem('user');
+        if (user) {
+          try {
+            const userData = JSON.parse(user);
+            token = userData.token;
+          } catch (error) {
+            console.error('Error parsing user data:', error);
           }
-        } catch (error) {
-          console.error('Error parsing user data:', error);
         }
       }
       
+      // Create form data for image upload
+      const formData = new FormData();
+      formData.append('image', imageFile);
+      
+      const config = token ? { 
+        headers: { 
+          'Authorization': `Bearer ${token}`,
+          // Don't set Content-Type for FormData, browser will set it with boundary
+        } 
+      } : {};
+      
+      console.log('Making API call to /api/upload');
       const response = await axios.post('/api/upload', formData, config);
-      return handleResponse(response);
+      console.log('Image upload response:', response.data);
+      return response.data;
     } catch (error) {
+      console.error('Error uploading image:', error);
       return handleError(error);
     }
   },
@@ -282,10 +334,34 @@ export const itemsApi = {
   // Report found item
   reportFound: async (itemData, token) => {
     try {
-      const config = token ? { headers: { Authorization: `Bearer ${token}` } } : {};
+      console.log('Reporting found item:', itemData);
+      
+      // Get token if not provided
+      if (!token) {
+        const user = localStorage.getItem('user');
+        if (user) {
+          try {
+            const userData = JSON.parse(user);
+            token = userData.token;
+          } catch (error) {
+            console.error('Error parsing user data:', error);
+          }
+        }
+      }
+      
+      const config = token ? { 
+        headers: { 
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        } 
+      } : {};
+      
+      console.log('Making API call to /items/found with token');
       const response = await axios.post('/items/found', itemData, config);
+      console.log('Found item response:', response.data);
       return handleResponse(response);
     } catch (error) {
+      console.error('Error reporting found item:', error);
       return handleError(error);
     }
   },
@@ -516,29 +592,42 @@ export const authApi = {
   // Login
   login: async (credentials) => {
     try {
+      console.log('Attempting login with email:', credentials.email);
       const response = await axios.post('/api/login', credentials);
-      return handleResponse(response).user; // Extract user from response
+      console.log('Login response received');
+      return handleResponse(response);
     } catch (error) {
-      console.error('Login error details:', error);
+      console.error('Login error:', error);
       
-      // Specific error handling for authentication failures
-      if (error.response && error.response.status === 401) {
-        const errorMessage = error.response.data?.message || 'Authentication failed';
-        const errorType = error.response.data?.errorType || '';
+      // Enhanced error handling with more specific messages
+      if (error.response) {
+        const status = error.response.status;
+        const data = error.response.data;
         
-        console.log('Server error response:', error.response.data);
-        
-        // Check for wrong password error
-        if (errorType === 'wrong_password' || errorMessage.includes('Wrong password')) {
-          return Promise.reject(new Error('Wrong password. Please try again.'));
+        if (status === 401) {
+          if (data && data.message) {
+            if (data.message.toLowerCase().includes('password')) {
+              throw new Error('Wrong password. Please try again.');
+            } else if (data.message.toLowerCase().includes('user') && data.message.toLowerCase().includes('not found')) {
+              throw new Error('No account found with this email address.');
+            } else {
+              throw new Error(data.message || 'Invalid email or password.');
+            }
+          } else {
+            throw new Error('Invalid email or password.');
+          }
+        } else if (status === 403) {
+          throw new Error('Your account has been suspended. Please contact support.');
+        } else if (status === 429) {
+          throw new Error('Too many login attempts. Please try again later.');
+        } else {
+          throw new Error(data?.message || 'Login failed. Please try again.');
         }
-        
-        // For other 401 errors
-        return Promise.reject(new Error(errorMessage));
+      } else if (error.request) {
+        throw new Error('Server not responding. Please try again later.');
+      } else {
+        throw new Error(error.message || 'An unexpected error occurred.');
       }
-      
-      // For other errors, use the standard error handler
-      return handleError(error);
     }
   },
   
@@ -617,22 +706,48 @@ export const securityApi = {
   getPendingItems: async () => {
     try {
       console.log('Fetching pending items for security panel...');
-      const response = await api.get('/api/security/pending-items');
-      console.log('Pending items response:', response.data);
-      return handleResponse(response);
-    } catch (error) {
-      console.error('Error fetching pending items:', error);
       
-      // Try alternative endpoint if the first one fails
-      try {
-        console.log('Trying alternative endpoint for pending items...');
-        const response = await api.get('/items?status=found&is_approved=false');
-        console.log('Alternative pending items response:', response.data);
-        return handleResponse(response);
-      } catch (altError) {
-        console.error('Alternative endpoint also failed:', altError);
+      // Try direct axios call with authentication
+      const token = localStorage.getItem('user') ? JSON.parse(localStorage.getItem('user')).token : null;
+      
+      if (!token) {
+        console.error('No authentication token available');
         return [];
       }
+      
+      const config = { headers: { Authorization: `Bearer ${token}` } };
+      
+      try {
+        console.log('Trying direct axios call to /api/security/pending-items');
+        const response = await axios.get(`${API_BASE_URL}/api/security/pending-items`, config);
+        console.log('Pending items direct response:', response.data);
+        return response.data;
+      } catch (directError) {
+        console.error('Direct endpoint failed:', directError);
+        
+        // Try alternative endpoint if the first one fails
+        try {
+          console.log('Trying alternative endpoint for pending items...');
+          const response = await axios.get(`${API_BASE_URL}/api/security/all-items`, config);
+          console.log('All items response:', response.data);
+          
+          // Filter for unapproved found items
+          const pendingItems = response.data.filter(item => 
+            item.status === 'found' && 
+            (item.is_approved === false || item.is_approved === 0 || item.is_approved === '0') && 
+            item.is_deleted !== true
+          );
+          
+          console.log('Filtered pending items:', pendingItems.length);
+          return pendingItems;
+        } catch (altError) {
+          console.error('Alternative endpoint also failed:', altError);
+          return [];
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching pending items:', error);
+      return [];
     }
   },
   
@@ -811,9 +926,32 @@ export const securityApi = {
   // Soft delete an item
   softDeleteItem: async (itemId, reason) => {
     try {
-      const response = await api.put(`/api/security/items/${itemId}/soft-delete`, { reason });
-      return handleResponse(response);
+      console.log(`Attempting to soft delete item ${itemId} with reason: ${reason}`);
+      
+      // First try the security endpoint
+      try {
+        const response = await api.put(`/api/security/items/${itemId}/soft-delete`, { reason });
+        console.log('Soft delete response:', response);
+        return handleResponse(response);
+      } catch (error) {
+        console.error('First soft delete attempt failed:', error);
+        
+        // If that fails, try the admin endpoint
+        try {
+          const response = await api.put(`/api/admin/items/${itemId}/soft-delete`, { reason });
+          console.log('Admin soft delete response:', response);
+          return handleResponse(response);
+        } catch (error2) {
+          console.error('Admin soft delete attempt failed:', error2);
+          
+          // If that also fails, try a generic endpoint
+          const response = await api.put(`/api/items/${itemId}/delete`, { reason });
+          console.log('Generic delete response:', response);
+          return handleResponse(response);
+        }
+      }
     } catch (error) {
+      console.error('All soft delete attempts failed:', error);
       return handleError(error);
     }
   },
