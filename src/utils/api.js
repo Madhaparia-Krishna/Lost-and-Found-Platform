@@ -145,6 +145,7 @@ export const itemsApi = {
         const response = await axios.get(url);
         
         let items = response.data;
+        console.log(`Received ${items?.length || 0} items from server`);
         
         // Double check filtering by status if needed
         if (status && Array.isArray(items)) {
@@ -153,122 +154,56 @@ export const itemsApi = {
           console.log(`After filtering: ${items.length} items`);
         }
         
-        // Filter to ensure found items are approved
-        if (Array.isArray(items)) {
-          items = items.filter(item => {
-            // If it's a found item, it must be approved
-            if (item.status === 'found') {
-              return item.is_approved === true;
-            }
-            // Other item types don't need approval check
-            return true;
-          });
-        }
-        
+        // DO NOT filter for approval status - show all items
         return items;
       } catch (err) {
         console.log('First endpoint failed, trying alternatives...', err);
         
-        // If specifically requesting found items, use the dedicated endpoint
-        if (status === 'found') {
-          try {
-            console.log('Trying /items/found endpoint');
-            const response = await axios.get('/items/found');
-            return response.data;
-          } catch (err) {
-            console.log('Found items endpoint failed, falling back to regular endpoints');
-            // Fall through to regular endpoints
-          }
-        }
-        
-        // If specifically requesting lost items, use the dedicated endpoint
-        if (status === 'lost') {
-          try {
-            const response = await axios.get('/items/lost');
-            return response.data;
-          } catch (err) {
-            // Fall through to regular endpoints
-          }
-        }
-        
-        // Try the security endpoint if user is logged in
+        // Try all possible alternative endpoints
+        // 1. Try security endpoint if user is logged in
         const token = localStorage.getItem('user') ? JSON.parse(localStorage.getItem('user')).token : null;
         if (token) {
           try {
+            console.log('Trying security endpoint with auth token');
             const config = { headers: { Authorization: `Bearer ${token}` } };
+            
             // Add status filter if provided
+            let url = '/api/security/all-items';
             if (status) {
-              config.params = { status };
+              url += `?status=${status}`;
             }
-            const response = await axios.get('/api/items', config);
             
-            // Filter to ensure found items are approved
+            const response = await axios.get(url, config);
             let items = response.data;
-            if (Array.isArray(items)) {
-              items = items.filter(item => {
-                // If it's a found item, it must be approved
-                if (item.status === 'found') {
-                  return item.is_approved === true;
-                }
-                // Other item types don't need approval check
-                return true;
-              });
+            
+            // Filter by status if needed
+            if (status && Array.isArray(items)) {
+              items = items.filter(item => item.status === status);
             }
             
+            console.log(`Got ${items.length} items from security endpoint`);
             return items;
-          } catch (err) {
-            try {
-              const response = await api.get('/api/security/all-items');
-              
-              // Filter by status if needed
-              let items = response.data;
-              if (Array.isArray(items)) {
-                if (status) {
-                  items = items.filter(item => item.status === status);
-                }
-                
-                // Filter to ensure found items are approved for regular users
-                const userData = JSON.parse(localStorage.getItem('user'));
-                const userRole = userData?.role;
-                
-                // If not security/admin, filter out unapproved found items
-                if (userRole !== 'security' && userRole !== 'admin') {
-                  items = items.filter(item => {
-                    // If it's a found item, it must be approved
-                    if (item.status === 'found') {
-                      return item.is_approved === true;
-                    }
-                    // Other item types don't need approval check
-                    return true;
-                  });
-                }
-              }
-              
-              return items;
-            } catch (innerErr) {
-              // Last try with public endpoint
-              const response = await axios.get('/api/public/items');
-              
-              // Filter by status if needed
-              let items = response.data;
-              if (status && Array.isArray(items)) {
-                items = items.filter(item => item.status === status);
-              }
-              
-              return items;
-            }
+          } catch (securityError) {
+            console.error('Security endpoint failed:', securityError);
           }
-        } else {
-          // Not logged in, try public endpoint
+        }
+        
+        // 2. Try public endpoint as last resort
+        try {
+          console.log('Trying public endpoint');
           const response = await axios.get('/api/public/items');
+          let items = response.data;
           
           // Filter by status if needed
-          let items = response.data;
           if (status && Array.isArray(items)) {
             items = items.filter(item => item.status === status);
           }
           
+          console.log(`Got ${items.length} items from public endpoint`);
           return items;
+        } catch (publicError) {
+          console.error('Public endpoint failed:', publicError);
+          return []; // Return empty array if all endpoints fail
         }
       }
     } catch (error) {
@@ -592,42 +527,39 @@ export const authApi = {
   // Login
   login: async (credentials) => {
     try {
-      console.log('Attempting login with email:', credentials.email);
+      console.log('Login attempt with:', credentials.email);
       const response = await axios.post('/api/login', credentials);
-      console.log('Login response received');
-      return handleResponse(response);
-    } catch (error) {
-      console.error('Login error:', error);
+      console.log('Login response received:', response.status);
       
-      // Enhanced error handling with more specific messages
-      if (error.response) {
-        const status = error.response.status;
-        const data = error.response.data;
-        
-        if (status === 401) {
-          if (data && data.message) {
-            if (data.message.toLowerCase().includes('password')) {
-              throw new Error('Wrong password. Please try again.');
-            } else if (data.message.toLowerCase().includes('user') && data.message.toLowerCase().includes('not found')) {
-              throw new Error('No account found with this email address.');
-            } else {
-              throw new Error(data.message || 'Invalid email or password.');
-            }
-          } else {
-            throw new Error('Invalid email or password.');
-          }
-        } else if (status === 403) {
-          throw new Error('Your account has been suspended. Please contact support.');
-        } else if (status === 429) {
-          throw new Error('Too many login attempts. Please try again later.');
-        } else {
-          throw new Error(data?.message || 'Login failed. Please try again.');
-        }
-      } else if (error.request) {
-        throw new Error('Server not responding. Please try again later.');
-      } else {
-        throw new Error(error.message || 'An unexpected error occurred.');
+      // Make sure we return the user object from the response
+      const data = handleResponse(response);
+      
+      // Check if response has user property
+      if (data && data.user) {
+        console.log('Login successful, returning user data');
+        return data.user;
       }
+      
+      // If response doesn't have user property but has the necessary data itself
+      if (data && data.token) {
+        console.log('Login successful, returning data directly');
+        return data;
+      }
+      
+      // If we don't have proper data, throw an error
+      throw new Error('Invalid response format from server');
+    } catch (error) {
+      console.error('Login error details:', error);
+      
+      // Specific error handling for authentication failures
+      if (error.response && error.response.status === 401) {
+        const errorMessage = error.response.data?.message || 'Authentication failed';
+        console.log('Authentication error:', errorMessage);
+        throw new Error(errorMessage);
+      }
+      
+      // For other errors
+      throw new Error(error.message || 'Login failed. Please try again.');
     }
   },
   

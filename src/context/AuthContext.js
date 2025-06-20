@@ -66,18 +66,28 @@ export const AuthProvider = ({ children }) => {
     setAuthError(null);
     
     try {
+      console.log('AuthContext login function called with email:', email);
+      
       // Use the authApi from our api.js utility
+      console.log('Calling authApi.login');
       const userData = await authApi.login({ email, password });
+      console.log('authApi.login returned:', userData);
       
       // Ensure we have a valid token
       if (!userData || !userData.token) {
+        console.error('No token received in login response');
         throw new Error('Authentication failed: No token received');
       }
       
+      console.log('Valid token received, checking if user is banned');
+      
       // Check if the user is banned
-      if (userData.is_banned) {
-        throw new Error("You've been banned from this system.");
+      if (userData.is_banned || userData.is_deleted) {
+        console.error('User account is banned or deleted');
+        throw new Error("Your account has been suspended or deleted.");
       }
+      
+      console.log('User is not banned, saving to state and localStorage');
       
       // Save to state and localStorage
       setCurrentUser(userData);
@@ -86,12 +96,13 @@ export const AuthProvider = ({ children }) => {
       // Set authorization header for all future requests
       axios.defaults.headers.common['Authorization'] = `Bearer ${userData.token}`;
       
+      console.log('Login successful, returning user data');
       return userData;
     } catch (error) {
-      console.error('Login error:', error);
+      console.error('Login error in AuthContext:', error);
       const errorMsg = error.message || 'Login failed. Please try again.';
       setAuthError(errorMsg);
-      throw new Error(errorMsg);
+      throw error; // Re-throw the original error for the component to handle
     } finally {
       setLoading(false);
     }

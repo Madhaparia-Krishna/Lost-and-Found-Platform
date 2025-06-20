@@ -45,14 +45,18 @@ const Login = () => {
     }
 
     try {
-      console.log('Attempting login with email:', email);
-      await login(email, password);
+      console.log('Login form submitting with email:', email);
       
-      // Login successful - redirect will happen via the useEffect that monitors currentUser
-      console.log('Login successful, redirecting to homepage');
+      // Add more debugging
+      console.log('About to call login function from AuthContext');
+      const result = await login(email, password);
+      console.log('Login function returned:', result);
       
+      // Explicitly navigate to home on success
+      console.log('Login successful, navigating to homepage');
+      navigate('/');
     } catch (err) {
-      console.error('Login error:', err);
+      console.error('Login error caught in component:', err);
       
       // Set the error message from the error
       setError(err.message || 'Failed to login. Please try again.');
