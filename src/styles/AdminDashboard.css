@@ -415,4 +415,25 @@
 .role-value, .status-value {
   font-weight: 700;
   color: #E85A4F;
+}
+
+/* Add styling for donated items */
+.admin-donated-items-section {
+  margin-top: 20px;
+}
+
+.donated-item-row {
+  background-color: #e8f4e8 !important;
+}
+
+.donated-item-row:hover {
+  background-color: #d1ebd1 !important;
+}
+
+/* Badge for donated items count */
+.tab[data-tab="donatedItems"] .badge {
+  position: relative;
+  top: -1px;
+  font-size: 0.7rem;
+  padding: 0.2em 0.5em;
 } 

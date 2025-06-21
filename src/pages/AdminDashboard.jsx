@@ -16,6 +16,7 @@ const AdminDashboard = () => {
   const [logs, setLogs] = useState([]);
   const [viewMode, setViewMode] = useState('table'); // 'grid' or 'table'
   const [oldItems, setOldItems] = useState([]);
+  const [donatedItems, setDonatedItems] = useState([]);
   const [stats, setStats] = useState({
     totalUsers: 0,
     totalLostItems: 0,
@@ -180,7 +181,20 @@ const AdminDashboard = () => {
             console.log('Fetching old items for donation...');
             const oldItemsData = await adminApi.getOldItems();
             console.log('Old items data received:', oldItemsData?.length || 0, 'items');
-            setOldItems(Array.isArray(oldItemsData) ? oldItemsData : []);
+            
+            // Check if any donated items are in the list
+            const donatedInOldItems = oldItemsData.filter(item => item.is_donated === true || item.is_donated === 1);
+            if (donatedInOldItems.length > 0) {
+              console.warn('WARNING: Found donated items in old items list:', donatedInOldItems);
+            }
+            
+            // Filter out any donated items that might have slipped through
+            const filteredOldItems = oldItemsData.filter(item => !(item.is_donated === true || item.is_donated === 1));
+            if (filteredOldItems.length !== oldItemsData.length) {
+              console.log(`Filtered out ${oldItemsData.length - filteredOldItems.length} donated items from old items list`);
+            }
+            
+            setOldItems(Array.isArray(filteredOldItems) ? filteredOldItems : []);
           } catch (oldItemsError) {
             console.error('Error fetching old items:', oldItemsError);
             
@@ -198,26 +212,43 @@ const AdminDashboard = () => {
               const itemDate = item.date ? new Date(item.date) : null;
               
               // Use the earlier date between created_at and date
-              let effectiveDate = itemCreatedDate;
-              if (itemDate && (!effectiveDate || itemDate < effectiveDate)) {
-                effectiveDate = itemDate;
-              }
+              const effectiveDate = itemCreatedDate && itemDate 
+                ? (itemCreatedDate < itemDate ? itemCreatedDate : itemDate)
+                : (itemCreatedDate || itemDate);
               
-              // If we don't have any valid date, include it in the list to be safe
+              // Skip if no date available or item is already donated
               if (!effectiveDate) {
-                console.log('Item with no valid date:', item.id, item.title);
-                return !item.is_donated;
+                return false;
               }
               
-              const isOld = effectiveDate < oneYearAgo;
-              if (isOld && !item.is_donated) {
-                console.log('Found old item:', item.id, item.title, 'date:', effectiveDate.toISOString());
+              // Explicitly check for is_donated being false or 0
+              const isDonated = item.is_donated === true || item.is_donated === 1;
+              if (isDonated) {
+                console.log(`Filtering out donated item: ${item.id} (${item.name || item.title})`);
+                return false;
               }
               
-              return !item.is_donated && effectiveDate < oneYearAgo;
+              return effectiveDate < oneYearAgo;
             });
             
             setOldItems(oldItemsList);
+          }
+          
+          // Get donated items
+          try {
+            console.log('Fetching donated items...');
+            const donatedItemsData = await adminApi.getDonatedItems();
+            console.log('Donated items data received:', donatedItemsData?.length || 0, 'items');
+            setDonatedItems(Array.isArray(donatedItemsData) ? donatedItemsData : []);
+          } catch (donatedItemsError) {
+            console.error('Error fetching donated items:', donatedItemsError);
+            
+            // Fallback to filtering items client-side if the API call fails
+            console.log('Falling back to client-side filtering for donated items');
+            
+            // Filter donated items
+            const donatedItemsList = allItems.filter(item => item.is_donated === true || item.is_donated === 1);
+            setDonatedItems(donatedItemsList);
           }
           
           // Set logs array
@@ -275,8 +306,8 @@ const AdminDashboard = () => {
 
   // Confirm donating an item
   const confirmDonateItem = async () => {
-    if (!itemToDonate || !donationReason) {
-      setActionStatus({ type: 'error', message: 'Please provide a reason for donation.' });
+    if (!itemToDonate) {
+      setActionStatus({ type: 'error', message: 'No item selected for donation.' });
       return;
     }
     
@@ -287,13 +318,18 @@ const AdminDashboard = () => {
         message: `Marking item ${itemToDonate.name || itemToDonate.title || ''} for donation...`
       });
       
-      console.log(`Marking item ${itemToDonate.id} for donation with reason: ${donationReason}...`);
+      console.log(`Marking item ${itemToDonate.id} for donation...`);
       const response = await adminApi.donateItem(itemToDonate.id);
       console.log('Donation response:', response);
       
-      // Update the items list
+      // Update the local state
+      const donatedItem = {...itemToDonate, is_donated: true};
+      
+      // Remove from old items and add to donated items
       setOldItems(prev => prev.filter(item => item.id !== itemToDonate.id));
-
+      setDonatedItems(prev => [donatedItem, ...prev]);
+      
+      // Show success message
       setActionStatus({
         type: 'success',
         message: `Item '${itemToDonate.name || itemToDonate.title || ''}' marked for donation successfully.`
@@ -301,19 +337,17 @@ const AdminDashboard = () => {
       
       setShowDonateModal(false);
       setItemToDonate(null);
-      setDonationReason('Unclaimed for over a year');
-      setDonationOrganization('');
-
-      // Refresh data to update the UI
+      setDonationReason('');
+      
+      // Clear success message after 3 seconds
       setTimeout(() => {
-        setRefreshTrigger(prev => prev + 1);
         setActionStatus(null);
-      }, 2000);
-    } catch (err) {
-      console.error('Error marking item for donation:', err);
+      }, 3000);
+    } catch (error) {
+      console.error('Error marking item for donation:', error);
       setActionStatus({
         type: 'error',
-        message: `Failed to mark item for donation: ${err.message || 'Unknown error'}`
+        message: `Failed to mark item for donation: ${error.message || 'Unknown error'}`
       });
     } finally {
       setActionLoading(false);
@@ -895,7 +929,7 @@ const AdminDashboard = () => {
     );
   };
 
-  // Render Old Items tab content
+  // Render Old Items tab content (items pending donation)
   const renderOldItemsTab = () => {
     return (
       <div className="admin-old-items-section">
@@ -926,7 +960,7 @@ const AdminDashboard = () => {
               </thead>
               <tbody>
                 {oldItems.length > 0 ? (
-                  oldItems.map(item => {
+                  oldItems.filter(item => !(item.is_donated === true || item.is_donated === 1)).map(item => {
                     // Calculate item age in days
                     const createdDate = new Date(item.created_at);
                     const today = new Date();
@@ -960,6 +994,71 @@ const AdminDashboard = () => {
                   <tr>
                     <td colSpan="7" className="text-center">
                       <p>No items pending donation.</p>
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </Table>
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  // Render Donated Items tab content
+  const renderDonatedItemsTab = () => {
+    return (
+      <div className="admin-donated-items-section">
+        <h2 className="page-title">Donated Items</h2>
+        <p className="section-description">These items have been marked as donated to charity. They are no longer visible to regular users.</p>
+        {actionStatus && (
+          <Alert variant={actionStatus.type === 'success' ? 'success' : 'danger'} className="mb-3">
+            {actionStatus.message}
+          </Alert>
+        )}
+        {loading ? (
+          <Spinner animation="border" role="status">
+            <span className="visually-hidden">Loading donated items...</span>
+          </Spinner>
+        ) : (
+          <div className="table-responsive">
+            <Table striped bordered hover className="admin-table">
+              <thead>
+                <tr>
+                  <th>ID</th>
+                  <th>Name</th>
+                  <th>Category</th>
+                  <th>Status</th>
+                  <th>Date Created</th>
+                  <th>Date Donated</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {donatedItems.length > 0 ? (
+                  donatedItems.map(item => {
+                    return (
+                      <tr key={item.id} className="donated-item-row">
+                        <td>{item.id}</td>
+                        <td>{item.name || item.title}</td>
+                        <td>{item.category}</td>
+                        <td><Badge bg={item.status === 'lost' ? 'danger' : item.status === 'found' ? 'success' : 'info'}>{item.status}</Badge></td>
+                        <td>{formatDate(item.created_at)}</td>
+                        <td>{formatDate(item.updated_at)}</td>
+                        <td>
+                          <ButtonGroup aria-label="Item Actions" size="sm">
+                            <Button variant="info" size="sm" onClick={() => navigate(`/items/${item.id}`)}>
+                              View
+                            </Button>
+                          </ButtonGroup>
+                        </td>
+                      </tr>
+                    );
+                  })
+                ) : (
+                  <tr>
+                    <td colSpan="7" className="text-center">
+                      <p>No donated items found.</p>
                     </td>
                   </tr>
                 )}
@@ -1096,22 +1195,28 @@ const AdminDashboard = () => {
             className={`tab ${activeTab === 'items' ? 'active' : ''}`}
             onClick={() => setActiveTab('items')}
           >
-            Recent Items
-          </button>
-          <button 
-            className={`tab ${activeTab === 'donationItems' ? 'active' : ''}`}
-            onClick={() => setActiveTab('donationItems')}
-          >
-            Donation Items
-            {oldItems.length > 0 && (
-              <Badge bg="warning" className="ms-2">{oldItems.length}</Badge>
-            )}
+            Items
           </button>
           <button 
             className={`tab ${activeTab === 'logs' ? 'active' : ''}`}
             onClick={() => setActiveTab('logs')}
           >
-            Logs
+            System Logs
+          </button>
+          <button 
+            className={`tab ${activeTab === 'oldItems' ? 'active' : ''}`}
+            onClick={() => setActiveTab('oldItems')}
+          >
+            Items for Donation
+          </button>
+          <button 
+            className={`tab ${activeTab === 'donatedItems' ? 'active' : ''}`}
+            onClick={() => setActiveTab('donatedItems')}
+          >
+            Donated Items
+            {donatedItems.length > 0 && (
+              <span className="badge bg-success ms-1">{donatedItems.length}</span>
+            )}
           </button>
         </div>
       </div>
@@ -1120,9 +1225,33 @@ const AdminDashboard = () => {
       <div className="tab-content">
         {activeTab === 'dashboard' && renderDashboardStats()}
         {activeTab === 'users' && renderUsersTab()}
-        {activeTab === 'items' && renderItemsTable(items.filter(item => !item.is_donated))}
-        {activeTab === 'donationItems' && renderOldItemsTab()}
+        {activeTab === 'items' && (
+          <div className="admin-items-section">
+            <h2 className="page-title">Item Management</h2>
+            <p className="section-description">View and manage all items in the system.</p>
+            
+            <div className="view-controls mb-3">
+              <Button 
+                variant={viewMode === 'grid' ? 'primary' : 'outline-primary'} 
+                className="me-2"
+                onClick={() => setViewMode('grid')}
+              >
+                <i className="fas fa-th"></i> Grid View
+              </Button>
+              <Button 
+                variant={viewMode === 'table' ? 'primary' : 'outline-primary'} 
+                onClick={() => setViewMode('table')}
+              >
+                <i className="fas fa-list"></i> Table View
+              </Button>
+            </div>
+            
+            {viewMode === 'grid' ? renderItemsGrid(items) : renderItemsTable(items)}
+          </div>
+        )}
         {activeTab === 'logs' && renderLogsTab()}
+        {activeTab === 'oldItems' && renderOldItemsTab()}
+        {activeTab === 'donatedItems' && renderDonatedItemsTab()}
       </div>
 
       {/* Ban User Modal */}
