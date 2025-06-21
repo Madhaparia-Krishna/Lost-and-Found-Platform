@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { itemsApi } from '../../utils/api';
 import { AuthContext } from '../../context/AuthContext';
 import '../../styles/ItemForms.css';
-import { checkForMatches, sendMatchNotification } from '../../utils/itemMatching';
+import { checkForMatches, sendMatchNotification, checkEmailMatches, notifyEmailMatches } from '../../utils/itemMatching';
 import { toast } from 'react-hot-toast';
 
 const ReportLostItem = () => {
@@ -116,6 +116,23 @@ const ReportLostItem = () => {
               date: formData.date,
               description: formData.description
             }
+          );
+        }
+        
+        // Check for email matches
+        console.log('Checking for email matches...');
+        const { matches: emailMatches, matchCount } = await checkEmailMatches(currentUser.email, 'lost');
+        
+        if (emailMatches && emailMatches.length > 0) {
+          console.log(`Found ${emailMatches.length} email matches`);
+          toast.success(`We found ${emailMatches.length} potential matches based on your email! Check your email for details.`);
+          
+          // Send email notification for email matches
+          await notifyEmailMatches(
+            currentUser.email,
+            currentUser.name,
+            emailMatches,
+            'lost'
           );
         }
       }

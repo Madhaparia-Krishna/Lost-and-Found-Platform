@@ -154,7 +154,33 @@ export const itemsApi = {
           console.log(`After filtering: ${items.length} items`);
         }
         
-        // DO NOT filter for approval status - show all items regardless of approval status
+        // For found items, only show approved items to regular users
+        if (status === 'found' && Array.isArray(items)) {
+          // Check user role
+          const user = localStorage.getItem('user');
+          let isSecurityOrAdmin = false;
+          
+          if (user) {
+            try {
+              const userData = JSON.parse(user);
+              isSecurityOrAdmin = userData.role === 'security' || userData.role === 'admin';
+            } catch (error) {
+              console.error('Error parsing user data:', error);
+            }
+          }
+          
+          // If not security or admin, filter for approved items only
+          if (!isSecurityOrAdmin) {
+            console.log('Filtering for approved items only');
+            items = items.filter(item => 
+              item.is_approved === true || 
+              item.is_approved === 1 || 
+              item.is_approved === '1'
+            );
+            console.log(`After approval filtering: ${items.length} items`);
+          }
+        }
+        
         return items;
       } catch (err) {
         console.log('First endpoint failed, trying alternatives...', err);
@@ -763,6 +789,45 @@ export const securityApi = {
     }
   },
   
+  // Get pending item requests
+  getPendingRequests: async () => {
+    try {
+      console.log('Fetching pending item requests...');
+      const response = await api.get('/api/security/pending-requests');
+      console.log('Pending requests response:', response);
+      return handleResponse(response);
+    } catch (error) {
+      console.error('Error fetching pending requests:', error);
+      return [];
+    }
+  },
+  
+  // Approve an item request
+  approveRequest: async (itemId) => {
+    try {
+      console.log(`Approving request for item ${itemId}...`);
+      const response = await api.put(`/api/security/requests/${itemId}/approve`);
+      console.log('Request approval response:', response);
+      return handleResponse(response);
+    } catch (error) {
+      console.error('Error approving request:', error);
+      return handleError(error);
+    }
+  },
+  
+  // Reject an item request
+  rejectRequest: async (itemId, reason = '') => {
+    try {
+      console.log(`Rejecting request for item ${itemId} with reason: ${reason}`);
+      const response = await api.put(`/api/security/requests/${itemId}/reject`, { reason });
+      console.log('Request rejection response:', response);
+      return handleResponse(response);
+    } catch (error) {
+      console.error('Error rejecting request:', error);
+      return handleError(error);
+    }
+  },
+  
   // Approve an item
   approveItem: async (itemId) => {
     try {
@@ -941,6 +1006,28 @@ export const adminApi = {
     } catch (error) {
       console.error('Error fetching items:', error);
       return [];
+    }
+  },
+  
+  // Get old items (older than 1 year)
+  getOldItems: async () => {
+    try {
+      const response = await api.get('/api/admin/old-items');
+      return handleResponse(response);
+    } catch (error) {
+      console.error('Error fetching old items:', error);
+      return [];
+    }
+  },
+  
+  // Donate item (mark as donated)
+  donateItem: async (itemId) => {
+    try {
+      // Use the markItemForDonation function which has better error handling
+      return await adminApi.markItemForDonation(itemId, 'Unclaimed for over a year');
+    } catch (error) {
+      console.error('Error marking item as donated:', error);
+      return handleError(error);
     }
   },
   

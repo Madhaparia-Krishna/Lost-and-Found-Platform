@@ -119,15 +119,41 @@ const AdminDashboard = () => {
         
         // Continue with other data fetching
         try {
-          // Use the adminApi from our api.js utility for remaining data
-          const [itemsData, logsData, statsData] = await Promise.all([
-            adminApi.getAllItems(),
-            adminApi.getSystemLogs(),
-            adminApi.getDashboardStats()
-          ]);
+          console.log('Fetching items, logs, and stats data...');
+          
+          // Use the adminApi from our api.js utility for remaining data - handle each separately to avoid Promise.all failing if one fails
+          let itemsData = [], logsData = [], statsData = {};
+          
+          try {
+            console.log('Fetching items...');
+            itemsData = await adminApi.getAllItems();
+            console.log('Items data received:', itemsData?.length || 0, 'items');
+          } catch (itemsError) {
+            console.error('Error fetching items:', itemsError);
+            itemsData = [];
+          }
+          
+          try {
+            console.log('Fetching logs...');
+            logsData = await adminApi.getSystemLogs();
+            console.log('Logs data received:', logsData?.length || 0, 'logs');
+          } catch (logsError) {
+            console.error('Error fetching logs:', logsError);
+            logsData = [];
+          }
+          
+          try {
+            console.log('Fetching dashboard stats...');
+            statsData = await adminApi.getDashboardStats();
+            console.log('Stats data received:', statsData);
+          } catch (statsError) {
+            console.error('Error fetching stats:', statsError);
+            statsData = {};
+          }
           
           // If stats are returned from the API, use them, otherwise calculate
           if (statsData && Object.keys(statsData).length > 0) {
+            console.log('Using stats from API');
             // Process the stats data
             const processedStats = {
               totalUsers: statsData.users?.total || usersData.length || 0,
@@ -138,28 +164,63 @@ const AdminDashboard = () => {
               totalReturnedItems: statsData.items?.returned || 0
             };
             setStats(processedStats);
+            console.log('Stats processed:', processedStats);
           } else {
+            console.log('Calculating stats from data');
             // Calculate statistics from data
             calculateStats(usersData, itemsData);
           }
 
-          // Fetch old items (older than 1 year)
-          const oneYearAgo = new Date();
-          oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
+          // Set items array for all items
+          const allItems = Array.isArray(itemsData) ? itemsData : [];
+          setItems(allItems);
           
+          // Get old items using the dedicated API endpoint
           try {
-            const oldItemsResponse = await axios.get(
-              `${API_BASE_URL}/api/admin/old-items?date=${oneYearAgo.toISOString().split('T')[0]}`,
-              { headers: { Authorization: `Bearer ${currentUser.token}` } }
-            );
-            setOldItems(Array.isArray(oldItemsResponse.data) ? oldItemsResponse.data : []);
+            console.log('Fetching old items for donation...');
+            const oldItemsData = await adminApi.getOldItems();
+            console.log('Old items data received:', oldItemsData?.length || 0, 'items');
+            setOldItems(Array.isArray(oldItemsData) ? oldItemsData : []);
           } catch (oldItemsError) {
             console.error('Error fetching old items:', oldItemsError);
-            setOldItems([]);
+            
+            // Fallback to filtering items client-side if the API call fails
+            console.log('Falling back to client-side filtering for old items');
+            const oneYearAgo = new Date();
+            oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
+            
+            console.log('One year ago date:', oneYearAgo.toISOString());
+            
+            // Filter non-donated items that are older than 1 year
+            const oldItemsList = allItems.filter(item => {
+              // Check both created_at and date fields since some items might use one or the other
+              const itemCreatedDate = item.created_at ? new Date(item.created_at) : null;
+              const itemDate = item.date ? new Date(item.date) : null;
+              
+              // Use the earlier date between created_at and date
+              let effectiveDate = itemCreatedDate;
+              if (itemDate && (!effectiveDate || itemDate < effectiveDate)) {
+                effectiveDate = itemDate;
+              }
+              
+              // If we don't have any valid date, include it in the list to be safe
+              if (!effectiveDate) {
+                console.log('Item with no valid date:', item.id, item.title);
+                return !item.is_donated;
+              }
+              
+              const isOld = effectiveDate < oneYearAgo;
+              if (isOld && !item.is_donated) {
+                console.log('Found old item:', item.id, item.title, 'date:', effectiveDate.toISOString());
+              }
+              
+              return !item.is_donated && effectiveDate < oneYearAgo;
+            });
+            
+            setOldItems(oldItemsList);
           }
-
-          // Set items and logs arrays
-          setItems(Array.isArray(itemsData) ? itemsData : []);
+          
+          // Set logs array
           setLogs(Array.isArray(logsData) ? logsData : []);
         } catch (otherDataError) {
           console.error('Error fetching other dashboard data:', otherDataError);
@@ -227,11 +288,7 @@ const AdminDashboard = () => {
       });
       
       console.log(`Marking item ${itemToDonate.id} for donation with reason: ${donationReason}...`);
-      const response = await adminApi.markItemForDonation(
-        itemToDonate.id, 
-        donationReason, 
-        donationOrganization
-      );
+      const response = await adminApi.donateItem(itemToDonate.id);
       console.log('Donation response:', response);
       
       // Update the items list
@@ -524,168 +581,231 @@ const AdminDashboard = () => {
   };
 
   // Render items in a grid layout
-  const renderItemsGrid = (itemsToRender) => (
-    <div className="items-grid">
-      {itemsToRender.length > 0 ? (
-        itemsToRender.map(item => (
-          <div key={item.id} className={`item-card ${item.status}-item-card`}>
-            <div className="item-image">
-              <img src={item.image_url || '/images/placeholder.png'} alt={item.name} onError={(e) => { e.target.onerror = null; e.target.src = '/images/placeholder.png'; }} />
-            </div>
-            <div className="item-details">
-              <span className={`status-badge ${item.status}`}>{item.status}</span>
-              {item.is_approved !== undefined && (
-                <span className={`approval-badge ${item.is_approved ? 'approved' : 'pending'}`}>
-                  {item.is_approved ? 'Approved' : 'Pending Approval'}
-                </span>
-              )}
-              <h3>{item.name}</h3>
-              <p><strong>Category:</strong> {item.category}</p>
-              <p><strong>Date:</strong> {formatDate(item.date_found || item.date_lost)}</p>
-              <p className="description">{item.description}</p>
-              <div className="item-actions">
-                {item.is_deleted ? (
-                  <button className="claim-button" onClick={() => handleRestoreItem(item.id)} disabled={actionLoading}>
-                    {actionLoading ? <Spinner animation="border" size="sm" /> : 'Restore Item'}
-                  </button>
-                ) : (
-                  <button className="claim-button" onClick={() => handleDeleteItem(item)} disabled={actionLoading}>
-                    {actionLoading ? <Spinner animation="border" size="sm" /> : 'Delete Item'}
-                  </button>
+  const renderItemsGrid = (itemsToRender) => {
+    return (
+      <div className="items-grid">
+        {itemsToRender.length > 0 ? (
+          itemsToRender.map(item => (
+            <div key={item.id} className={`item-card ${item.status}-item-card`}>
+              <div className="item-image">
+                <img src={item.image_url || '/images/placeholder.png'} alt={item.name} onError={(e) => { e.target.onerror = null; e.target.src = '/images/placeholder.png'; }} />
+              </div>
+              <div className="item-details">
+                <span className={`status-badge ${item.status}`}>{item.status}</span>
+                {item.is_approved !== undefined && (
+                  <span className={`approval-badge ${item.is_approved ? 'approved' : 'pending'}`}>
+                    {item.is_approved ? 'Approved' : 'Pending Approval'}
+                  </span>
                 )}
-                <Button variant="info" onClick={() => navigate(`/items/${item.id}`)}>
-                  View Details
-                </Button>
+                <h3>{item.name}</h3>
+                <p><strong>Category:</strong> {item.category}</p>
+                <p><strong>Date:</strong> {formatDate(item.date_found || item.date_lost)}</p>
+                <p className="description">{item.description}</p>
+                <div className="item-actions">
+                  {item.is_deleted ? (
+                    <button className="claim-button" onClick={() => handleRestoreItem(item.id)} disabled={actionLoading}>
+                      {actionLoading ? <Spinner animation="border" size="sm" /> : 'Restore Item'}
+                    </button>
+                  ) : (
+                    <button className="claim-button" onClick={() => handleDeleteItem(item)} disabled={actionLoading}>
+                      {actionLoading ? <Spinner animation="border" size="sm" /> : 'Delete Item'}
+                    </button>
+                  )}
+                  <Button variant="info" onClick={() => navigate(`/items/${item.id}`)}>
+                    View Details
+                  </Button>
+                </div>
               </div>
             </div>
+          ))
+        ) : (
+          <div className="empty-state">
+            <i className="fas fa-box-open empty-state-icon"></i>
+            <h3>No items to display</h3>
+            <p>There are no items matching your criteria at the moment.</p>
           </div>
-        ))
-      ) : (
-        <div className="empty-state">
-          <i className="fas fa-box-open empty-state-icon"></i>
-          <h3>No items to display</h3>
-          <p>There are no items matching your criteria at the moment.</p>
-        </div>
-      )}
-    </div>
-  );
+        )}
+      </div>
+    );
+  };
 
   // Render items in a table layout
-  const renderItemsTable = (itemsToRender) => (
-    <div className="table-responsive">
-      <Table striped bordered hover className="admin-table">
-        <thead>
-          <tr>
-            <th>ID</th>
-            <th>Name</th>
-            <th>Category</th>
-            <th>Status</th>
-            <th>Date</th>
-            <th>Reported By</th>
-            <th>Approved</th>
-            <th>Actions</th>
-          </tr>
-        </thead>
-        <tbody>
-          {itemsToRender.length > 0 ? (
-            itemsToRender.map(item => (
-              <tr key={item.id}>
-                <td>{item.id}</td>
-                <td>{item.name}</td>
-                <td>{item.category}</td>
-                <td><Badge bg={item.status === 'lost' ? 'danger' : 'success'}>{item.status}</Badge></td>
-                <td>{formatDate(item.date_found || item.date_lost)}</td>
-                <td>{item.reporter_name || 'N/A'}</td>
-                <td>
-                  {item.is_approved !== undefined ? (
-                    <Badge bg={item.is_approved ? 'success' : 'warning'}>
-                      {item.is_approved ? 'Yes' : 'No'}
-                    </Badge>
-                  ) : (
-                    'N/A'
-                  )}
-                </td>
-                <td>
-                  <ButtonGroup aria-label="Item Actions">
-                    <Button variant="info" size="sm" onClick={() => navigate(`/items/${item.id}`)}>
-                      View
-                    </Button>
-                    {item.is_deleted ? (
-                      <Button variant="success" size="sm" onClick={() => handleRestoreItem(item.id)} disabled={actionLoading}>
-                        Restore
-                      </Button>
+  const renderItemsTable = (itemsToRender) => {
+    return (
+      <div className="table-responsive">
+        <Table striped bordered hover className="admin-table">
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Name</th>
+              <th>Category</th>
+              <th>Status</th>
+              <th>Date</th>
+              <th>Reported By</th>
+              <th>Approved</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {itemsToRender.length > 0 ? (
+              itemsToRender.map(item => (
+                <tr key={item.id}>
+                  <td>{item.id}</td>
+                  <td>{item.name}</td>
+                  <td>{item.category}</td>
+                  <td><Badge bg={item.status === 'lost' ? 'danger' : 'success'}>{item.status}</Badge></td>
+                  <td>{formatDate(item.date_found || item.date_lost)}</td>
+                  <td>{item.reporter_name || 'N/A'}</td>
+                  <td>
+                    {item.is_approved !== undefined ? (
+                      <Badge bg={item.is_approved ? 'success' : 'warning'}>
+                        {item.is_approved ? 'Yes' : 'No'}
+                      </Badge>
                     ) : (
-                      <Button variant="danger" size="sm" onClick={() => handleDeleteItem(item)} disabled={actionLoading}>
-                        Delete
-                      </Button>
+                      'N/A'
                     )}
-                  </ButtonGroup>
+                  </td>
+                  <td>
+                    <ButtonGroup aria-label="Item Actions">
+                      <Button variant="info" size="sm" onClick={() => navigate(`/items/${item.id}`)}>
+                        View
+                      </Button>
+                      {item.is_deleted ? (
+                        <Button variant="success" size="sm" onClick={() => handleRestoreItem(item.id)} disabled={actionLoading}>
+                          Restore
+                        </Button>
+                      ) : (
+                        <Button variant="danger" size="sm" onClick={() => handleDeleteItem(item)} disabled={actionLoading}>
+                          Delete
+                        </Button>
+                      )}
+                    </ButtonGroup>
+                  </td>
+                </tr>
+              ))
+            ) : (
+              <tr>
+                <td colSpan="8" className="text-center">
+                  <p>No items to display.</p>
                 </td>
               </tr>
-            ))
-          ) : (
-            <tr>
-              <td colSpan="8" className="text-center">
-                <p>No items to display.</p>
-              </td>
-            </tr>
-          )}
-        </tbody>
-      </Table>
-    </div>
-  );
+            )}
+          </tbody>
+        </Table>
+      </div>
+    );
+  };
 
   // Render Users tab content
-  const renderUsersTab = () => (
-    <div className="admin-users-section">
-      <h2 className="page-title">User Management</h2>
-      <p className="section-description">Manage all registered users, including their roles and ban status.</p>
-      {actionStatus && (
-        <Alert variant={actionStatus.type === 'success' ? 'success' : 'danger'} className="mb-3">
-          {actionStatus.message}
-        </Alert>
-      )}
-      
-      <div className="filter-and-search-bar mb-3">
-        <InputGroup>
-          <Form.Control
-            placeholder="Search users by name or email..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-          />
-          <Button variant="outline-secondary" onClick={() => setRefreshTrigger(prev => prev + 1)}>
-            <i className="fas fa-search"></i> Search
-          </Button>
-        </InputGroup>
-      </div>
+  const renderUsersTab = () => {
+    // Separate users into banned and active
+    const bannedUsers = users.filter(user => user.is_deleted);
+    const activeUsers = users.filter(user => !user.is_deleted);
+    
+    // Filter users based on search query
+    const filteredUsers = users.filter(user => 
+      user.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      user.email?.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+    
+    return (
+      <div className="admin-users-section">
+        <h2 className="page-title">User Management</h2>
+        <p className="section-description">Manage all registered users, including their roles and ban status.</p>
+        
+        {actionStatus && (
+          <Alert variant={actionStatus.type === 'success' ? 'success' : 'danger'} className="mb-3">
+            {actionStatus.message}
+          </Alert>
+        )}
+        
+        {/* Display banned users count */}
+        {bannedUsers.length > 0 && !searchQuery && (
+          <Alert variant="warning" className="mb-3">
+            <i className="fas fa-exclamation-triangle me-2"></i>
+            There are currently <strong>{bannedUsers.length}</strong> banned users in the system.
+          </Alert>
+        )}
+        
+        <div className="filter-and-search-bar mb-3">
+          <InputGroup>
+            <Form.Control
+              placeholder="Search users by name or email..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
+            <Button variant="outline-secondary" onClick={() => setRefreshTrigger(prev => prev + 1)}>
+              <i className="fas fa-search"></i> Search
+            </Button>
+          </InputGroup>
+        </div>
 
-      {loading ? (
-        <Spinner animation="border" role="status">
-          <span className="visually-hidden">Loading users...</span>
-        </Spinner>
-      ) : (
-        <div className="table-responsive">
-          <Table striped bordered hover className="admin-table">
-            <thead>
-              <tr>
-                <th>ID</th>
-                <th>Name</th>
-                <th>Email</th>
-                <th>Role</th>
-                <th>Status</th>
-                <th>Ban Reason</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {users.length > 0 ? (
-                users
-                  .filter(user => 
-                    user.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                    user.email?.toLowerCase().includes(searchQuery.toLowerCase())
-                  )
-                  .map(user => (
-                    <tr key={user.id}>
+        {loading ? (
+          <Spinner animation="border" role="status">
+            <span className="visually-hidden">Loading users...</span>
+          </Spinner>
+        ) : (
+          <div className="table-responsive">
+            {/* Display banned users section first if there are any and not searching */}
+            {bannedUsers.length > 0 && !searchQuery && (
+              <>
+                <h3 className="mt-4 mb-3">Banned Users</h3>
+                <Table striped bordered hover className="admin-table">
+                  <thead>
+                    <tr className="table-danger">
+                      <th>ID</th>
+                      <th>Name</th>
+                      <th>Email</th>
+                      <th>Role</th>
+                      <th>Status</th>
+                      <th>Ban Reason</th>
+                      <th>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {bannedUsers.map(user => (
+                      <tr key={user.id} className="table-warning">
+                        <td>{user.id}</td>
+                        <td>{user.name}</td>
+                        <td>{user.email}</td>
+                        <td><Badge bg={user.role === 'admin' ? 'danger' : (user.role === 'security' ? 'primary' : 'success')}>{user.role}</Badge></td>
+                        <td><Badge bg="secondary">Banned</Badge></td>
+                        <td>{user.ban_reason || 'N/A'}</td>
+                        <td>
+                          <Button 
+                            variant="success" 
+                            size="sm" 
+                            onClick={() => handleUnbanUser(user.id)} 
+                            disabled={actionLoading}
+                          >
+                            {actionLoading ? <Spinner animation="border" size="sm" /> : 'Unban User'}
+                          </Button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </Table>
+              </>
+            )}
+            
+            {/* Display all users or search results */}
+            <h3 className="mt-4 mb-3">{searchQuery ? 'Search Results' : (bannedUsers.length > 0 ? 'Active Users' : 'All Users')}</h3>
+            <Table striped bordered hover className="admin-table">
+              <thead>
+                <tr>
+                  <th>ID</th>
+                  <th>Name</th>
+                  <th>Email</th>
+                  <th>Role</th>
+                  <th>Status</th>
+                  <th>Ban Reason</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredUsers.length > 0 ? (
+                  filteredUsers.map(user => (
+                    <tr key={user.id} className={user.is_deleted ? 'table-warning' : ''}>
                       <td>{user.id}</td>
                       <td>{user.name}</td>
                       <td>{user.email}</td>
@@ -700,9 +820,11 @@ const AdminDashboard = () => {
                             </Button>
                           ) : (
                             <>
-                              <Button variant="warning" size="sm" onClick={() => handleBanUser(user.id, user.name)} disabled={actionLoading}>
-                                {actionLoading ? <Spinner animation="border" size="sm" /> : 'Ban'}
-                              </Button>
+                              {user.role !== 'admin' && (
+                                <Button variant="warning" size="sm" onClick={() => handleBanUser(user.id, user.name)} disabled={actionLoading}>
+                                  {actionLoading ? <Spinner animation="border" size="sm" /> : 'Ban'}
+                                </Button>
+                              )}
                               <Button variant="info" size="sm" onClick={() => handleChangeRole(user)} disabled={actionLoading}>
                                 {actionLoading ? <Spinner animation="border" size="sm" /> : 'Change Role'}
                               </Button>
@@ -712,17 +834,296 @@ const AdminDashboard = () => {
                       </td>
                     </tr>
                   ))
-              ) : (
+                ) : (
+                  <tr>
+                    <td colSpan="7" className="text-center">
+                      <p>No users found.</p>
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </Table>
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  // Render Logs tab content
+  const renderLogsTab = () => {
+    return (
+      <div className="admin-logs-section">
+        <h2 className="page-title">System Logs</h2>
+        <p className="section-description">View system activity and administrative actions.</p>
+        {loading ? (
+          <Spinner animation="border" role="status">
+            <span className="visually-hidden">Loading logs...</span>
+          </Spinner>
+        ) : (
+          <div className="table-responsive">
+            <Table striped bordered hover className="admin-table">
+              <thead>
                 <tr>
-                  <td colSpan="7" className="text-center">
-                    <p>No users found.</p>
-                  </td>
+                  <th>ID</th>
+                  <th>Action</th>
+                  <th>By User</th>
+                  <th>Timestamp</th>
                 </tr>
-              )}
-            </tbody>
-          </Table>
+              </thead>
+              <tbody>
+                {logs.length > 0 ? (
+                  logs.map(log => (
+                    <tr key={log.id}>
+                      <td>{log.id}</td>
+                      <td>{log.action}</td>
+                      <td>{log.by_user_name || 'System'}</td>
+                      <td>{formatDate(log.timestamp)}</td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td colSpan="4" className="text-center">
+                      <p>No logs to display.</p>
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </Table>
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  // Render Old Items tab content
+  const renderOldItemsTab = () => {
+    return (
+      <div className="admin-old-items-section">
+        <h2 className="page-title">Items Pending Donation</h2>
+        <p className="section-description">These items are older than one year and can be donated to charity. Items marked as donated will no longer appear in the system for regular users.</p>
+        {actionStatus && (
+          <Alert variant={actionStatus.type === 'success' ? 'success' : 'danger'} className="mb-3">
+            {actionStatus.message}
+          </Alert>
+        )}
+        {loading ? (
+          <Spinner animation="border" role="status">
+            <span className="visually-hidden">Loading old items...</span>
+          </Spinner>
+        ) : (
+          <div className="table-responsive">
+            <Table striped bordered hover className="admin-table">
+              <thead>
+                <tr>
+                  <th>ID</th>
+                  <th>Name</th>
+                  <th>Category</th>
+                  <th>Status</th>
+                  <th>Date Created</th>
+                  <th>Age (Days)</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {oldItems.length > 0 ? (
+                  oldItems.map(item => {
+                    // Calculate item age in days
+                    const createdDate = new Date(item.created_at);
+                    const today = new Date();
+                    const ageInDays = Math.floor((today - createdDate) / (1000 * 60 * 60 * 24));
+                    
+                    return (
+                      <tr key={item.id}>
+                        <td>{item.id}</td>
+                        <td>{item.name || item.title}</td>
+                        <td>{item.category}</td>
+                        <td><Badge bg={item.status === 'lost' ? 'danger' : item.status === 'found' ? 'success' : 'info'}>{item.status}</Badge></td>
+                        <td>{formatDate(item.created_at)}</td>
+                        <td>{ageInDays}</td>
+                        <td>
+                          <ButtonGroup aria-label="Item Actions" size="sm">
+                            <Button variant="info" size="sm" onClick={() => navigate(`/items/${item.id}`)}>
+                              View
+                            </Button>
+                            <Button variant="warning" size="sm" onClick={() => handleDonateItem(item)}>
+                              Donate
+                            </Button>
+                            <Button variant="danger" size="sm" onClick={() => handleDeleteItem(item)}>
+                              Delete
+                            </Button>
+                          </ButtonGroup>
+                        </td>
+                      </tr>
+                    );
+                  })
+                ) : (
+                  <tr>
+                    <td colSpan="7" className="text-center">
+                      <p>No items pending donation.</p>
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </Table>
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  // Render Dashboard Statistics
+  const renderDashboardStats = () => {
+    return (
+      <div className="dashboard-stats-section">
+        <h2 className="page-title">Overview</h2>
+        <p className="section-description">Quick statistics about users and items on the platform.</p>
+        
+        {loading ? (
+          <Spinner animation="border" role="status">
+            <span className="visually-hidden">Loading stats...</span>
+          </Spinner>
+        ) : (
+          <div className="dashboard-cards-container">
+            <div className="dashboard-card total-users">
+              <div className="card-icon"><i className="fas fa-users"></i></div>
+              <div className="card-title">Total Users</div>
+              <div className="card-value">{stats.totalUsers}</div>
+            </div>
+            <div className="dashboard-card total-lost-items">
+              <div className="card-icon"><i className="fas fa-exclamation-circle"></i></div>
+              <div className="card-title">Total Lost Items</div>
+              <div className="card-value">{stats.totalLostItems}</div>
+            </div>
+            <div className="dashboard-card total-found-items">
+              <div className="card-icon"><i className="fas fa-hand-holding"></i></div>
+              <div className="card-title">Total Found Items</div>
+              <div className="card-value">{stats.totalFoundItems}</div>
+            </div>
+            <div className="dashboard-card total-pending-items">
+              <div className="card-icon"><i className="fas fa-hourglass-half"></i></div>
+              <div className="card-title">Pending Items</div>
+              <div className="card-value">{stats.totalPendingItems}</div>
+            </div>
+            <div className="dashboard-card total-returned-items">
+              <div className="card-icon"><i className="fas fa-check-circle"></i></div>
+              <div className="card-title">Returned Items</div>
+              <div className="card-value">{stats.totalReturnedItems}</div>
+            </div>
+            <div className="dashboard-card total-banned-users">
+              <div className="card-icon"><i className="fas fa-user-slash"></i></div>
+              <div className="card-title">Banned Users</div>
+              <div className="card-value">{stats.totalBannedUsers}</div>
+            </div>
+          </div>
+        )}
+
+        {/* Chart information text instead of actual charts */}
+        <div className="dashboard-charts-container">
+          <div className="chart-card">
+            <h3 className="chart-title">Users by Role</h3>
+            <div className="chart-placeholder">
+              <p>User role distribution information would be displayed here.</p>
+              <div className="role-stats">
+                <div className="role-stat">
+                  <span className="role-label">Admins:</span>
+                  <span className="role-value">{users.filter(user => user.role === 'admin').length}</span>
+                </div>
+                <div className="role-stat">
+                  <span className="role-label">Users:</span>
+                  <span className="role-value">{users.filter(user => user.role === 'user').length}</span>
+                </div>
+                <div className="role-stat">
+                  <span className="role-label">Security:</span>
+                  <span className="role-value">{users.filter(user => user.role === 'security').length}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div className="chart-card">
+            <h3 className="chart-title">Item Status Distribution</h3>
+            <div className="chart-placeholder">
+              <p>Item status distribution information would be displayed here.</p>
+              <div className="status-stats">
+                <div className="status-stat">
+                  <span className="status-label">Lost:</span>
+                  <span className="status-value">{items.filter(item => item.status === 'lost').length}</span>
+                </div>
+                <div className="status-stat">
+                  <span className="status-label">Found:</span>
+                  <span className="status-value">{items.filter(item => item.status === 'found').length}</span>
+                </div>
+                <div className="status-stat">
+                  <span className="status-label">Requested:</span>
+                  <span className="status-value">{items.filter(item => item.status === 'requested').length}</span>
+                </div>
+                <div className="status-stat">
+                  <span className="status-label">Returned:</span>
+                  <span className="status-value">{items.filter(item => item.status === 'returned').length}</span>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
-      )}
+      </div>
+    );
+  };
+
+  return (
+    <div className="admin-dashboard-container">
+      <div className="page-header">
+        <h1 className="page-title">Admin Dashboard</h1>
+        <p className="page-description">Welcome, {currentUser?.name || 'Admin'}! Here you can manage users, items, and system settings.</p>
+      </div>
+
+      {error && <Alert variant="danger" className="mb-3">{error}</Alert>}
+
+      {/* Tabs for navigation */}
+      <div className="tabs-container">
+        <div className="tabs-nav">
+          <button 
+            className={`tab ${activeTab === 'dashboard' ? 'active' : ''}`}
+            onClick={() => setActiveTab('dashboard')}
+          >
+            Dashboard
+          </button>
+          <button 
+            className={`tab ${activeTab === 'users' ? 'active' : ''}`}
+            onClick={() => setActiveTab('users')}
+          >
+            Users
+          </button>
+          <button 
+            className={`tab ${activeTab === 'items' ? 'active' : ''}`}
+            onClick={() => setActiveTab('items')}
+          >
+            Recent Items
+          </button>
+          <button 
+            className={`tab ${activeTab === 'donationItems' ? 'active' : ''}`}
+            onClick={() => setActiveTab('donationItems')}
+          >
+            Donation Items
+            {oldItems.length > 0 && (
+              <Badge bg="warning" className="ms-2">{oldItems.length}</Badge>
+            )}
+          </button>
+          <button 
+            className={`tab ${activeTab === 'logs' ? 'active' : ''}`}
+            onClick={() => setActiveTab('logs')}
+          >
+            Logs
+          </button>
+        </div>
+      </div>
+
+      {/* Tab content */}
+      <div className="tab-content">
+        {activeTab === 'dashboard' && renderDashboardStats()}
+        {activeTab === 'users' && renderUsersTab()}
+        {activeTab === 'items' && renderItemsTable(items.filter(item => !item.is_donated))}
+        {activeTab === 'donationItems' && renderOldItemsTab()}
+        {activeTab === 'logs' && renderLogsTab()}
+      </div>
 
       {/* Ban User Modal */}
       <Modal show={showBanModal} onHide={() => setShowBanModal(false)} centered>
@@ -790,115 +1191,6 @@ const AdminDashboard = () => {
           </Button>
         </Modal.Footer>
       </Modal>
-    </div>
-  );
-
-  // Render Logs tab content
-  const renderLogsTab = () => (
-    <div className="admin-logs-section">
-      <h2 className="page-title">System Logs</h2>
-      <p className="section-description">View system activity and administrative actions.</p>
-      {loading ? (
-        <Spinner animation="border" role="status">
-          <span className="visually-hidden">Loading logs...</span>
-        </Spinner>
-      ) : (
-        <div className="table-responsive">
-          <Table striped bordered hover className="admin-table">
-            <thead>
-              <tr>
-                <th>ID</th>
-                <th>Action</th>
-                <th>By User</th>
-                <th>Timestamp</th>
-              </tr>
-            </thead>
-            <tbody>
-              {logs.length > 0 ? (
-                logs.map(log => (
-                  <tr key={log.id}>
-                    <td>{log.id}</td>
-                    <td>{log.action}</td>
-                    <td>{log.by_user_name || 'System'}</td>
-                    <td>{formatDate(log.timestamp)}</td>
-                  </tr>
-                ))
-              ) : (
-                <tr>
-                  <td colSpan="4" className="text-center">
-                    <p>No logs to display.</p>
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </Table>
-        </div>
-      )}
-    </div>
-  );
-
-  // Render Old Items tab content
-  const renderOldItemsTab = () => (
-    <div className="admin-old-items-section">
-      <h2 className="page-title">Old/Archived Items</h2>
-      <p className="section-description">These items are older than one year and can be permanently deleted to free up space, donated to charity, or restored if needed.</p>
-      {actionStatus && (
-        <Alert variant={actionStatus.type === 'success' ? 'success' : 'danger'} className="mb-3">
-          {actionStatus.message}
-        </Alert>
-      )}
-      {loading ? (
-        <Spinner animation="border" role="status">
-          <span className="visually-hidden">Loading old items...</span>
-        </Spinner>
-      ) : (
-        <div className="table-responsive">
-          <Table striped bordered hover className="admin-table">
-            <thead>
-              <tr>
-                <th>ID</th>
-                <th>Name</th>
-                <th>Category</th>
-                <th>Status</th>
-                <th>Date Found</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {oldItems.length > 0 ? (
-                oldItems.map(item => (
-                  <tr key={item.id}>
-                    <td>{item.id}</td>
-                    <td>{item.name || item.title}</td>
-                    <td>{item.category}</td>
-                    <td><Badge bg={item.status === 'lost' ? 'danger' : 'success'}>{item.status}</Badge></td>
-                    <td>{formatDate(item.date)}</td>
-                    <td>
-                      <ButtonGroup aria-label="Item Actions" size="sm">
-                        <Button variant="info" size="sm" onClick={() => navigate(`/items/${item.id}`)}>
-                          View
-                        </Button>
-                        <Button variant="warning" size="sm" onClick={() => handleDonateItem(item)}>
-                          Donate
-                        </Button>
-                        <Button variant="danger" size="sm" onClick={() => handleDeleteItem(item)}>
-                          Delete
-                        </Button>
-                      </ButtonGroup>
-                    </td>
-                  </tr>
-                ))
-              ) : (
-                <tr>
-                  <td colSpan="6" className="text-center">
-                    <p>No old items to display.</p>
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </Table>
-        </div>
-      )}
 
       {/* Delete Item Modal */}
       <Modal show={showDeleteModal} onHide={() => setShowDeleteModal(false)} centered>
@@ -967,157 +1259,6 @@ const AdminDashboard = () => {
           </Button>
         </Modal.Footer>
       </Modal>
-    </div>
-  );
-
-  // Render Dashboard Statistics
-  const renderDashboardStats = () => (
-    <div className="dashboard-stats-section">
-      <h2 className="page-title">Overview</h2>
-      <p className="section-description">Quick statistics about users and items on the platform.</p>
-      
-      {loading ? (
-        <Spinner animation="border" role="status">
-          <span className="visually-hidden">Loading stats...</span>
-        </Spinner>
-      ) : (
-        <div className="dashboard-cards-container">
-          <div className="dashboard-card total-users">
-            <div className="card-icon"><i className="fas fa-users"></i></div>
-            <div className="card-title">Total Users</div>
-            <div className="card-value">{stats.totalUsers}</div>
-          </div>
-          <div className="dashboard-card total-lost-items">
-            <div className="card-icon"><i className="fas fa-exclamation-circle"></i></div>
-            <div className="card-title">Total Lost Items</div>
-            <div className="card-value">{stats.totalLostItems}</div>
-          </div>
-          <div className="dashboard-card total-found-items">
-            <div className="card-icon"><i className="fas fa-hand-holding"></i></div>
-            <div className="card-title">Total Found Items</div>
-            <div className="card-value">{stats.totalFoundItems}</div>
-          </div>
-          <div className="dashboard-card total-pending-items">
-            <div className="card-icon"><i className="fas fa-hourglass-half"></i></div>
-            <div className="card-title">Pending Items</div>
-            <div className="card-value">{stats.totalPendingItems}</div>
-          </div>
-          <div className="dashboard-card total-returned-items">
-            <div className="card-icon"><i className="fas fa-check-circle"></i></div>
-            <div className="card-title">Returned Items</div>
-            <div className="card-value">{stats.totalReturnedItems}</div>
-          </div>
-          <div className="dashboard-card total-banned-users">
-            <div className="card-icon"><i className="fas fa-user-slash"></i></div>
-            <div className="card-title">Banned Users</div>
-            <div className="card-value">{stats.totalBannedUsers}</div>
-          </div>
-        </div>
-      )}
-
-      {/* Chart information text instead of actual charts */}
-      <div className="dashboard-charts-container">
-        <div className="chart-card">
-          <h3 className="chart-title">Users by Role</h3>
-          <div className="chart-placeholder">
-            <p>User role distribution information would be displayed here.</p>
-            <div className="role-stats">
-              <div className="role-stat">
-                <span className="role-label">Admins:</span>
-                <span className="role-value">{users.filter(user => user.role === 'admin').length}</span>
-              </div>
-              <div className="role-stat">
-                <span className="role-label">Users:</span>
-                <span className="role-value">{users.filter(user => user.role === 'user').length}</span>
-              </div>
-              <div className="role-stat">
-                <span className="role-label">Security:</span>
-                <span className="role-value">{users.filter(user => user.role === 'security').length}</span>
-              </div>
-            </div>
-          </div>
-        </div>
-        <div className="chart-card">
-          <h3 className="chart-title">Item Status Distribution</h3>
-          <div className="chart-placeholder">
-            <p>Item status distribution information would be displayed here.</p>
-            <div className="status-stats">
-              <div className="status-stat">
-                <span className="status-label">Lost:</span>
-                <span className="status-value">{items.filter(item => item.status === 'lost').length}</span>
-              </div>
-              <div className="status-stat">
-                <span className="status-label">Found:</span>
-                <span className="status-value">{items.filter(item => item.status === 'found').length}</span>
-              </div>
-              <div className="status-stat">
-                <span className="status-label">Requested:</span>
-                <span className="status-value">{items.filter(item => item.status === 'requested').length}</span>
-              </div>
-              <div className="status-stat">
-                <span className="status-label">Returned:</span>
-                <span className="status-value">{items.filter(item => item.status === 'returned').length}</span>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-
-  return (
-    <div className="admin-dashboard-container">
-      <div className="page-header">
-        <h1 className="page-title">Admin Dashboard</h1>
-        <p className="page-description">Welcome, {currentUser?.name || 'Admin'}! Here you can manage users, items, and system settings.</p>
-      </div>
-
-      {error && <Alert variant="danger" className="mb-3">{error}</Alert>}
-
-      {/* Tabs for navigation */}
-      <div className="tabs-container">
-        <div className="tabs-nav">
-          <button 
-            className={`tab ${activeTab === 'dashboard' ? 'active' : ''}`}
-            onClick={() => setActiveTab('dashboard')}
-          >
-            Dashboard
-          </button>
-          <button 
-            className={`tab ${activeTab === 'users' ? 'active' : ''}`}
-            onClick={() => setActiveTab('users')}
-          >
-            Users
-          </button>
-          <button 
-            className={`tab ${activeTab === 'items' ? 'active' : ''}`}
-            onClick={() => setActiveTab('items')}
-          >
-            Items
-          </button>
-          <button 
-            className={`tab ${activeTab === 'logs' ? 'active' : ''}`}
-            onClick={() => setActiveTab('logs')}
-          >
-            Logs
-          </button>
-          <button 
-            className={`tab ${activeTab === 'oldItems' ? 'active' : ''}`}
-            onClick={() => setActiveTab('oldItems')}
-          >
-            Old Items
-          </button>
-        </div>
-      </div>
-
-      {/* Tab content */}
-      <div className="tab-content">
-        {activeTab === 'dashboard' && renderDashboardStats()}
-        {activeTab === 'users' && renderUsersTab()}
-        {activeTab === 'items' && renderItemsTable(items)}
-        {activeTab === 'logs' && renderLogsTab()}
-        {activeTab === 'oldItems' && renderOldItemsTab()}
-      </div>
     </div>
   );
 };

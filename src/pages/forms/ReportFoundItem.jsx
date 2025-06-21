@@ -4,6 +4,8 @@ import { itemsApi } from '../../utils/api';
 import { AuthContext } from '../../context/AuthContext';
 import '../../styles/ItemForms.css';
 import SuccessMessage from '../../components/SuccessMessage';
+import { checkForMatches, sendMatchNotification, checkEmailMatches, notifyEmailMatches } from '../../utils/itemMatching';
+import { toast } from 'react-hot-toast';
 
 const ReportFoundItem = () => {
   const { currentUser } = useContext(AuthContext);
@@ -97,6 +99,44 @@ const ReportFoundItem = () => {
       // Use reportFound instead of createItem
       const response = await itemsApi.reportFound(submitData, currentUser.token);
       console.log('Found item reported:', response);
+      
+      // Check for matches with existing lost items
+      if (response && response.id) {
+        console.log('Checking for matches...');
+        const matches = await checkForMatches({
+          id: response.id,
+          title: formData.title,
+          category: formData.category,
+          location: formData.location,
+          date: formData.date,
+          description: formData.description,
+          status: 'found'
+        }, true); // true indicates this is a found item
+        
+        console.log('Matches found:', matches);
+        
+        // If matches found, show toast notification
+        if (matches && matches.length > 0) {
+          toast.success('We found potential matches for your found item! Check your email for details.');
+        }
+        
+        // Check for email matches
+        console.log('Checking for email matches...');
+        const { matches: emailMatches, matchCount } = await checkEmailMatches(currentUser.email, 'found');
+        
+        if (emailMatches && emailMatches.length > 0) {
+          console.log(`Found ${emailMatches.length} email matches`);
+          toast.success(`We found ${emailMatches.length} potential matches based on your email! Check your email for details.`);
+          
+          // Send email notification for email matches
+          await notifyEmailMatches(
+            currentUser.email,
+            currentUser.name,
+            emailMatches,
+            'found'
+          );
+        }
+      }
 
       // Show success message
       setSubmitSuccess(true);

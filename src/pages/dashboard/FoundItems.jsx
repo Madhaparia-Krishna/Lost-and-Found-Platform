@@ -95,12 +95,16 @@ const FoundItems = () => {
       const response = await itemsApi.requestItem(itemId);
       console.log('Request successful:', response);
       
-      // Update the items list to remove the requested item
-      // This is cleaner than updating the status, since we're only showing 'found' items
-      setItems(prevItems => prevItems.filter(item => item.id !== itemId));
+      // Update the item status instead of removing it
+      // Keep the item in the list but mark it as requested
+      setItems(prevItems => prevItems.map(item => 
+        item.id === itemId 
+          ? { ...item, status: 'requested' } 
+          : item
+      ));
       
       // Show success toast
-      toast.success('Item requested successfully! It has been removed from the found items list.');
+      toast.success('Item requested successfully! Your request is pending approval by security staff.');
       
       // Close the modal if it's open
       setShowModal(false);
