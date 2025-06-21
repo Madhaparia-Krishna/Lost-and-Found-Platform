@@ -963,7 +963,7 @@ app.get('/api/items', authenticateToken, async (req, res) => {
       if (connection) connection.release();
     }
     
-    // Build query based on filters
+    // Build query based on filters and user role
     let query = `
       SELECT 
         i.id,
@@ -978,14 +978,34 @@ app.get('/api/items', authenticateToken, async (req, res) => {
         i.created_at,
         i.is_approved,
         i.user_id,
-        i.claimed_by
+        i.claimed_by,
+        i.is_donated
       FROM Items i
       WHERE i.is_deleted = FALSE
-      AND i.user_id = ?
     `;
     
-    // Create array for query parameters (starts with user_id)
-    const queryParams = [req.user.id];
+    // Create array for query parameters
+    const queryParams = [];
+    
+    // Apply role-based filtering:
+    // - Admins: see all non-donated items
+    // - Other users: see only non-donated items AND only those created within the past year
+    if (req.user.role === 'admin') {
+      // Admin sees all non-donated items
+      query += ` AND i.is_donated = FALSE`;
+    } else {
+      // Regular users see only their own items
+      query += ` AND i.user_id = ? AND i.is_donated = FALSE`;
+      queryParams.push(req.user.id);
+      
+      // Regular users only see items less than a year old
+      const oneYearAgo = new Date();
+      oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
+      const oneYearAgoStr = oneYearAgo.toISOString().split('T')[0];
+      
+      query += ` AND i.created_at >= ?`;
+      queryParams.push(oneYearAgoStr);
+    }
     
     // Add status filter if provided
     if (statusFilter) {
@@ -997,10 +1017,10 @@ app.get('/api/items', authenticateToken, async (req, res) => {
     query += ` ORDER BY i.created_at DESC`;
     
     try {
-      const [reportedItems] = await pool.query(query, queryParams);
+      const [items] = await pool.query(query, queryParams);
       
       // Return the result
-      return res.json(reportedItems);
+      return res.json(items);
     } catch (queryError) {
       // Return a proper error response
       return res.status(500).json({ 
@@ -1700,6 +1720,56 @@ app.post('/api/items/matches', async (req, res) => {
   }
 });
 
+// Find items with matching email
+app.post('/api/items/email-matches', async (req, res) => {
+  try {
+    const { email, itemType } = req.body;
+    
+    if (!email) {
+      return res.status(400).json({ message: 'Email is required' });
+    }
+    
+    console.log(`Searching for ${itemType} items with matching email: ${email}`);
+    
+    // Normalize email
+    const normalizedEmail = email.toLowerCase().trim();
+    
+    // Get items with the specified type
+    const [items] = await pool.query(`
+      SELECT i.*, u.email as reporter_email, u.name as reporter_name 
+      FROM Items i 
+      JOIN Users u ON i.user_id = u.id 
+      WHERE i.status = ? 
+      AND i.is_deleted = FALSE
+      ${itemType === 'found' ? 'AND i.is_approved = TRUE' : ''}
+    `, [itemType]);
+    
+    console.log(`Found ${items.length} ${itemType} items to check for email matches`);
+    
+    // Find items with matching email
+    const matches = items.filter(item => {
+      // Check if reporter email matches
+      if (item.reporter_email && item.reporter_email.toLowerCase().trim() === normalizedEmail) {
+        return true;
+      }
+      
+      // Check if email is mentioned in description
+      if (item.description && item.description.toLowerCase().includes(normalizedEmail)) {
+        return true;
+      }
+      
+      return false;
+    });
+    
+    console.log(`Found ${matches.length} items with matching email: ${normalizedEmail}`);
+    
+    res.json({ matches });
+  } catch (error) {
+    console.error('Error finding email matches:', error);
+    res.status(500).json({ message: 'Error finding email matches' });
+  }
+});
+
 // Approve a found item
 app.put('/api/security/items/:itemId/approve', authenticateToken, async (req, res) => {
   try {
@@ -1970,13 +2040,55 @@ app.put('/items/:itemId/request', async (req, res) => {
         });
       }
       
-      // Update item status directly to 'requested'
+      // Update item status to 'requested' with pending approval
       try {
+        // Add request_status column if it doesn't exist
+        try {
+          await pool.query(`
+            ALTER TABLE Items 
+            ADD COLUMN IF NOT EXISTS request_status VARCHAR(20) DEFAULT NULL,
+            ADD COLUMN IF NOT EXISTS request_user_id INT DEFAULT NULL
+          `);
+        } catch (alterError) {
+          console.error('Error altering Items table:', alterError);
+          // Continue anyway, column might already exist
+        }
+        
+        // Update with pending approval status
         await pool.query(
-          'UPDATE Items SET status = "requested", updated_at = NOW() WHERE id = ?',
-          [itemId]
+          'UPDATE Items SET status = "requested", request_status = "pending", request_user_id = ?, updated_at = NOW() WHERE id = ?',
+          [userId, itemId]
         );
-        console.log(`Successfully updated item ${itemId} to 'requested' status`);
+        console.log(`Successfully updated item ${itemId} to 'requested' status with pending approval`);
+        
+        // Create notification for security staff
+        if (userId) {
+          try {
+            // Get security users
+            const [securityUsers] = await pool.query(
+              'SELECT id FROM Users WHERE role = "security" OR role = "admin"'
+            );
+            
+            console.log(`Found ${securityUsers.length} security/admin users to notify`);
+            
+            // Notify each security staff member
+            for (const secUser of securityUsers) {
+              await pool.query(
+                'INSERT INTO Notifications (user_id, message, type, related_item_id) VALUES (?, ?, ?, ?)',
+                [
+                  secUser.id,
+                  `New item request pending approval: Item #${itemId}`,
+                  'request_pending',
+                  itemId
+                ]
+              );
+            }
+            console.log('Security staff notifications created');
+          } catch (notifyError) {
+            console.error('Error notifying security staff:', notifyError);
+            // Continue anyway
+          }
+        }
       } catch (statusUpdateError) {
         console.error('Error updating item status:', statusUpdateError);
         return res.status(500).json({ 
@@ -1987,10 +2099,11 @@ app.put('/items/:itemId/request', async (req, res) => {
       
       // Return the updated item
       res.json({ 
-        message: 'Item request processed successfully',
+        message: 'Item requested successfully. Your request is pending approval by security staff.',
         item: {
           ...item,
-          status: 'requested' // Tell the client we changed it to requested, even if database kept it as lost
+          status: 'requested',
+          request_status: 'pending'
         }
       });
     } catch (dbError) {
@@ -2050,13 +2163,55 @@ app.post('/items/request/:itemId', async (req, res) => {
         });
       }
       
-      // Update item status directly to 'requested'
+      // Update item status to 'requested' with pending approval
       try {
+        // Add request_status column if it doesn't exist
+        try {
+          await pool.query(`
+            ALTER TABLE Items 
+            ADD COLUMN IF NOT EXISTS request_status VARCHAR(20) DEFAULT NULL,
+            ADD COLUMN IF NOT EXISTS request_user_id INT DEFAULT NULL
+          `);
+        } catch (alterError) {
+          console.error('Error altering Items table:', alterError);
+          // Continue anyway, column might already exist
+        }
+        
+        // Update with pending approval status
         await pool.query(
-          'UPDATE Items SET status = "requested", updated_at = NOW() WHERE id = ?',
-          [itemId]
+          'UPDATE Items SET status = "requested", request_status = "pending", request_user_id = ?, updated_at = NOW() WHERE id = ?',
+          [userId, itemId]
         );
-        console.log(`Successfully updated item ${itemId} to 'requested' status`);
+        console.log(`Successfully updated item ${itemId} to 'requested' status with pending approval`);
+        
+        // Create notification for security staff
+        if (userId) {
+          try {
+            // Get security users
+            const [securityUsers] = await pool.query(
+              'SELECT id FROM Users WHERE role = "security" OR role = "admin"'
+            );
+            
+            console.log(`Found ${securityUsers.length} security/admin users to notify`);
+            
+            // Notify each security staff member
+            for (const secUser of securityUsers) {
+              await pool.query(
+                'INSERT INTO Notifications (user_id, message, type, related_item_id) VALUES (?, ?, ?, ?)',
+                [
+                  secUser.id,
+                  `New item request pending approval: Item #${itemId}`,
+                  'request_pending',
+                  itemId
+                ]
+              );
+            }
+            console.log('Security staff notifications created');
+          } catch (notifyError) {
+            console.error('Error notifying security staff:', notifyError);
+            // Continue anyway
+          }
+        }
       } catch (statusUpdateError) {
         console.error('Error updating item status:', statusUpdateError);
         return res.status(500).json({ 
@@ -2067,10 +2222,11 @@ app.post('/items/request/:itemId', async (req, res) => {
       
       // Return the updated item
       res.json({ 
-        message: 'Item requested successfully',
+        message: 'Item requested successfully. Your request is pending approval by security staff.',
         item: {
           ...item,
-          status: 'requested'
+          status: 'requested',
+          request_status: 'pending'
         }
       });
     } catch (dbError) {
@@ -2107,6 +2263,167 @@ app.get('/api/security/pending-items', authenticateToken, async (req, res) => {
   } catch (error) {
     console.error('Error fetching pending items:', error);
     res.status(500).json({ message: 'Error fetching pending items' });
+  }
+});
+
+// Get pending item requests for security review
+app.get('/api/security/pending-requests', authenticateToken, async (req, res) => {
+  try {
+    // Check if user is security or admin
+    if (req.user.role !== 'security' && req.user.role !== 'admin') {
+      return res.status(403).json({ message: 'Unauthorized access' });
+    }
+
+    const [items] = await pool.query(`
+      SELECT 
+        i.*,
+        u.name as requester_name,
+        u.email as requester_email,
+        r.name as reporter_name
+      FROM Items i
+      LEFT JOIN Users u ON i.request_user_id = u.id
+      LEFT JOIN Users r ON i.user_id = r.id
+      WHERE i.is_deleted = FALSE 
+      AND i.status = 'requested'
+      AND i.request_status = 'pending'
+      ORDER BY i.updated_at DESC
+    `);
+
+    res.json(items);
+  } catch (error) {
+    console.error('Error fetching pending requests:', error);
+    res.status(500).json({ message: 'Error fetching pending requests' });
+  }
+});
+
+// Approve a pending item request
+app.put('/api/security/requests/:itemId/approve', authenticateToken, async (req, res) => {
+  try {
+    // Check if user is security or admin
+    if (req.user.role !== 'security' && req.user.role !== 'admin') {
+      return res.status(403).json({ message: 'Unauthorized access' });
+    }
+
+    const { itemId } = req.params;
+    
+    // Check if item exists and is in requested status
+    const [items] = await pool.query(
+      'SELECT * FROM Items WHERE id = ? AND status = "requested" AND request_status = "pending"',
+      [itemId]
+    );
+    
+    if (items.length === 0) {
+      return res.status(404).json({ message: 'Item not found or not in pending request status' });
+    }
+    
+    const item = items[0];
+    
+    // Update the request status to approved
+    await pool.query(
+      'UPDATE Items SET request_status = "approved" WHERE id = ?',
+      [itemId]
+    );
+    
+    // Notify the requester if available
+    if (item.request_user_id) {
+      // Get requester info
+      const [requesters] = await pool.query(
+        'SELECT * FROM Users WHERE id = ?',
+        [item.request_user_id]
+      );
+      
+      if (requesters.length > 0) {
+        const requester = requesters[0];
+        
+        // Create notification
+        await pool.query(
+          'INSERT INTO Notifications (user_id, message, type, related_item_id) VALUES (?, ?, ?, ?)',
+          [
+            requester.id,
+            `Your request for item "${item.title}" has been approved. Please visit the security office to collect it.`,
+            'request_approved',
+            itemId
+          ]
+        );
+      }
+    }
+    
+    // Log the action
+    await pool.query(
+      'INSERT INTO Logs (action, by_user) VALUES (?, ?)',
+      [`Item request approved: Item #${itemId}`, req.user.id]
+    );
+
+    res.json({ message: 'Item request approved successfully' });
+  } catch (error) {
+    console.error('Error approving item request:', error);
+    res.status(500).json({ message: 'Error approving item request' });
+  }
+});
+
+// Reject a pending item request
+app.put('/api/security/requests/:itemId/reject', authenticateToken, async (req, res) => {
+  try {
+    // Check if user is security or admin
+    if (req.user.role !== 'security' && req.user.role !== 'admin') {
+      return res.status(403).json({ message: 'Unauthorized access' });
+    }
+
+    const { itemId } = req.params;
+    const { reason } = req.body;
+    
+    // Check if item exists and is in requested status
+    const [items] = await pool.query(
+      'SELECT * FROM Items WHERE id = ? AND status = "requested" AND request_status = "pending"',
+      [itemId]
+    );
+    
+    if (items.length === 0) {
+      return res.status(404).json({ message: 'Item not found or not in pending request status' });
+    }
+    
+    const item = items[0];
+    
+    // Update the item back to found status and clear request fields
+    await pool.query(
+      'UPDATE Items SET status = "found", request_status = "rejected", rejection_reason = ? WHERE id = ?',
+      [reason || 'Request rejected by security', itemId]
+    );
+    
+    // Notify the requester if available
+    if (item.request_user_id) {
+      // Get requester info
+      const [requesters] = await pool.query(
+        'SELECT * FROM Users WHERE id = ?',
+        [item.request_user_id]
+      );
+      
+      if (requesters.length > 0) {
+        const requester = requesters[0];
+        
+        // Create notification
+        await pool.query(
+          'INSERT INTO Notifications (user_id, message, type, related_item_id) VALUES (?, ?, ?, ?)',
+          [
+            requester.id,
+            `Your request for item "${item.title}" has been rejected${reason ? `: ${reason}` : ''}.`,
+            'request_rejected',
+            itemId
+          ]
+        );
+      }
+    }
+    
+    // Log the action
+    await pool.query(
+      'INSERT INTO Logs (action, by_user) VALUES (?, ?)',
+      [`Item request rejected: Item #${itemId}${reason ? ` - Reason: ${reason}` : ''}`, req.user.id]
+    );
+
+    res.json({ message: 'Item request rejected successfully' });
+  } catch (error) {
+    console.error('Error rejecting item request:', error);
+    res.status(500).json({ message: 'Error rejecting item request' });
   }
 });
 
@@ -2966,6 +3283,87 @@ app.get('/api/admin/items', authenticateToken, async (req, res) => {
   }
 });
 
+// Get old items (older than 1 year) - admin only
+app.get('/api/admin/old-items', authenticateToken, async (req, res) => {
+  try {
+    // Check if user is admin
+    if (req.user.role !== 'admin') {
+      return res.status(403).json({ message: 'Unauthorized access' });
+    }
+    
+    console.log('Old items endpoint accessed by admin:', req.user.id, req.user.name);
+
+    // Calculate date 1 year ago
+    const oneYearAgo = new Date();
+    oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
+    const oneYearAgoStr = oneYearAgo.toISOString().split('T')[0];
+    
+    console.log('Fetching items older than:', oneYearAgoStr);
+    
+    // Get items older than 1 year that are not donated
+    const [items] = await pool.query(
+      `SELECT i.*, u.name as reporter_name, u.email as reporter_email 
+       FROM Items i 
+       LEFT JOIN Users u ON i.user_id = u.id
+       WHERE (i.created_at < ? OR i.date < ?)
+       AND i.is_donated = FALSE
+       AND i.is_deleted = FALSE`,
+      [oneYearAgoStr, oneYearAgoStr]
+    );
+    
+    console.log(`Found ${items.length} old items eligible for donation`);
+    res.json(items);
+  } catch (error) {
+    console.error('Error fetching old items:', error);
+    res.status(500).json({ message: 'Error fetching old items' });
+  }
+});
+
+// Donate item endpoint (admin only)
+app.patch('/api/items/:id/donate', authenticateToken, async (req, res) => {
+  try {
+    // Check if user is admin
+    if (req.user.role !== 'admin') {
+      return res.status(403).json({ message: 'Unauthorized access: Admin permission required' });
+    }
+
+    const itemId = req.params.id;
+    
+    // Check if item exists
+    const [itemCheck] = await pool.query(
+      'SELECT * FROM Items WHERE id = ? AND is_deleted = FALSE',
+      [itemId]
+    );
+    
+    if (itemCheck.length === 0) {
+      return res.status(404).json({ message: 'Item not found' });
+    }
+    
+    // Mark item as donated
+    await pool.query(
+      'UPDATE Items SET is_donated = TRUE WHERE id = ?',
+      [itemId]
+    );
+    
+    // Log the donation action
+    await pool.query(
+      'INSERT INTO Logs (action, by_user) VALUES (?, ?)',
+      [`Item ID ${itemId} marked as donated`, req.user.id]
+    );
+    
+    // Create system log
+    await logSystemAction(`Item ID ${itemId} marked as donated by admin`, { itemId }, req.user.id);
+    
+    res.json({ 
+      message: 'Item successfully marked as donated',
+      itemId
+    });
+  } catch (error) {
+    console.error('Error marking item as donated:', error);
+    res.status(500).json({ message: 'Error marking item as donated' });
+  }
+});
+
 // Get system logs - admin only
 app.get('/api/admin/logs', authenticateToken, async (req, res) => {
   try {
@@ -2998,6 +3396,8 @@ app.get('/api/admin/stats', authenticateToken, async (req, res) => {
       return res.status(403).json({ message: 'Unauthorized access' });
     }
 
+    console.log('Admin stats endpoint accessed by user:', req.user.id, req.user.name);
+
     // Get count of all users
     const [userCount] = await pool.query(
       'SELECT COUNT(*) as total, SUM(CASE WHEN is_deleted = TRUE THEN 1 ELSE 0 END) as banned FROM Users'
@@ -3012,7 +3412,7 @@ app.get('/api/admin/stats', authenticateToken, async (req, res) => {
          SUM(CASE WHEN status = 'claimed' THEN 1 ELSE 0 END) as claimed,
          SUM(CASE WHEN status = 'returned' THEN 1 ELSE 0 END) as returned,
          SUM(CASE WHEN status = 'requested' THEN 1 ELSE 0 END) as requested
-       FROM Items`
+       FROM Items WHERE is_deleted = FALSE`
     );
 
     // Get recent activity from logs
@@ -3035,6 +3435,8 @@ app.get('/api/admin/stats', authenticateToken, async (req, res) => {
        ORDER BY month`
     );
 
+    console.log('Admin stats generated successfully');
+    
     res.json({
       users: userCount[0],
       items: itemStats[0],

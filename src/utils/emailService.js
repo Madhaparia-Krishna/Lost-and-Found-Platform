@@ -237,6 +237,51 @@ export const sendRequestApprovedNotification = async (userEmail, userName, itemT
   }
 };
 
+// Send potential matches email notification
+export const sendPotentialMatchesEmail = async (userEmail, userName, itemType, matches) => {
+  try {
+    // Make sure EmailJS is initialized
+    initEmailJS();
+    
+    // Format current time
+    const now = new Date();
+    const formattedTime = now.toLocaleString();
+    
+    // Format matches for email
+    const matchesText = matches.map((match, index) => 
+      `${index + 1}. ${match.title} (${match.category}) - Found at ${match.location} on ${match.date}`
+    ).join('\n');
+    
+    // Build parameters for template
+    const templateParams = {
+      to_email: userEmail,
+      name: "Lost & Found System",
+      user_name: userName,
+      time: formattedTime,
+      message: `We found ${matches.length} potential ${itemType === 'lost' ? 'found' : 'lost'} items that may match your ${itemType} item report based on your email.`,
+      item_title: `${matches.length} Potential Matches Found`,
+      category: "Email Matches",
+      date: now.toLocaleDateString(),
+      match_link: `${window.location.origin}/items`,
+      additional_info: matchesText
+    };
+
+    console.log('Sending potential matches email with params:', templateParams);
+
+    const response = await emailjs.send(
+      emailConfig.serviceId,
+      emailConfig.templates.matchNotification, // Reusing the match template
+      templateParams
+    );
+    
+    console.log('Potential matches email sent!', response);
+    return { success: true, response };
+  } catch (error) {
+    console.error('Error sending potential matches email:', error);
+    return { success: false, error };
+  }
+};
+
 export default {
   initEmailJS,
   sendMatchNotification,
@@ -244,5 +289,6 @@ export default {
   sendClaimNotification,
   sendAccountBlockedNotification,
   sendItemReturnedNotification,
-  sendRequestApprovedNotification
+  sendRequestApprovedNotification,
+  sendPotentialMatchesEmail
 };

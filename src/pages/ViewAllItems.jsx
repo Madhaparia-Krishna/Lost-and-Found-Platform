@@ -49,8 +49,13 @@ const ViewAllItems = () => {
       const itemsArray = await itemsApi.getAll('found');
       console.log('Items fetched:', itemsArray.length);
       
-      // No need to filter for approval status - show all found items
-      setItems(itemsArray);
+      // Filter to show only approved found items
+      const approvedItems = itemsArray.filter(item => 
+        item.is_approved === true || item.is_approved === 1 || item.is_approved === '1'
+      );
+      console.log('Approved items:', approvedItems.length);
+      
+      setItems(approvedItems);
       
       // Log item statuses for debugging
       const approvedCount = itemsArray.filter(item => 

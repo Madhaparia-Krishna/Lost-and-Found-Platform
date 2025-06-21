@@ -1,8 +1,16 @@
 /* Admin Dashboard with homepage color scheme */
-.admin-dashboard {
-  padding: 2rem;
+.admin-dashboard-container {
+  padding: 2rem 3rem;
   background-color: #EAE7DC;
   min-height: 100vh;
+  padding-top: 1rem; /* Add padding to create space after navbar */
+}
+
+.admin-dashboard {
+  padding: 2rem 3rem;
+  background-color: #EAE7DC;
+  min-height: 100vh;
+  padding-top: 4rem; /* Add padding to create space after navbar */
 }
 
 .admin-dashboard h1 {
@@ -10,7 +18,8 @@
   color: #4D4C4A;
   font-weight: 700;
   text-align: center;
-  padding-top: 1.5rem;
+  padding-top: 2rem;
+  padding-bottom: 1rem;
 }
 
 .admin-dashboard h2 {
@@ -21,13 +30,13 @@
 
 .admin-dashboard .card {
   border: none;
-  border-radius: 2px;
+  border-radius: 4px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
   transition: all 0.3s ease;
   margin-bottom: 1.5rem;
   overflow: hidden;
   border: 1px solid #D8C3A5;
-  padding: 0.75rem;
+  padding: 1.25rem;
 }
 
 .admin-dashboard .card:hover {
@@ -39,12 +48,12 @@
   font-weight: 600;
   background-color: #D8C3A5;
   border-bottom: 1px solid #D8C3A5;
-  padding: 1rem 1.5rem;
+  padding: 1.25rem 2rem;
   color: #4D4C4A;
 }
 
 .admin-dashboard .card-body {
-  padding: 1.5rem;
+  padding: 1.75rem 2rem;
 }
 
 .admin-dashboard .card-title {

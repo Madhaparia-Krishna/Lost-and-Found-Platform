@@ -118,3 +118,79 @@ export const checkForMatches = async (newItem, isFoundItem) => {
     return [];
   }
 }; 
+
+// Check for email matches when a new item is reported
+export const checkEmailMatches = async (email, itemType) => {
+  if (!email || typeof email !== 'string' || !email.includes('@')) {
+    console.error('Invalid email provided for matching');
+    return { matches: [], matchCount: 0 };
+  }
+  
+  try {
+    console.log(`Checking for ${itemType} items with email: ${email}`);
+    
+    // Normalize email (lowercase, trim)
+    const normalizedEmail = email.toLowerCase().trim();
+    
+    // Make API request to find items with matching email
+    const response = await fetch(`http://localhost:5000/api/items/email-matches`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        email: normalizedEmail,
+        itemType: itemType === 'lost' ? 'found' : 'lost' // Look for opposite type
+      })
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to check for email matches');
+    }
+
+    const { matches } = await response.json();
+    
+    console.log(`Found ${matches.length} potential email matches`);
+    return { 
+      matches,
+      matchCount: matches.length
+    };
+  } catch (error) {
+    console.error('Error checking for email matches:', error);
+    return { matches: [], matchCount: 0 };
+  }
+};
+
+// Send email notification for potential matches
+export const notifyEmailMatches = async (userEmail, userName, matches, itemType) => {
+  try {
+    if (!matches || matches.length === 0) {
+      console.log('No matches to notify about');
+      return { success: true, message: 'No matches to notify about' };
+    }
+    
+    console.log(`Sending email notification for ${matches.length} potential matches`);
+    
+    // Format matches for email
+    const matchesInfo = matches.map(match => ({
+      title: match.title,
+      category: match.category,
+      location: match.location,
+      date: new Date(match.date).toLocaleDateString(),
+      id: match.id
+    }));
+    
+    // Send email notification
+    const result = await emailService.sendPotentialMatchesEmail(
+      userEmail,
+      userName,
+      itemType,
+      matchesInfo
+    );
+    
+    return result;
+  } catch (error) {
+    console.error('Error sending email notification for matches:', error);
+    return { success: false, message: error.message };
+  }
+};
