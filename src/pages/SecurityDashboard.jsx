@@ -696,8 +696,9 @@ const SecurityDashboard = () => {
               {users.length > 0 ? (
                 users
                   .filter(user => 
-                    user.name?.toLowerCase().includes(userSearchQuery.toLowerCase()) ||
-                    user.email?.toLowerCase().includes(userSearchQuery.toLowerCase())
+                    (user.name?.toLowerCase().includes(userSearchQuery.toLowerCase()) ||
+                    user.email?.toLowerCase().includes(userSearchQuery.toLowerCase())) &&
+                    user.role !== 'admin' && user.role !== 'security'
                   )
                   .map(user => (
                     <tr key={user.id}>

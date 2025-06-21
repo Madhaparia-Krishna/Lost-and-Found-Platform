@@ -2775,10 +2775,9 @@ app.put('/api/admin/users/:userId/ban', authenticateToken, async (req, res) => {
     await pool.query('UPDATE Users SET is_deleted = TRUE WHERE id = ?', [userId]);
     
     // Log the action
-    await logSystemAction(
-      'User banned',
-      `User ID ${userId} (${users[0].name}) has been banned by ${req.user.id}`,
-      req.user.id
+    await pool.query(
+      'INSERT INTO Logs (action, by_user) VALUES (?, ?)',
+      [`User banned`, user.id]
     );
     
     res.json({ message: 'User banned successfully' });
@@ -3364,6 +3363,61 @@ app.patch('/api/items/:id/donate', authenticateToken, async (req, res) => {
   }
 });
 
+// Donate item endpoint (admin only) - simplified version
+app.post('/api/items/:id/donate', authenticateToken, async (req, res) => {
+  try {
+    // Check if user is admin
+    if (req.user.role !== 'admin') {
+      return res.status(403).json({ message: 'Unauthorized access: Admin permission required' });
+    }
+
+    const itemId = req.params.id;
+    console.log(`Processing donation request for item ${itemId} by user ${req.user.id}`);
+    
+    // Check if item exists
+    const [itemCheck] = await pool.query(
+      'SELECT * FROM Items WHERE id = ? AND is_deleted = FALSE',
+      [itemId]
+    );
+    
+    if (itemCheck.length === 0) {
+      console.log(`Item ${itemId} not found or deleted`);
+      return res.status(404).json({ message: 'Item not found' });
+    }
+    
+    console.log(`Item found: ${JSON.stringify(itemCheck[0])}`);
+    
+    // Mark item as donated
+    await pool.query(
+      'UPDATE Items SET is_donated = TRUE WHERE id = ?',
+      [itemId]
+    );
+    
+    console.log(`Item ${itemId} marked as donated successfully`);
+    
+    // Log the donation action - with details
+    try {
+      await pool.query(
+        'INSERT INTO Logs (action, by_user) VALUES (?, ?)',
+        [`Item ID ${itemId} marked as donated`, req.user.id]
+      );
+      console.log(`Donation action logged for item ${itemId}`);
+    } catch (logError) {
+      console.error('Error logging donation action:', logError);
+      // Continue processing even if logging fails
+    }
+    
+    res.status(200).json({ 
+      success: true,
+      message: 'Item successfully marked as donated',
+      itemId
+    });
+  } catch (error) {
+    console.error('Error marking item as donated:', error);
+    res.status(500).json({ message: 'Error marking item as donated', error: error.message });
+  }
+});
+
 // Get system logs - admin only
 app.get('/api/admin/logs', authenticateToken, async (req, res) => {
   try {
@@ -3609,12 +3663,12 @@ app.get('/api/admin/old-items', authenticateToken, async (req, res) => {
     
     console.log(`Fetching items older than ${date}`);
 
-    // Get old items
+    // Get old items that are not donated
     const [items] = await pool.query(
       `SELECT i.*, u.name as reporter_name, u.email as reporter_email 
        FROM Items i 
        LEFT JOIN Users u ON i.user_id = u.id
-       WHERE i.created_at < ?
+       WHERE i.created_at < ? AND i.is_donated = FALSE
        ORDER BY i.created_at ASC`,
       [date]
     );
@@ -3623,6 +3677,33 @@ app.get('/api/admin/old-items', authenticateToken, async (req, res) => {
   } catch (error) {
     console.error('Error fetching old items:', error);
     res.status(500).json({ message: 'Error fetching old items' });
+  }
+});
+
+// Get donated items - admin only
+app.get('/api/admin/donated-items', authenticateToken, async (req, res) => {
+  try {
+    // Check if user is admin
+    if (req.user.role !== 'admin') {
+      return res.status(403).json({ message: 'Unauthorized access' });
+    }
+
+    console.log('Fetching donated items');
+
+    // Get donated items
+    const [items] = await pool.query(
+      `SELECT i.*, u.name as reporter_name, u.email as reporter_email 
+       FROM Items i 
+       LEFT JOIN Users u ON i.user_id = u.id
+       WHERE i.is_donated = TRUE
+       ORDER BY i.updated_at DESC`
+    );
+
+    console.log(`Found ${items.length} donated items`);
+    res.json(items);
+  } catch (error) {
+    console.error('Error fetching donated items:', error);
+    res.status(500).json({ message: 'Error fetching donated items' });
   }
 });
 

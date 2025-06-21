@@ -1023,8 +1023,8 @@ export const adminApi = {
   // Donate item (mark as donated)
   donateItem: async (itemId) => {
     try {
-      // Use the markItemForDonation function which has better error handling
-      return await adminApi.markItemForDonation(itemId, 'Unclaimed for over a year');
+      // Use the simplified markItemForDonation function
+      return await adminApi.markItemForDonation(itemId);
     } catch (error) {
       console.error('Error marking item as donated:', error);
       return handleError(error);
@@ -1104,24 +1104,32 @@ export const adminApi = {
   },
   
   // Mark item for donation
-  markItemForDonation: async (itemId, reason, organization = '') => {
+  markItemForDonation: async (itemId) => {
     try {
-      const response = await api.put(`/api/admin/items/${itemId}/donate`, { 
-        reason, 
-        organization 
-      });
+      console.log(`Marking item ${itemId} for donation - simplified request`);
+      const response = await api.post(`/api/items/${itemId}/donate`);
       return handleResponse(response);
     } catch (error) {
       console.error('Error marking item for donation:', error);
-      // Try alternative endpoint if the first one fails
+      return handleError(error);
+    }
+  },
+  
+  // Get donated items
+  getDonatedItems: async () => {
+    try {
+      const response = await api.get('/api/admin/donated-items');
+      return handleResponse(response);
+    } catch (error) {
+      console.error('Error fetching donated items:', error);
+      
+      // Fallback: filter from all items if endpoint doesn't exist
       try {
-        const altResponse = await api.put(`/api/items/${itemId}/donate`, { 
-          reason, 
-          organization 
-        });
-        return handleResponse(altResponse);
-      } catch (altError) {
-        return handleError(altError);
+        const allItems = await adminApi.getAllItems();
+        return allItems.filter(item => item.is_donated === 1 || item.is_donated === true);
+      } catch (fallbackError) {
+        console.error('Fallback for donated items also failed:', fallbackError);
+        return [];
       }
     }
   }

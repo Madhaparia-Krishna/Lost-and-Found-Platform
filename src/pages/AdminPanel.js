@@ -24,6 +24,7 @@ const AdminPanel = () => {
     itemsReturned: 0,
     pendingClaims: 0
   });
+  const [bannedUsers, setBannedUsers] = useState([]);
 
   // Refresh data function
   const refreshData = () => {
@@ -47,6 +48,11 @@ const AdminPanel = () => {
 
       const data = await response.json();
       setUsers(data.users);
+      
+      // Filter out banned users for the banned users tab
+      const banned = data.users.filter(user => user.is_deleted === true);
+      setBannedUsers(banned);
+      
       setStats(prev => ({
         ...prev,
         totalUsers: data.users.length
@@ -225,7 +231,7 @@ const AdminPanel = () => {
     // Load data for the active tab
     const loadData = async () => {
       try {
-        if (activeTab === 'users' || activeTab === 'stats') {
+        if (activeTab === 'users' || activeTab === 'stats' || activeTab === 'bannedUsers') {
           await fetchUsers();
         }
         
@@ -279,6 +285,46 @@ const AdminPanel = () => {
       setActionStatus({ 
         type: 'error', 
         message: err.message || 'Failed to update user role'
+      });
+    }
+  };
+
+  // Handle unbanning a user
+  const handleUnbanUser = async (userId) => {
+    try {
+      setActionStatus({ type: 'loading', message: `Unbanning user ${userId}...` });
+      const response = await fetch(`/api/admin/users/${userId}/unban`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${currentUser.token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to unban user');
+      }
+
+      // Update the local state
+      const updatedUsers = users.map(user => 
+        user.id === userId ? { ...user, is_deleted: false } : user
+      );
+      setUsers(updatedUsers);
+      
+      // Update banned users list
+      setBannedUsers(bannedUsers.filter(user => user.id !== userId));
+
+      setActionStatus({ type: 'success', message: `User unbanned successfully` });
+      
+      // Clear success message after 3 seconds
+      setTimeout(() => {
+        setActionStatus(null);
+      }, 3000);
+    } catch (err) {
+      console.error('Error unbanning user:', err);
+      setActionStatus({ 
+        type: 'error', 
+        message: err.message || 'Failed to unban user'
       });
     }
   };
@@ -339,6 +385,14 @@ const AdminPanel = () => {
           User Management
         </button>
         <button
+          className={`tab ${activeTab === 'bannedUsers' ? 'active' : ''}`}
+          onClick={() => setActiveTab('bannedUsers')}
+          data-tab="bannedUsers"
+          data-count={bannedUsers.length}
+        >
+          Banned Users
+        </button>
+        <button
           className={`tab ${activeTab === 'logs' ? 'active' : ''}`}
           onClick={() => setActiveTab('logs')}
         >
@@ -377,7 +431,7 @@ const AdminPanel = () => {
                 </tr>
               </thead>
               <tbody>
-                {users.map(user => (
+                {users.filter(user => !user.is_deleted).map(user => (
                   <tr key={user.id}>
                     <td>{user.id}</td>
                     <td>{user.name}</td>
@@ -393,11 +447,58 @@ const AdminPanel = () => {
                         value={user.role}
                         onChange={(e) => handleRoleChange(user.id, e.target.value)}
                         className="role-select"
+                        disabled={user.role === 'admin' || user.role === 'security'}
                       >
                         <option value="user">User</option>
                         <option value="security">Security</option>
                         <option value="admin">Admin</option>
                       </select>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+      )}
+
+      {activeTab === 'bannedUsers' && (
+        <div className="panel-section">
+          <h2>Banned Users</h2>
+          {renderErrorMessage(usersError, fetchUsers)}
+          {bannedUsers.length === 0 && !usersError ? (
+            <p>No banned users found.</p>
+          ) : (
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th>ID</th>
+                  <th>Name</th>
+                  <th>Email</th>
+                  <th>Role</th>
+                  <th>Ban Reason</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {bannedUsers.map(user => (
+                  <tr key={user.id}>
+                    <td>{user.id}</td>
+                    <td>{user.name}</td>
+                    <td>{user.email}</td>
+                    <td>
+                      <span className={`role-badge role-${user.role}`}>
+                        {user.role}
+                      </span>
+                    </td>
+                    <td>{user.ban_reason || 'N/A'}</td>
+                    <td>
+                      <button 
+                        onClick={() => handleUnbanUser(user.id)}
+                        className="unban-btn"
+                      >
+                        Unban User
+                      </button>
                     </td>
                   </tr>
                 ))}
