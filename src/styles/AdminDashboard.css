@@ -436,4 +436,139 @@
   top: -1px;
   font-size: 0.7rem;
   padding: 0.2em 0.5em;
+}
+
+/* Add styling for PDF download dropdown */
+.dashboard-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 20px;
+}
+
+.dropdown-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.dropdown-toggle i {
+  margin-right: 5px;
+}
+
+.dropdown-menu {
+  padding: 8px 0;
+  border-radius: 4px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+  border: 1px solid #e9ecef;
+}
+
+.dropdown-item {
+  padding: 8px 16px;
+  font-size: 14px;
+  color: #333;
+  background: none;
+  border: none;
+  text-align: left;
+  width: 100%;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.dropdown-item:hover {
+  background-color: #f8f9fa;
+  color: #0056b3;
+}
+
+/* Page header with download button */
+.page-header {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 2rem;
+  position: relative;
+}
+
+.page-title {
+  margin: 0;
+  font-size: 2rem;
+  font-weight: 600;
+  color: #2c3e50;
+  flex: 1;
+}
+
+.page-description {
+  width: 100%;
+  margin-top: 0.5rem;
+  color: #6c757d;
+}
+
+.page-header-actions {
+  display: flex;
+  gap: 10px;
+  margin-left: auto;
+}
+
+/* Download report button */
+.download-report-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background-color: #4CAF50;
+  border-color: #4CAF50;
+  padding: 8px 16px;
+  border-radius: 4px;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+}
+
+.download-report-btn:hover {
+  background-color: #3e8e41;
+  border-color: #3e8e41;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+}
+
+.download-report-btn:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+}
+
+.download-report-btn:disabled {
+  background-color: #cccccc;
+  border-color: #cccccc;
+  cursor: not-allowed;
+  opacity: 0.7;
+  transform: none;
+  box-shadow: none;
+}
+
+.download-report-btn i {
+  font-size: 1.1rem;
+}
+
+/* Toast notification styling */
+.toast-container {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  z-index: 1050;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .page-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  
+  .page-header-actions {
+    margin-top: 1rem;
+    margin-left: 0;
+  }
+  
+  .download-report-btn {
+    width: 100%;
+    justify-content: center;
+  }
 } 
