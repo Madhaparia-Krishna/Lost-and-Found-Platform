@@ -1034,10 +1034,32 @@ export const adminApi = {
   // Get system logs
   getSystemLogs: async () => {
     try {
+      console.log('Fetching system logs...');
       const response = await api.get('/api/admin/logs');
-      return handleResponse(response);
+      
+      // Check if response is valid
+      if (response && response.data) {
+        console.log(`Retrieved ${Array.isArray(response.data) ? response.data.length : 0} logs`);
+        return handleResponse(response);
+      } else {
+        console.error('Invalid response format from logs API:', response);
+        return [];
+      }
     } catch (error) {
       console.error('Error fetching system logs:', error);
+      
+      // Try fallback endpoint
+      try {
+        console.log('Trying fallback logs endpoint...');
+        const fallbackResponse = await api.get('/api/admin/system-logs');
+        if (fallbackResponse && fallbackResponse.data && fallbackResponse.data.logs) {
+          console.log(`Retrieved ${fallbackResponse.data.logs.length} logs from fallback endpoint`);
+          return fallbackResponse.data.logs;
+        }
+      } catch (fallbackError) {
+        console.error('Fallback logs endpoint also failed:', fallbackError);
+      }
+      
       return [];
     }
   },
@@ -1065,9 +1087,23 @@ export const adminApi = {
   // Soft delete an item
   softDeleteItem: async (itemId, reason) => {
     try {
+      console.log(`Attempting to soft delete item ${itemId} with reason: ${reason}`);
       const response = await api.put(`/api/admin/items/${itemId}/soft-delete`, { reason });
+      console.log('Soft delete response:', response);
       return handleResponse(response);
     } catch (error) {
+      console.error('Soft delete error:', error);
+      return handleError(error);
+    }
+  },
+  
+  // Alias for deleteItem (to match the function name used in confirmDeleteItem)
+  deleteItem: async (itemId, reason) => {
+    try {
+      console.log(`Deleting item ${itemId} with reason: ${reason}`);
+      return await adminApi.softDeleteItem(itemId, reason);
+    } catch (error) {
+      console.error('Delete item error:', error);
       return handleError(error);
     }
   },
@@ -1085,10 +1121,23 @@ export const adminApi = {
   // Update user role
   updateUserRole: async (userId, role) => {
     try {
+      console.log(`Updating role for user ${userId} to ${role}`);
       const response = await api.put(`/api/admin/users/${userId}/role`, { role });
+      console.log('Role update response:', response.data);
       return handleResponse(response);
     } catch (error) {
-      return handleError(error);
+      console.error('Error updating user role:', error);
+      
+      // Try fallback endpoint if main one fails
+      try {
+        console.log('Trying fallback role update endpoint...');
+        const fallbackResponse = await api.put(`/api/users/${userId}/role`, { role });
+        console.log('Fallback role update response:', fallbackResponse.data);
+        return fallbackResponse.data;
+      } catch (fallbackError) {
+        console.error('Fallback role update also failed:', fallbackError);
+        return handleError(error);
+      }
     }
   },
   
