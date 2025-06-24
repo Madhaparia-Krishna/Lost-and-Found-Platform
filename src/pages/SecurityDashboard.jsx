@@ -222,34 +222,48 @@ const SecurityDashboard = () => {
   const handleApproveItem = async (itemId) => {
     try {
       setActionLoading(true);
+      
+      // Optimistic update - remove from pending items immediately
+      const itemToApprove = pendingItems.find(item => item.id === itemId);
+      setPendingItems(prevItems => prevItems.filter(item => item.id !== itemId));
+      
+      // Add to approved items optimistically
+      if (itemToApprove) {
+        const approvedItem = { ...itemToApprove, is_approved: true };
+        setApprovedItems(prev => [approvedItem, ...prev]);
+      }
+      
+      // Show success message immediately
       setActionStatus({
-        type: 'loading',
-        message: 'Approving item...'
+        type: 'success',
+        message: 'Item approved'
       });
       
-      console.log(`Approving item ${itemId}...`);
+      // Make the API call
       const response = await securityApi.approveItem(itemId);
       console.log('Item approval response:', response);
       
-      // Update the item in the local state
-      setPendingItems(prevItems => prevItems.filter(item => item.id !== itemId));
-      
-      setActionStatus({
-        type: 'success',
-        message: 'Item approved successfully'
-      });
-      
-      // Refresh data to update the UI
+      // Clear status message after a delay
       setTimeout(() => {
-        refreshData();
         setActionStatus(null);
       }, 2000);
+      
+      // Refresh data in the background
+      refreshData();
     } catch (error) {
       console.error('Error approving item:', error);
+      
+      // Revert optimistic update
+      refreshData();
+      
       setActionStatus({
         type: 'error',
-        message: `Error approving item: ${error.message || 'Unknown error'}`
+        message: 'Failed to approve item'
       });
+      
+      setTimeout(() => {
+        setActionStatus(null);
+      }, 2000);
     } finally {
       setActionLoading(false);
     }
@@ -269,39 +283,46 @@ const SecurityDashboard = () => {
     
     try {
       setActionLoading(true);
-      setActionStatus({
-        type: 'loading',
-        message: 'Rejecting item...'
-      });
       
-      console.log(`Rejecting item ${itemToReject} with reason: ${rejectReason}...`);
-      const response = await securityApi.rejectItem(itemToReject, rejectReason);
-      console.log('Item rejection response:', response);
-      
-      // Update the item in the local state
+      // Optimistic update - remove from pending items immediately
       setPendingItems(prevItems => prevItems.filter(item => item.id !== itemToReject));
       
+      // Show success message immediately
       setActionStatus({
         type: 'success',
-        message: 'Item rejected successfully'
+        message: 'Item rejected'
       });
+      
+      // Make the API call
+      const response = await securityApi.rejectItem(itemToReject, rejectReason);
+      console.log('Item rejection response:', response);
       
       // Close the modal and reset values
       setShowRejectModal(false);
       setItemToReject(null);
       setRejectReason('');
       
-      // Refresh data to update the UI
+      // Clear status message after a delay
       setTimeout(() => {
-        refreshData();
         setActionStatus(null);
       }, 2000);
+      
+      // Refresh data in the background
+      refreshData();
     } catch (error) {
       console.error('Error rejecting item:', error);
+      
+      // Revert optimistic update
+      refreshData();
+      
       setActionStatus({
         type: 'error',
-        message: `Error rejecting item: ${error.message || 'Unknown error'}`
+        message: 'Failed to reject item'
       });
+      
+      setTimeout(() => {
+        setActionStatus(null);
+      }, 2000);
     } finally {
       setActionLoading(false);
     }
@@ -310,36 +331,61 @@ const SecurityDashboard = () => {
   const handleAcceptRequest = async (itemId) => {
     try {
       setActionLoading(true);
+      
+      // Find the item in the requestedItems array
+      const itemToAccept = requestedItems.find(item => item.id === itemId);
+      
+      // Optimistic update - remove from requestedItems
+      setRequestedItems(prevItems => prevItems.filter(item => item.id !== itemId));
+      
+      // If we found the item, add it to returnedItems
+      if (itemToAccept) {
+        const returnedItem = { ...itemToAccept, status: 'returned' };
+        setReturnedItems(prev => [returnedItem, ...prev]);
+      }
+      
+      // Show success message immediately
       setActionStatus({
-        type: 'loading',
-        message: 'Accepting request...'
+        type: 'success',
+        message: 'Request accepted'
       });
       
-      console.log(`Accepting request for item ${itemId}...`);
+      // Make the API call
       const response = await securityApi.acceptRequest(itemId);
       console.log('Request acceptance response:', response);
       
-      setActionStatus({
-        type: 'success',
-        message: 'Request accepted successfully. Item marked as returned.'
-      });
-      
       // Send email to item reporter
-      const item = approvedItems.find(item => item.id === itemId) || requestedItems.find(item => item.id === itemId);
+      const item = approvedItems.find(item => item.id === itemId) || itemToAccept;
       if (item && item.reporter_email) {
-        await emailService.sendItemReturnedEmail(item.reporter_email, item.reporter_name, item.name);
+        try {
+          await emailService.sendItemReturnedEmail(item.reporter_email, item.reporter_name, item.name);
+        } catch (emailError) {
+          console.error('Failed to send email notification:', emailError);
+          // Continue with the process even if email fails
+        }
       }
-
-      refreshData();
+      
+      // Clear status message after a delay
       setTimeout(() => {
         setActionStatus(null);
-      }, 5000);
+      }, 2000);
+      
+      // Refresh data in the background
+      refreshData();
     } catch (error) {
       console.error('Error accepting request:', error);
+      
+      // Revert optimistic update
+      refreshData();
+      
       setActionStatus({
         type: 'error',
-        message: `Error accepting request: ${error.message || 'Unknown error'}`
+        message: 'Failed to accept request'
       });
+      
+      setTimeout(() => {
+        setActionStatus(null);
+      }, 2000);
     } finally {
       setActionLoading(false);
     }
@@ -348,30 +394,50 @@ const SecurityDashboard = () => {
   const handleRejectRequest = async (itemId) => {
     try {
       setActionLoading(true);
+      
+      // Find the item in requestedItems
+      const itemToReject = requestedItems.find(item => item.id === itemId);
+      
+      // Optimistic update - remove from requestedItems
+      setRequestedItems(prevItems => prevItems.filter(item => item.id !== itemId));
+      
+      // If we found the item, add it back to approvedItems
+      if (itemToReject) {
+        const foundItem = { ...itemToReject, status: 'found' };
+        setApprovedItems(prev => [foundItem, ...prev]);
+      }
+      
+      // Show success message immediately
       setActionStatus({
-        type: 'loading',
-        message: 'Rejecting request...'
+        type: 'success',
+        message: 'Request rejected'
       });
       
-      console.log(`Rejecting request for item ${itemId}...`);
+      // Make the API call
       const response = await securityApi.rejectRequest(itemId);
       console.log('Request rejection response:', response);
       
-      setActionStatus({
-        type: 'success',
-        message: 'Request rejected successfully.'
-      });
-      
-      refreshData();
+      // Clear status message after a delay
       setTimeout(() => {
         setActionStatus(null);
-      }, 5000);
+      }, 2000);
+      
+      // Refresh data in the background
+      refreshData();
     } catch (error) {
       console.error('Error rejecting request:', error);
+      
+      // Revert optimistic update
+      refreshData();
+      
       setActionStatus({
         type: 'error',
-        message: `Error rejecting request: ${error.message || 'Unknown error'}`
+        message: 'Failed to reject request'
       });
+      
+      setTimeout(() => {
+        setActionStatus(null);
+      }, 2000);
     } finally {
       setActionLoading(false);
     }
@@ -390,31 +456,46 @@ const SecurityDashboard = () => {
   const handleUnbanUser = async (userId) => {
     try {
       setActionLoading(true);
-      setActionStatus({
-        type: 'loading',
-        message: 'Unbanning user...'
-      });
-
-      console.log(`Unbanning user ${userId}...`);
-      const response = await securityApi.unbanUser(userId);
-      console.log('User unban response:', response);
-
+      
+      // Find the user in the users array
+      const userToUnban = users.find(user => user.id === userId);
+      
+      // Optimistic update - update the user's status in the local state
+      setUsers(prevUsers => prevUsers.map(user => 
+        user.id === userId ? { ...user, is_deleted: false } : user
+      ));
+      
+      // Show success message immediately
       setActionStatus({
         type: 'success',
-        message: 'User unbanned successfully'
+        message: 'User unbanned'
       });
-
-      refreshData();
-
+      
+      // Make the API call
+      const response = await securityApi.unbanUser(userId);
+      console.log('User unban response:', response);
+      
+      // Clear status message after a delay
       setTimeout(() => {
         setActionStatus(null);
-      }, 5000);
+      }, 2000);
+      
+      // Refresh data in the background
+      refreshData();
     } catch (error) {
       console.error('Error unbanning user:', error);
+      
+      // Revert optimistic update
+      refreshData();
+      
       setActionStatus({
         type: 'error',
-        message: `Error unbanning user: ${error.message || 'Unknown error'}`
+        message: 'Failed to unban user'
       });
+      
+      setTimeout(() => {
+        setActionStatus(null);
+      }, 2000);
     } finally {
       setActionLoading(false);
     }
@@ -609,30 +690,30 @@ const SecurityDashboard = () => {
                   <td>
                     <ButtonGroup aria-label="Item Actions">
                       <Button variant="info" size="sm" onClick={() => navigate(`/items/${item.id}`)}>
-                        View
+                        <i className="fas fa-eye"></i> <span>View</span>
                       </Button>
                       {activeKey === 'pendingItems' && (
                         <>
                           <Button variant="success" size="sm" onClick={() => handleApproveItem(item.id)} disabled={actionLoading}> 
-                            <i className="fas fa-check"></i> Approve
+                            <i className="fas fa-check"></i> <span>Approve</span>
                           </Button>
                           <Button variant="warning" size="sm" onClick={() => handleRejectItem(item.id)} disabled={actionLoading}>
-                            <i className="fas fa-times"></i> Reject
+                            <i className="fas fa-times"></i> <span>Reject</span>
                           </Button>
                         </>
                       )}
                       {activeKey === 'requestedItems' && (
                         <>
                           <Button variant="success" size="sm" onClick={() => handleAcceptRequest(item.id)} disabled={actionLoading}> 
-                            Accept
+                            <i className="fas fa-check-circle"></i> <span>Accept</span>
                           </Button>
                           <Button variant="warning" size="sm" onClick={() => handleRejectRequest(item.id)} disabled={actionLoading}>
-                            Reject
+                            <i className="fas fa-ban"></i> <span>Reject</span>
                           </Button>
                         </>
                       )}
                       <Button variant="danger" size="sm" onClick={() => handleSoftDelete(item)} disabled={actionLoading}> 
-                        Delete
+                        <i className="fas fa-trash"></i> <span>Delete</span>
                       </Button>
                     </ButtonGroup>
                   </td>
@@ -713,11 +794,11 @@ const SecurityDashboard = () => {
                           <ButtonGroup aria-label="User Actions">
                             {user.is_deleted ? (
                               <Button variant="success" size="sm" onClick={() => handleUnbanUser(user.id)} disabled={actionLoading}>
-                                {actionLoading ? <Spinner animation="border" size="sm" /> : 'Unban'}
+                                {actionLoading ? <Spinner animation="border" size="sm" /> : <><i className="fas fa-user-check"></i> <span>Unban</span></>}
                               </Button>
                             ) : (
                               <Button variant="warning" size="sm" onClick={() => handleBanUser(user.id, user.name)} disabled={actionLoading}>
-                                {actionLoading ? <Spinner animation="border" size="sm" /> : 'Ban'}
+                                {actionLoading ? <Spinner animation="border" size="sm" /> : <><i className="fas fa-user-slash"></i> <span>Ban</span></>}
                               </Button>
                             )}
                           </ButtonGroup>

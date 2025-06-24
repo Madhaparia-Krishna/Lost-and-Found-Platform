@@ -32,6 +32,14 @@
   margin-right: 0.75rem;
 }
 
+.navbar-logo-image {
+  height: 40px;
+  width: 40px;
+  margin-right: 10px;
+  display: inline-block;
+  vertical-align: middle;
+}
+
 .navbar-nav {
   display: flex;
   align-items: center;
@@ -353,6 +361,12 @@
   
   .navbar-search i {
     font-size: 1rem;
+  }
+  
+  .navbar-logo-image {
+    height: 32px;
+    width: 32px;
+    margin-right: 8px;
   }
 }
 

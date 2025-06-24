@@ -1,14 +1,31 @@
-import React, { useState, useEffect, useContext } from 'react';
-import { AuthContext } from '../context/AuthContext';
+import React, { useState, useEffect, useContext, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Alert, Spinner, Form, Modal, Button, Badge, ButtonGroup, InputGroup, Table, Tabs, Dropdown, Toast, ToastContainer, OverlayTrigger, Tooltip } from 'react-bootstrap';
-import { adminApi } from '../utils/api';
-import axios from 'axios';
-import { API_BASE_URL } from '../utils/api';
+import { Container, Row, Col, Card, Button, Spinner, Alert, Tab, Nav, Table, Form, Modal, Toast, ToastContainer, Badge, OverlayTrigger, Tooltip, InputGroup, Dropdown, ButtonGroup } from 'react-bootstrap';
+import { AuthContext } from '../context/AuthContext';
 import '../styles/AdminDashboard.css';
-import jsPDF from 'jspdf';
-// Import jspdf-autotable correctly
+import { adminApi, API_BASE_URL } from '../utils/api';
+import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import axios from 'axios';
+
+// Theme colors for consistency
+const THEME_COLORS = {
+  primary: [233, 128, 116], // #E98074 in RGB
+  secondary: [232, 90, 79], // #E85A4F in RGB
+  tertiary: [216, 195, 165], // #D8C3A5 in RGB
+  dark: [77, 76, 74], // #4D4C4A in RGB 
+  light: [234, 231, 220], // #EAE7DC in RGB
+  grey: [142, 141, 138] // #8E8D8A in RGB
+};
+
+// PDF Table styling
+const PDF_TABLE_STYLES = {
+  theme: 'grid',
+  headStyles: { 
+    fillColor: THEME_COLORS.primary, 
+    textColor: 255 
+  }
+};
 
 const AdminDashboard = () => {
   const { currentUser } = useContext(AuthContext);
@@ -63,13 +80,15 @@ const AdminDashboard = () => {
   // PDF generation loading state
   const [generatingPDF, setGeneratingPDF] = useState(false);
   
-  // Fetch data on component mount
+  // Fetch data on component mount and when refreshTrigger changes
   useEffect(() => {
     if (!currentUser || currentUser.role !== 'admin') {
       navigate('/unauthorized');
       return;
     }
 
+    console.log('Refreshing data, trigger value:', refreshTrigger);
+    
     const fetchAllData = async () => {
       setLoading(true);
       setError(null);
@@ -279,7 +298,7 @@ const AdminDashboard = () => {
         }
       } catch (err) {
         console.error('Error fetching admin data:', err);
-        setError('Failed to load admin dashboard data. Please try again later.');
+        setError('Unable to load dashboard data. Please check your connection and refresh the page.');
       } finally {
         setLoading(false);
       }
@@ -295,7 +314,7 @@ const AdminDashboard = () => {
     }, 300000); // Refresh every 5 minutes
     
     return () => clearInterval(refreshInterval);
-  }, [currentUser]);
+  }, [currentUser, refreshTrigger]);
 
   // Function to enhance items with user information
   const enhanceItemsWithUserInfo = (itemsData, usersData) => {
@@ -386,48 +405,78 @@ const AdminDashboard = () => {
   // Confirm donating an item
   const confirmDonateItem = async () => {
     if (!itemToDonate) {
-      setActionStatus({ type: 'error', message: 'No item selected for donation.' });
+      setToastMessage('No item selected for donation.');
+      setToastType('warning');
+      setShowToast(true);
       return;
     }
     
     try {
       setActionLoading(true);
-      setActionStatus({
-        type: 'loading',
-        message: `Marking item ${itemToDonate.name || itemToDonate.title || ''} for donation...`
-      });
       
-      console.log(`Marking item ${itemToDonate.id} for donation...`);
-      const response = await adminApi.donateItem(itemToDonate.id);
-      console.log('Donation response:', response);
+      // Show toast notification
+      setToastMessage(`Marking item ${itemToDonate.name || itemToDonate.title || ''} for donation...`);
+      setToastType('info');
+      setShowToast(true);
       
-      // Update the local state
-      const donatedItem = {...itemToDonate, is_donated: true};
+      // Close modal immediately for better UX
+      setShowDonateModal(false);
       
-      // Remove from old items and add to donated items
-      setOldItems(prev => prev.filter(item => item.id !== itemToDonate.id));
+      // Store item data for reference and potential rollback
+      const itemId = itemToDonate.id;
+      const itemName = itemToDonate.name || itemToDonate.title || '';
+      const originalItem = {...itemToDonate};
+      
+      // Create the donated item with donation status
+      const donatedItem = {
+        ...itemToDonate, 
+        is_donated: true,
+        donation_date: new Date().toISOString(),
+        donation_organization: 'University Charity',
+        donation_reason: donationReason || 'Unclaimed for extended period'
+      };
+      
+      // Remove from old items and add to donated items - optimistic update
+      setOldItems(prev => prev.filter(item => item.id !== itemId));
       setDonatedItems(prev => [donatedItem, ...prev]);
       
-      // Show success message
-      setActionStatus({
-        type: 'success',
-        message: `Item '${itemToDonate.name || itemToDonate.title || ''}' marked for donation successfully.`
-      });
+      // Also remove from main items list if present
+      setItems(prev => prev.filter(item => item.id !== itemId));
       
-      setShowDonateModal(false);
+      // Clear inputs
       setItemToDonate(null);
       setDonationReason('');
       
-      // Clear success message after 3 seconds
+      // Make the API call
+      console.log(`Marking item ${itemId} for donation...`);
+      const response = await adminApi.donateItem(itemId, donatedItem.donation_reason);
+      console.log('Donation response:', response);
+      
+      // Show success toast
+      setToastMessage(`Item '${itemName}' marked for donation successfully.`);
+      setToastType('success');
+      setShowToast(true);
+      
+      // Wait a moment before triggering refresh to allow UI to update
       setTimeout(() => {
-        setActionStatus(null);
-      }, 3000);
+        setRefreshTrigger(prev => prev + 1);
+      }, 100);
     } catch (error) {
       console.error('Error marking item for donation:', error);
-      setActionStatus({
-        type: 'error',
-        message: `Failed to mark item for donation: ${error.message || 'Unknown error'}`
-      });
+      
+      // Revert the optimistic update if we have the item data
+      if (itemToDonate) {
+        // Add back to old items
+        setOldItems(prev => [...prev, itemToDonate]);
+        
+        // Remove from donated items
+        setDonatedItems(prev => prev.filter(item => item.id !== itemToDonate.id));
+      }
+      
+      // Show error toast
+      setToastMessage(`Cannot donate item: ${error.message || 'The operation could not be completed'}`);
+      setToastType('danger');
+      setShowToast(true);
     } finally {
       setActionLoading(false);
     }
@@ -437,14 +486,17 @@ const AdminDashboard = () => {
   const handleUnbanUser = async (userId) => {
     try {
       setActionLoading(true);
-      setActionStatus({
-        type: 'loading',
-        message: 'Unbanning user...'
-      });
       
-      await adminApi.unbanUser(userId);
+      // Find user details for better messages
+      const userToUnban = users.find(user => user.id === userId);
+      const userName = userToUnban ? userToUnban.name || userToUnban.email : 'user';
       
-      // Update the users list
+      // Show toast notification
+      setToastMessage(`Unbanning ${userName}...`);
+      setToastType('info');
+      setShowToast(true);
+      
+      // Update the users list immediately - optimistic update
       setUsers(prevUsers => 
         prevUsers.map(user => 
           user.id === userId 
@@ -453,26 +505,43 @@ const AdminDashboard = () => {
         )
       );
 
-      setActionStatus({
-        type: 'success',
-        message: 'User unbanned successfully'
-      });
+      // Make the API call asynchronously without waiting
+      adminApi.unbanUser(userId)
+        .then(response => {
+          console.log('Unban response:', response);
+          
+          // Show success toast after API call completes
+          setToastMessage(`${userName} unbanned successfully`);
+          setToastType('success');
+          setShowToast(true);
+        })
+        .catch(err => {
+          console.error('Error in background unban operation:', err);
+          // The UI is already updated, so we don't need to show another error
+          // The next data refresh will sync the UI if needed
+        });
       
-      // Refresh the data after a short delay
-      setTimeout(() => {
-        setRefreshTrigger(prev => prev + 1);
-        setActionStatus(null);
-      }, 3000);
+      // Show immediate success toast (optimistic)
+      setToastMessage(`${userName} unbanned successfully`);
+      setToastType('success');
+      setShowToast(true);
+      
     } catch (err) {
       console.error('Error unbanning user:', err);
-      setActionStatus({
-        type: 'error',
-        message: 'Failed to unban user. Please try again.'
-      });
       
-      setTimeout(() => {
-        setActionStatus(null);
-      }, 3000);
+      // Revert the optimistic update
+      setUsers(prevUsers => 
+        prevUsers.map(user => 
+          user.id === userId 
+            ? { ...user, is_deleted: true } 
+            : user
+        )
+      );
+      
+      // Show error toast
+      setToastMessage('Unable to activate user account: ' + (err.message || 'Operation not completed'));
+      setToastType('danger');
+      setShowToast(true);
     } finally {
       setActionLoading(false);
     }
@@ -487,48 +556,76 @@ const AdminDashboard = () => {
   // Handle ban user confirmation
   const confirmBanUser = async () => {
     if (!userToBan || !banReason) {
-      setActionStatus({ type: 'error', message: 'Please provide a reason for banning.' });
+      setToastMessage('Please provide a reason for banning.');
+      setToastType('warning');
+      setShowToast(true);
       return;
     }
     
     try {
       setActionLoading(true);
-      setActionStatus({
-        type: 'loading',
-        message: `Banning ${userToBan.name || 'user'}...`
-      });
       
-      await adminApi.banUser(userToBan.id, banReason);
+      // Store the user information before clearing modal data
+      const bannedUserId = userToBan.id;
+      const bannedUserName = userToBan.name || 'User';
+      const banReasonText = banReason;
       
-      // Update the users list
+      // Show toast notification
+      setToastMessage(`Banning ${bannedUserName}...`);
+      setToastType('info');
+      setShowToast(true);
+      
+      // Close modal immediately for better UX
+      setShowBanModal(false);
+      
+      // Update the users list immediately - optimistic update
       setUsers(prevUsers => 
         prevUsers.map(user => 
-          user.id === userToBan.id 
-            ? { ...user, is_deleted: true, ban_reason: banReason } 
+          user.id === bannedUserId 
+            ? { ...user, is_deleted: true, ban_reason: banReasonText } 
             : user
         )
       );
-
-      setActionStatus({
-        type: 'success',
-        message: `${userToBan.name || 'User'} banned successfully`
-      });
       
-      setShowBanModal(false);
+      // Clear inputs
       setUserToBan(null);
       setBanReason('');
 
-      // Refresh the data after a short delay
-      setTimeout(() => {
-        setRefreshTrigger(prev => prev + 1);
-        setActionStatus(null);
-      }, 3000);
+      // Make the API call asynchronously without waiting
+      adminApi.banUser(bannedUserId, banReasonText)
+        .then(response => {
+          console.log('Ban response:', response);
+          
+          // Success toast is already shown below
+        })
+        .catch(err => {
+          console.error('Error in background ban operation:', err);
+          // If there's an error in the background, we'll let the next data refresh handle it
+        });
+
+      // Show success toast immediately (optimistic)
+      setToastMessage(`${bannedUserName} banned successfully`);
+      setToastType('success');
+      setShowToast(true);
+      
     } catch (err) {
       console.error('Error banning user:', err);
-      setActionStatus({
-        type: 'error',
-        message: 'Failed to ban user. Please try again.'
-      });
+      
+      // Revert the optimistic update if we have the user ID
+      if (userToBan && userToBan.id) {
+        setUsers(prevUsers => 
+          prevUsers.map(user => 
+            user.id === userToBan.id 
+              ? { ...user, is_deleted: false, ban_reason: null } 
+              : user
+          )
+        );
+      }
+      
+      // Show error toast
+      setToastMessage('Unable to deactivate user account: ' + (err.message || 'Operation not completed'));
+      setToastType('danger');
+      setShowToast(true);
     } finally {
       setActionLoading(false);
     }
@@ -538,42 +635,79 @@ const AdminDashboard = () => {
   const handleRestoreItem = async (itemId) => {
     try {
       setActionLoading(true);
-      setActionStatus({
-        type: 'loading',
-        message: 'Restoring item...'
+      
+      // Show toast notification
+      setToastMessage('Restoring item...');
+      setToastType('info');
+      setShowToast(true);
+      
+      // Find the item from any list
+      let itemToRestore = null;
+      
+      // Check all lists
+      const checkLists = [items, oldItems, donatedItems];
+      for (const list of checkLists) {
+        const found = list.find(item => item.id === itemId);
+        if (found) {
+          itemToRestore = {...found};
+          break;
+        }
+      }
+      
+      // Update the items list immediately - optimistic update
+      setItems(prevItems => {
+        // If item exists in the list, update it
+        if (prevItems.some(item => item.id === itemId)) {
+          return prevItems.map(item => 
+            item.id === itemId 
+              ? { ...item, is_deleted: false, donation_organization: null, donation_date: null } 
+              : item
+          );
+        } 
+        // If item doesn't exist in the list but we found it elsewhere, add it
+        else if (itemToRestore) {
+          return [...prevItems, { ...itemToRestore, is_deleted: false, donation_organization: null, donation_date: null }];
+        }
+        // Otherwise return unchanged
+        return prevItems;
       });
       
-      await adminApi.restoreItem(itemId);
-      
-      // Update the items list
-      setItems(prevItems => 
-        prevItems.map(item => 
-          item.id === itemId 
-            ? { ...item, is_deleted: false } 
-            : item
-        )
-      );
+      // Remove from old items list
       setOldItems(prevOldItems => prevOldItems.filter(item => item.id !== itemId));
-
-      setActionStatus({
-        type: 'success',
-        message: 'Item restored successfully'
-      });
       
+      // Remove from donated items list if it was there
+      setDonatedItems(prevDonatedItems => prevDonatedItems.filter(item => item.id !== itemId));
+
+      // Store original state for rollback
+      const originalState = {
+        items: [...items],
+        oldItems: [...oldItems],
+        donatedItems: [...donatedItems]
+      };
+
+      // Make the API call
+      const response = await adminApi.restoreItem(itemId);
+      console.log('Item restore response:', response);
+
+      // Show success toast
+      setToastMessage('Item restored successfully');
+      setToastType('success');
+      setShowToast(true);
+      
+      // Wait a moment before triggering refresh to allow UI to update
       setTimeout(() => {
         setRefreshTrigger(prev => prev + 1);
-        setActionStatus(null);
-      }, 3000);
+      }, 100);
     } catch (err) {
       console.error('Error restoring item:', err);
-      setActionStatus({
-        type: 'error',
-        message: 'Failed to restore item. Please try again.'
-      });
       
-      setTimeout(() => {
-        setActionStatus(null);
-      }, 3000);
+      // Refresh to revert changes
+      setRefreshTrigger(prev => prev + 1);
+      
+      // Show error toast
+      setToastMessage('Item restoration unsuccessful: ' + (err.message || 'Operation could not be completed'));
+      setToastType('danger');
+      setShowToast(true);
     } finally {
       setActionLoading(false);
     }
@@ -595,48 +729,76 @@ const AdminDashboard = () => {
   // Handle role change confirmation
   const confirmRoleChange = async () => {
     if (!userToChangeRole || !selectedRole) {
-      setActionStatus({ type: 'error', message: 'Please select a role.' });
+      setToastMessage('Please select a role.');
+      setToastType('warning');
+      setShowToast(true);
       return;
     }
 
     try {
       setActionLoading(true);
-      setActionStatus({
-        type: 'loading',
-        message: `Updating role for ${userToChangeRole.name || 'user'}...`
-      });
       
-      await adminApi.updateUserRole(userToChangeRole.id, selectedRole);
-
-      // Update the users list
+      // Store user data for reference and potential rollback
+      const userId = userToChangeRole.id;
+      const userName = userToChangeRole.name || 'user';
+      const newRole = selectedRole;
+      const originalRole = userToChangeRole.role;
+      
+      // Show toast notification
+      setToastMessage(`Updating role for ${userName}...`);
+      setToastType('info');
+      setShowToast(true);
+      
+      // Close modal immediately for better UX
+      setShowRoleModal(false);
+      
+      // Update the users list immediately - optimistic update
       setUsers(prevUsers => 
         prevUsers.map(user => 
-          user.id === userToChangeRole.id 
-            ? { ...user, role: selectedRole } 
+          user.id === userId 
+            ? { ...user, role: newRole } 
             : user
         )
       );
 
-      setActionStatus({
-        type: 'success',
-        message: `Role updated to ${selectedRole} for ${userToChangeRole.name || 'user'}.`
-      });
-      
-      setShowRoleModal(false);
+      // Clear inputs
       setUserToChangeRole(null);
       setSelectedRole('');
 
-      // Refresh the data after a short delay
-      setTimeout(() => {
-        setRefreshTrigger(prev => prev + 1);
-        setActionStatus(null);
-      }, 3000);
+      // Make the API call asynchronously without waiting
+      adminApi.updateUserRole(userId, newRole)
+        .then(response => {
+          console.log('Role update response:', response);
+          // Success toast is already shown below
+        })
+        .catch(err => {
+          console.error('Error in background role update operation:', err);
+          // If there's an error in the background, we'll let the next data refresh handle it
+        });
+
+      // Show success toast immediately (optimistic)
+      setToastMessage(`Role updated to ${newRole} for ${userName}.`);
+      setToastType('success');
+      setShowToast(true);
+      
     } catch (err) {
       console.error('Error updating user role:', err);
-      setActionStatus({
-        type: 'error',
-        message: 'Failed to update user role. Please try again.'
-      });
+      
+      // Revert the optimistic update if we have the user data
+      if (userToChangeRole) {
+        setUsers(prevUsers => 
+          prevUsers.map(user => 
+            user.id === userToChangeRole.id 
+              ? { ...user, role: userToChangeRole.role } 
+              : user
+          )
+        );
+      }
+      
+      // Show error toast
+      setToastMessage('Role update unsuccessful: ' + (err.message || 'Permission or connection issue'));
+      setToastType('danger');
+      setShowToast(true);
     } finally {
       setActionLoading(false);
     }
@@ -645,42 +807,74 @@ const AdminDashboard = () => {
   // Handle item deletion confirmation
   const confirmDeleteItem = async () => {
     if (!itemToDelete || !deleteReason) {
-      setActionStatus({ type: 'error', message: 'Please provide a reason for deletion.' });
+      setToastMessage('Please provide a reason for deletion.');
+      setToastType('warning');
+      setShowToast(true);
       return;
     }
 
     try {
       setActionLoading(true);
-      setActionStatus({
-        type: 'loading',
-        message: `Deleting item ${itemToDelete.name || ''}...`
-      });
       
-      await adminApi.deleteItem(itemToDelete.id, deleteReason);
-
-      // Update the items list
-      setItems(prevItems => prevItems.filter(item => item.id !== itemToDelete.id));
-      setOldItems(prevOldItems => prevOldItems.filter(item => item.id !== itemToDelete.id));
-
-      setActionStatus({
-        type: 'success',
-        message: `Item '${itemToDelete.name || ''} deleted permanently.`
-      });
+      // Show toast notification
+      setToastMessage(`Deleting item ${itemToDelete.name || itemToDelete.title || ''}...`);
+      setToastType('info');
+      setShowToast(true);
       
+      // Close modal immediately for better UX
       setShowDeleteModal(false);
+      
+      // Store item data for reference and potential rollback
+      const deletedItemId = itemToDelete.id;
+      const deletedItemName = itemToDelete.name || itemToDelete.title || '';
+      const deletedItemReason = deleteReason;
+      const originalItem = {...itemToDelete};
+      
+      // Update the items list immediately - optimistic update
+      setItems(prevItems => prevItems.filter(item => item.id !== deletedItemId));
+      setOldItems(prevOldItems => prevOldItems.filter(item => item.id !== deletedItemId));
+      
+      // Clear inputs
       setItemToDelete(null);
       setDeleteReason('');
 
+      // Make the API call
+      const response = await adminApi.deleteItem(deletedItemId, deletedItemReason);
+      console.log('Delete item response:', response);
+
+      // Show success toast
+      setToastMessage(`Item '${deletedItemName}' deleted successfully.`);
+      setToastType('success');
+      setShowToast(true);
+      
+      // Wait a moment before triggering refresh to allow UI to update
       setTimeout(() => {
         setRefreshTrigger(prev => prev + 1);
-        setActionStatus(null);
-      }, 3000);
+      }, 100);
     } catch (err) {
       console.error('Error deleting item:', err);
-      setActionStatus({
-        type: 'error',
-        message: 'Failed to delete item. Please try again.'
-      });
+      
+      // Revert the optimistic update if we have the item data
+      if (itemToDelete) {
+        // Add the item back to the lists
+        setItems(prevItems => [...prevItems, itemToDelete]);
+        
+        // If it was in old items, add it back there too
+        if (itemToDelete.created_at) {
+          const oneYearAgo = new Date();
+          oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
+          const itemDate = new Date(itemToDelete.created_at || itemToDelete.date);
+          
+          if (itemDate < oneYearAgo) {
+            setOldItems(prevOldItems => [...prevOldItems, itemToDelete]);
+          }
+        }
+      }
+      
+      // Show error toast
+      setToastMessage('Unable to remove item: ' + (err.message || 'Item may be in use or locked'));
+      setToastType('danger');
+      setShowToast(true);
     } finally {
       setActionLoading(false);
     }
@@ -733,9 +927,9 @@ const AdminDashboard = () => {
           ))
         ) : (
           <div className="empty-state">
-            <i className="fas fa-box-open empty-state-icon"></i>
-            <h3>No items to display</h3>
-            <p>There are no items matching your criteria at the moment.</p>
+            <div className="empty-state-icon">📦</div>
+            <div className="empty-state-text">No items to display</div>
+            <p className="text-muted mt-2">There are no items matching your criteria at the moment.</p>
           </div>
         )}
       </div>
@@ -746,32 +940,44 @@ const AdminDashboard = () => {
   const renderItemsTable = (itemsToRender) => {
     return (
       <div className="table-responsive">
-        <Table striped bordered hover className="admin-table">
-          <thead>
+        <Table striped hover responsive className="table-fixed">
+          <thead className="bg-light">
             <tr>
-              <th>ID</th>
-              <th>Name</th>
-              <th>Category</th>
-              <th>Status</th>
-              <th>Date</th>
-              <th>Reported By</th>
-              <th>Approved</th>
-              <th>Actions</th>
+              <th width="5%">ID</th>
+              <th width="20%">Name</th>
+              <th width="10%">Category</th>
+              <th width="10%">Status</th>
+              <th width="15%">Date</th>
+              <th width="15%">Reported By</th>
+              <th width="10%">Approved</th>
+              <th width="15%">Actions</th>
             </tr>
           </thead>
           <tbody>
             {itemsToRender.length > 0 ? (
               itemsToRender.map(item => (
-                <tr key={item.id}>
-                  <td>{item.id}</td>
-                  <td>{item.name}</td>
-                  <td>{item.category}</td>
-                  <td><Badge bg={item.status === 'lost' ? 'danger' : 'success'}>{item.status}</Badge></td>
-                  <td>{formatDate(item.date_found || item.date_lost)}</td>
-                  <td>{item.reporter_name || 'N/A'}</td>
+                <tr key={item.id} className={item.is_deleted ? 'table-danger' : ''}>
+                  <td className="text-muted">{item.id}</td>
+                  <td className="text-nowrap overflow-hidden text-truncate" title={item.name || item.title}>
+                    {item.name || item.title || 'Untitled'}
+                  </td>
+                  <td>{item.category || 'Uncategorized'}</td>
+                  <td>
+                    <Badge bg={
+                      item.status === 'lost' ? 'danger' :
+                      item.status === 'found' ? 'success' :
+                      item.status === 'returned' ? 'info' : 'warning'
+                    } className="fw-normal px-2 py-1">
+                      {item.status}
+                    </Badge>
+                  </td>
+                  <td>{formatDate(item.date_found || item.date_lost || item.created_at || item.date)}</td>
+                  <td className="text-nowrap overflow-hidden text-truncate" title={item.reporter_name || item.user_name}>
+                    {item.reporter_name || item.user_name || 'N/A'}
+                  </td>
                   <td>
                     {item.is_approved !== undefined ? (
-                      <Badge bg={item.is_approved ? 'success' : 'warning'}>
+                      <Badge bg={item.is_approved ? 'success' : 'warning'} className="fw-normal px-2 py-1">
                         {item.is_approved ? 'Yes' : 'No'}
                       </Badge>
                     ) : (
@@ -779,27 +985,30 @@ const AdminDashboard = () => {
                     )}
                   </td>
                   <td>
-                    <ButtonGroup aria-label="Item Actions">
-                      <Button variant="info" size="sm" onClick={() => navigate(`/items/${item.id}`)}>
-                        View
+                    <div className="d-flex gap-1">
+                      <Button variant="outline-info" size="sm" onClick={() => navigate(`/items/${item.id}`)}>
+                        <i className="fas fa-eye me-1"></i> View
                       </Button>
                       {item.is_deleted ? (
-                        <Button variant="success" size="sm" onClick={() => handleRestoreItem(item.id)} disabled={actionLoading}>
-                          Restore
+                        <Button variant="outline-success" size="sm" onClick={() => handleRestoreItem(item.id)} disabled={actionLoading}>
+                          <i className="fas fa-undo me-1"></i> Restore
                         </Button>
                       ) : (
-                        <Button variant="danger" size="sm" onClick={() => handleDeleteItem(item)} disabled={actionLoading}>
-                          Delete
+                        <Button variant="outline-danger" size="sm" onClick={() => handleDeleteItem(item)} disabled={actionLoading}>
+                          <i className="fas fa-trash-alt me-1"></i> Delete
                         </Button>
                       )}
-                    </ButtonGroup>
+                    </div>
                   </td>
                 </tr>
               ))
             ) : (
               <tr>
-                <td colSpan="8" className="text-center">
-                  <p>No items to display.</p>
+                <td colSpan="8" className="text-center py-4">
+                  <div className="empty-state py-4">
+                    <div className="empty-state-icon">📦</div>
+                    <div className="empty-state-text">No items to display</div>
+                  </div>
                 </td>
               </tr>
             )}
@@ -828,14 +1037,6 @@ const AdminDashboard = () => {
               />
             </InputGroup>
           </Form.Group>
-          
-          <Button 
-            variant="primary"
-            onClick={() => generatePDFReport('Users')}
-            className="ms-2"
-          >
-            <i className="fas fa-file-pdf"></i> Download Users Report
-          </Button>
         </div>
         
         {loading ? (
@@ -846,16 +1047,16 @@ const AdminDashboard = () => {
           </div>
         ) : (
           <div className="users-table-container">
-            <Table striped bordered hover responsive>
-              <thead>
+            <Table striped hover responsive className="table-fixed">
+              <thead className="bg-light">
                 <tr>
-                  <th>ID</th>
-                  <th>Name</th>
-                  <th>Email</th>
-                  <th>Role</th>
-                  <th>Status</th>
-                  <th>Created Date</th>
-                  <th>Actions</th>
+                  <th width="5%">ID</th>
+                  <th width="15%">Name</th>
+                  <th width="20%">Email</th>
+                  <th width="10%">Role</th>
+                  <th width="10%">Account Status</th>
+                  <th width="15%">Created Date</th>
+                  <th width="25%">Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -872,51 +1073,54 @@ const AdminDashboard = () => {
                   .map(user => (
                     <tr key={user.id} className={user.is_deleted ? 'table-danger' : ''}>
                       <td>{user.id}</td>
-                      <td>{user.name || 'N/A'}</td>
-                      <td>{user.email}</td>
+                      <td className="text-nowrap overflow-hidden text-truncate" title={user.name}>{user.name || 'N/A'}</td>
+                      <td className="text-nowrap overflow-hidden text-truncate" title={user.email}>{user.email}</td>
                       <td>
                         <Badge bg={
                           user.role === 'admin' ? 'danger' :
                           user.role === 'security' ? 'warning' : 'primary'
-                        }>
+                        } className="fw-normal px-2 py-1">
                           {user.role}
                         </Badge>
                       </td>
                       <td>
-                        <Badge bg={user.is_deleted ? 'danger' : 'success'}>
+                        <Badge bg={user.is_deleted ? 'danger' : 'success'} className="fw-normal px-2 py-1">
                           {user.is_deleted ? 'Banned' : 'Active'}
                         </Badge>
                       </td>
                       <td>{formatDate(user.created_at || user.date)}</td>
                       <td>
-                        <ButtonGroup size="sm">
+                        <div className="d-flex gap-1">
                           {user.is_deleted ? (
                             <Button 
                               variant="outline-success" 
+                              size="sm"
                               onClick={() => handleUnbanUser(user.id)}
                               disabled={actionLoading}
                             >
-                              <i className="fas fa-user-check"></i> Unban
+                              <i className="fas fa-user-check me-1"></i> Unban
                             </Button>
                           ) : (
                             <>
                               <Button 
                                 variant="outline-danger" 
+                                size="sm"
                                 onClick={() => handleBanUser(user.id, user.name || user.email)}
                                 disabled={actionLoading || user.role === 'admin'}
                               >
-                                <i className="fas fa-user-slash"></i> Ban
+                                <i className="fas fa-user-slash me-1"></i> Ban
                               </Button>
                               <Button 
                                 variant="outline-primary" 
+                                size="sm"
                                 onClick={() => handleChangeRole(user)}
                                 disabled={actionLoading}
                               >
-                                <i className="fas fa-user-tag"></i> Change Role
+                                <i className="fas fa-user-tag me-1"></i> Role
                               </Button>
                             </>
                           )}
-                        </ButtonGroup>
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -947,14 +1151,6 @@ const AdminDashboard = () => {
               />
             </InputGroup>
           </Form.Group>
-          
-          <Button 
-            variant="primary"
-            onClick={() => generatePDFReport('System Logs')}
-            className="ms-2"
-          >
-            <i className="fas fa-file-pdf"></i> Download Logs Report
-          </Button>
         </div>
         
         {loading ? (
@@ -965,37 +1161,51 @@ const AdminDashboard = () => {
           </div>
         ) : (
           <div className="logs-table-container">
-            <Table striped bordered hover responsive>
-              <thead>
+            <Table striped hover responsive className="table-fixed">
+              <thead className="bg-light">
                 <tr>
-                  <th>ID</th>
-                  <th>Action</th>
-                  <th>User</th>
-                  <th>Details</th>
-                  <th>Date</th>
+                  <th width="5%">ID</th>
+                  <th width="35%">Action</th>
+                  <th width="15%">User</th>
+                  <th width="30%">Details</th>
+                  <th width="15%">Date</th>
                 </tr>
               </thead>
               <tbody>
-                {logs
-                  .filter(log => {
-                    if (!searchQuery) return true;
-                    const query = searchQuery.toLowerCase();
-                    return (
-                      (log.action && log.action.toLowerCase().includes(query)) ||
-                      (log.user_name && log.user_name.toLowerCase().includes(query)) ||
-                      (log.user_email && log.user_email.toLowerCase().includes(query)) ||
-                      (log.details && log.details.toLowerCase().includes(query))
-                    );
-                  })
-                  .map(log => (
-                    <tr key={log.id}>
-                      <td>{log.id}</td>
-                      <td>{log.action || 'N/A'}</td>
-                      <td>{log.user_name || log.user_email || 'N/A'}</td>
-                      <td>{log.details || 'N/A'}</td>
-                      <td>{formatDate(log.created_at || log.date)}</td>
-                    </tr>
-                  ))}
+                {logs.length === 0 ? (
+                  <tr>
+                    <td colSpan={5} className="text-center py-4">
+                      <div className="empty-state py-4">
+                        <div className="empty-state-icon">📋</div>
+                        <div className="empty-state-text">No logs found</div>
+                        <p className="text-muted mt-2">Actions taken will be recorded here.</p>
+                      </div>
+                    </td>
+                  </tr>
+                ) : (
+                  logs
+                    .filter(log => {
+                      if (!searchQuery) return true;
+                      const query = searchQuery.toLowerCase();
+                      return (
+                        (log.action && log.action.toLowerCase().includes(query)) ||
+                        (log.user_name && log.user_name.toLowerCase().includes(query)) ||
+                        (log.user_email && log.user_email.toLowerCase().includes(query)) ||
+                        (log.details && log.details.toLowerCase().includes(query))
+                      );
+                    })
+                    .map(log => (
+                      <tr key={log.id}>
+                        <td className="text-muted">{log.id}</td>
+                        <td className="text-nowrap overflow-hidden text-truncate" title={log.action}>{log.action || 'N/A'}</td>
+                        <td className="text-nowrap overflow-hidden text-truncate" title={log.user_name || log.user_email}>
+                          {log.user_name || log.user_email || 'N/A'}
+                        </td>
+                        <td className="text-nowrap overflow-hidden text-truncate" title={log.details}>{log.details || 'N/A'}</td>
+                        <td>{formatDate(log.created_at || log.date)}</td>
+                      </tr>
+                    ))
+                )}
               </tbody>
             </Table>
           </div>
@@ -1012,12 +1222,6 @@ const AdminDashboard = () => {
         <p className="section-description">Items that have been in the system for a long time and might be eligible for donation.</p>
         
         <div className="section-actions mb-3 d-flex justify-content-end">
-          <Button 
-            variant="primary"
-            onClick={() => generatePDFReport('Old Items')}
-          >
-            <i className="fas fa-file-pdf"></i> Download Old Items Report
-          </Button>
         </div>
         
         {loading ? (
@@ -1029,21 +1233,23 @@ const AdminDashboard = () => {
         ) : (
           <div className="old-items-container">
             {oldItems.length === 0 ? (
-              <Alert variant="info">
-                No items eligible for donation at this time.
-              </Alert>
+              <div className="empty-state">
+                <div className="empty-state-icon">🎁</div>
+                <div className="empty-state-text">No items eligible for donation</div>
+                <p className="text-muted mt-2">Items that remain unclaimed for an extended period will appear here.</p>
+              </div>
             ) : (
-              <Table striped bordered hover responsive>
-                <thead>
+              <Table striped hover responsive className="table-fixed">
+                <thead className="bg-light">
                   <tr>
-                    <th>ID</th>
-                    <th>Name</th>
-                    <th>Category</th>
-                    <th>Status</th>
-                    <th>Location</th>
-                    <th>Date Added</th>
-                    <th>Days in System</th>
-                    <th>Actions</th>
+                    <th width="5%">ID</th>
+                    <th width="15%">Name</th>
+                    <th width="10%">Category</th>
+                    <th width="10%">Status</th>
+                    <th width="15%">Location</th>
+                    <th width="15%">Date Added</th>
+                    <th width="10%">Days in System</th>
+                    <th width="20%">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -1054,18 +1260,22 @@ const AdminDashboard = () => {
                     return (
                       <tr key={item.id}>
                         <td>{item.id}</td>
-                        <td>{item.name || item.title || 'N/A'}</td>
+                        <td className="text-nowrap overflow-hidden text-truncate" title={item.name || item.title || 'N/A'}>
+                          {item.name || item.title || 'N/A'}
+                        </td>
                         <td>{item.category || 'N/A'}</td>
                         <td>
                           <Badge bg={
                             item.status === 'lost' ? 'danger' :
                             item.status === 'found' ? 'success' :
                             item.status === 'returned' ? 'info' : 'warning'
-                          }>
+                          } className="fw-normal px-2 py-1">
                             {item.status || 'N/A'}
                           </Badge>
                         </td>
-                        <td>{item.location || 'N/A'}</td>
+                        <td className="text-nowrap overflow-hidden text-truncate" title={item.location || 'N/A'}>
+                          {item.location || 'N/A'}
+                        </td>
                         <td>{formatDate(item.created_at || item.date)}</td>
                         <td>{daysInSystem}</td>
                         <td>
@@ -1099,12 +1309,6 @@ const AdminDashboard = () => {
         <p className="section-description">Items that have been donated to charity organizations.</p>
         
         <div className="section-actions mb-3 d-flex justify-content-end">
-          <Button 
-            variant="primary"
-            onClick={() => generatePDFReport('Donated Items')}
-          >
-            <i className="fas fa-file-pdf"></i> Download Donations Report
-          </Button>
         </div>
         
         {loading ? (
@@ -1116,31 +1320,39 @@ const AdminDashboard = () => {
         ) : (
           <div className="donated-items-container">
             {donatedItems.length === 0 ? (
-              <Alert variant="info">
-                No donated items to display.
-              </Alert>
+              <div className="empty-state">
+                <div className="empty-state-icon">🤲</div>
+                <div className="empty-state-text">No donated items to display</div>
+                <p className="text-muted mt-2">Items that have been donated will appear here.</p>
+              </div>
             ) : (
-              <Table striped bordered hover responsive>
-                <thead>
+              <Table striped hover responsive className="table-fixed">
+                <thead className="bg-light">
                   <tr>
-                    <th>ID</th>
-                    <th>Name</th>
-                    <th>Category</th>
-                    <th>Organization</th>
-                    <th>Date Donated</th>
-                    <th>Reason</th>
-                    <th>Actions</th>
+                    <th width="5%">ID</th>
+                    <th width="15%">Name</th>
+                    <th width="10%">Category</th>
+                    <th width="15%">Organization</th>
+                    <th width="15%">Date Donated</th>
+                    <th width="20%">Reason</th>
+                    <th width="20%">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
                   {donatedItems.map(item => (
                     <tr key={item.id}>
                       <td>{item.id}</td>
-                      <td>{item.name || item.title || 'N/A'}</td>
+                      <td className="text-nowrap overflow-hidden text-truncate" title={item.name || item.title || 'N/A'}>
+                        {item.name || item.title || 'N/A'}
+                      </td>
                       <td>{item.category || 'N/A'}</td>
-                      <td>{item.donation_organization || 'N/A'}</td>
+                      <td className="text-nowrap overflow-hidden text-truncate" title={item.donation_organization || 'N/A'}>
+                        {item.donation_organization || 'N/A'}
+                      </td>
                       <td>{formatDate(item.donation_date || item.updated_at || item.created_at || item.date)}</td>
-                      <td>{item.donation_reason || 'Unclaimed for extended period'}</td>
+                      <td className="text-nowrap overflow-hidden text-truncate" title={item.donation_reason || 'Unclaimed for extended period'}>
+                        {item.donation_reason || 'Unclaimed for extended period'}
+                      </td>
                       <td>
                         <ButtonGroup size="sm">
                           <Button 
@@ -1167,7 +1379,7 @@ const AdminDashboard = () => {
   const generatePDFReport = (reportType) => {
     // Validate admin permissions
     if (!currentUser || currentUser.role !== 'admin') {
-      setToastMessage('Error: You do not have permission to generate reports');
+      setToastMessage('Access denied: Admin privileges required for report generation');
       setToastType('danger');
       setShowToast(true);
       return;
@@ -1236,7 +1448,7 @@ const AdminDashboard = () => {
       setShowToast(true);
     } catch (error) {
       console.error(`Error generating ${reportType} report:`, error);
-      setToastMessage(`Error generating report: ${error.message}`);
+      setToastMessage(`Unable to generate report: ${error.message || 'Report data may be too large or invalid'}`);
       setToastType('danger');
       setShowToast(true);
     }
@@ -1261,8 +1473,7 @@ const AdminDashboard = () => {
       startY: 65,
       head: [tableColumn],
       body: tableRows,
-      theme: 'grid',
-      headStyles: { fillColor: [41, 128, 185], textColor: 255 }
+      ...PDF_TABLE_STYLES
     });
   };
   
@@ -1285,8 +1496,7 @@ const AdminDashboard = () => {
       startY: 65,
       head: [tableColumn],
       body: tableRows,
-      theme: 'grid',
-      headStyles: { fillColor: [41, 128, 185], textColor: 255 }
+      ...PDF_TABLE_STYLES
     });
   };
   
@@ -1311,8 +1521,7 @@ const AdminDashboard = () => {
       startY: 65,
       head: [tableColumn],
       body: tableRows,
-      theme: 'grid',
-      headStyles: { fillColor: [41, 128, 185], textColor: 255 }
+      ...PDF_TABLE_STYLES
     });
   };
   
@@ -1337,8 +1546,7 @@ const AdminDashboard = () => {
       startY: 65,
       head: [tableColumn],
       body: tableRows,
-      theme: 'grid',
-      headStyles: { fillColor: [41, 128, 185], textColor: 255 }
+      ...PDF_TABLE_STYLES
     });
   };
   
@@ -1363,8 +1571,7 @@ const AdminDashboard = () => {
       startY: 65,
       head: [tableColumn],
       body: tableRows,
-      theme: 'grid',
-      headStyles: { fillColor: [41, 128, 185], textColor: 255 }
+      ...PDF_TABLE_STYLES
     });
   };
   
@@ -1386,8 +1593,7 @@ const AdminDashboard = () => {
       startY: 65,
       head: [tableColumn],
       body: tableRows,
-      theme: 'grid',
-      headStyles: { fillColor: [41, 128, 185], textColor: 255 }
+      ...PDF_TABLE_STYLES
     });
   };
   
@@ -1411,8 +1617,7 @@ const AdminDashboard = () => {
       startY: 65,
       head: [tableColumn],
       body: tableRows,
-      theme: 'grid',
-      headStyles: { fillColor: [41, 128, 185], textColor: 255 }
+      ...PDF_TABLE_STYLES
     });
     
     let finalY = doc.previousAutoTable.finalY;
@@ -1431,8 +1636,7 @@ const AdminDashboard = () => {
       startY: finalY + 25,
       head: [['Role', 'Count']],
       body: roleTableRows,
-      theme: 'grid',
-      headStyles: { fillColor: [41, 128, 185], textColor: 255 }
+      ...PDF_TABLE_STYLES
     });
     
     finalY = doc.previousAutoTable.finalY;
@@ -1452,8 +1656,7 @@ const AdminDashboard = () => {
       startY: finalY + 25,
       head: [['Status', 'Count']],
       body: statusTableRows,
-      theme: 'grid',
-      headStyles: { fillColor: [41, 128, 185], textColor: 255 }
+      ...PDF_TABLE_STYLES
     });
   };
   
@@ -1484,8 +1687,7 @@ const AdminDashboard = () => {
       startY: 75,
       head: [tableColumn],
       body: tableRows,
-      theme: 'grid',
-      headStyles: { fillColor: [41, 128, 185], textColor: 255 }
+      ...PDF_TABLE_STYLES
     });
   };
   
@@ -1510,8 +1712,7 @@ const AdminDashboard = () => {
       startY: 75,
       head: [tableColumn],
       body: tableRows,
-      theme: 'grid',
-      headStyles: { fillColor: [41, 128, 185], textColor: 255 }
+      ...PDF_TABLE_STYLES
     });
   };
   
@@ -1535,8 +1736,7 @@ const AdminDashboard = () => {
       startY: 65,
       head: [tableColumn],
       body: tableRows,
-      theme: 'grid',
-      headStyles: { fillColor: [41, 128, 185], textColor: 255 }
+      ...PDF_TABLE_STYLES
     });
     
     let finalY = doc.previousAutoTable.finalY;
@@ -1569,7 +1769,7 @@ const AdminDashboard = () => {
   const generateComprehensiveReport = async () => {
     // Validate admin permissions
     if (!currentUser || currentUser.role !== 'admin') {
-      setToastMessage('Error: You do not have permission to generate reports');
+      setToastMessage('Access denied: Admin privileges required for report generation');
       setToastType('danger');
       setShowToast(true);
       return;
@@ -1644,8 +1844,7 @@ const AdminDashboard = () => {
           startY: 65,
           head: [['Metric', 'Count']],
           body: summaryTableData,
-          theme: 'grid',
-          headStyles: { fillColor: [41, 128, 185], textColor: 255 }
+          ...PDF_TABLE_STYLES
         });
         
         // Add Found Items section with pagination if needed
@@ -1704,8 +1903,7 @@ const AdminDashboard = () => {
                   sanitizeForPDF(reporterName)
                 ];
               }),
-              theme: 'grid',
-              headStyles: { fillColor: [41, 128, 185], textColor: 255 }
+              ...PDF_TABLE_STYLES
             });
           }
         } else {
@@ -1781,8 +1979,7 @@ const AdminDashboard = () => {
                   sanitizeForPDF(contactInfo)
                 ];
               }),
-              theme: 'grid',
-              headStyles: { fillColor: [41, 128, 185], textColor: 255 }
+              ...PDF_TABLE_STYLES
             });
           }
         } else {
@@ -1805,7 +2002,7 @@ const AdminDashboard = () => {
       setShowToast(true);
     } catch (error) {
       console.error('Error generating comprehensive report:', error);
-      setToastMessage(`Error generating report: ${error.message}`);
+      setToastMessage(`Unable to generate comprehensive report: ${error.message || 'Report data may be too large or complex'}`);
       setToastType('danger');
       setShowToast(true);
     } finally {
@@ -1945,22 +2142,52 @@ const AdminDashboard = () => {
       {error && <Alert variant="danger" className="mb-3">{error}</Alert>}
       {successMessage && <Alert variant="success" className="mb-3">{successMessage}</Alert>}
       
-      {/* Toast notification for PDF download */}
-      <ToastContainer position="top-end" className="p-3" style={{ zIndex: 1 }}>
+      {/* Toast notification for all actions */}
+      <ToastContainer position="top-center" className="p-3" style={{ zIndex: 1000 }}>
         <Toast 
           onClose={() => setShowToast(false)} 
           show={showToast} 
           delay={3000} 
           autohide
           bg={toastType}
+          style={{
+            minWidth: '350px',
+            boxShadow: '0 8px 16px rgba(0,0,0,0.2)',
+            borderRadius: '8px',
+            border: 'none'
+          }}
         >
-          <Toast.Header>
+          <Toast.Header className="d-flex justify-content-between align-items-center" style={{ 
+            backgroundColor: 'rgba(255,255,255,0.9)',
+            borderBottom: '1px solid rgba(0,0,0,0.1)',
+            padding: '0.75rem 1rem'
+          }}>
             <strong className="me-auto">
-              {toastType === 'success' ? 'Report Generated' : 'Error'}
+              {toastType === 'success' && <i className="fas fa-check-circle text-success me-2"></i>}
+              {toastType === 'danger' && <i className="fas fa-exclamation-circle text-danger me-2"></i>}
+              {toastType === 'warning' && <i className="fas fa-exclamation-triangle text-warning me-2"></i>}
+              {toastType === 'info' && <i className="fas fa-info-circle text-info me-2"></i>}
+              {toastType === 'success' ? 'Success' : 
+               toastType === 'danger' ? 'Error' :
+               toastType === 'warning' ? 'Warning' : 'Information'}
             </strong>
-            <small>Just now</small>
+            <Button 
+              variant="link" 
+              className="p-0 m-0 close-button" 
+              onClick={() => setShowToast(false)}
+              aria-label="Close"
+              style={{ color: '#666' }}
+            >
+              <i className="fas fa-times"></i>
+            </Button>
           </Toast.Header>
-          <Toast.Body className="text-white">{toastMessage}</Toast.Body>
+          <Toast.Body className={toastType !== 'light' ? 'text-white' : ''} style={{
+            padding: '1rem',
+            fontSize: '0.95rem',
+            fontWeight: '500'
+          }}>
+            {toastMessage}
+          </Toast.Body>
         </Toast>
       </ToastContainer>
 
@@ -2034,18 +2261,6 @@ const AdminDashboard = () => {
                   <i className="fas fa-list"></i> Table View
                 </Button>
               </div>
-              
-              <Dropdown>
-                <Dropdown.Toggle variant="primary" id="dropdown-reports-items">
-                  <i className="fas fa-file-pdf"></i> Download Reports
-                </Dropdown.Toggle>
-                <Dropdown.Menu>
-                  <Dropdown.Item onClick={() => generatePDFReport('Items')}>All Items Report</Dropdown.Item>
-                  <Dropdown.Item onClick={() => generatePDFReport('Lost Items')}>Lost Items Report</Dropdown.Item>
-                  <Dropdown.Item onClick={() => generatePDFReport('Found Items')}>Found Items Report</Dropdown.Item>
-                  <Dropdown.Item onClick={() => generatePDFReport('Returned Items')}>Returned Items Report</Dropdown.Item>
-                </Dropdown.Menu>
-              </Dropdown>
             </div>
             
             {viewMode === 'grid' ? renderItemsGrid(items) : renderItemsTable(items)}

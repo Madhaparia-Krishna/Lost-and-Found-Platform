@@ -14,6 +14,7 @@ const AdminPanel = () => {
   const [usersError, setUsersError] = useState(null);
   const [logsError, setLogsError] = useState(null);
   const [statsError, setStatsError] = useState(null);
+  const [searchQuery, setSearchQuery] = useState('');
 
   // State for data
   const [users, setUsers] = useState([]);
@@ -416,6 +417,20 @@ const AdminPanel = () => {
         <div className="panel-section">
           <h2>User Management</h2>
           {renderErrorMessage(usersError, fetchUsers)}
+          
+          <div className="search-container">
+            <div className="search-box">
+              <i className="fas fa-search search-icon"></i>
+              <input
+                type="text"
+                placeholder="Search users..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="search-input"
+              />
+            </div>
+          </div>
+          
           {users.length === 0 && !usersError ? (
             <p>No users found.</p>
           ) : (
@@ -431,28 +446,51 @@ const AdminPanel = () => {
                 </tr>
               </thead>
               <tbody>
-                {users.filter(user => !user.is_deleted).map(user => (
+                {users
+                  .filter(user => {
+                    if (!searchQuery) return !user.is_deleted;
+                    const query = searchQuery.toLowerCase();
+                    return (
+                      !user.is_deleted &&
+                      ((user.name && user.name.toLowerCase().includes(query)) ||
+                      (user.email && user.email.toLowerCase().includes(query)) ||
+                      (user.role && user.role.toLowerCase().includes(query)))
+                    );
+                  })
+                  .map(user => (
                   <tr key={user.id}>
-                    <td>{user.id}</td>
-                    <td>{user.name}</td>
-                    <td>{user.email}</td>
                     <td>
-                      <span className={`role-badge role-${user.role}`}>
-                        {user.role}
-                      </span>
+                      <div className="cell-content">{user.id}</div>
                     </td>
-                    <td>{formatDate(user.created_at)}</td>
-                    <td>
-                      <select 
-                        value={user.role}
-                        onChange={(e) => handleRoleChange(user.id, e.target.value)}
-                        className="role-select"
-                        disabled={user.role === 'admin' || user.role === 'security'}
-                      >
-                        <option value="user">User</option>
-                        <option value="security">Security</option>
-                        <option value="admin">Admin</option>
-                      </select>
+                    <td className="user-name">
+                      <div className="cell-content">{user.name || 'N/A'}</div>
+                    </td>
+                    <td className="user-email">
+                      <div className="cell-content">{user.email}</div>
+                    </td>
+                    <td className="user-role">
+                      <div className="cell-content">
+                        <span className={`role-badge role-${user.role}`}>
+                          {user.role}
+                        </span>
+                      </div>
+                    </td>
+                    <td className="user-date">
+                      <div className="cell-content">{formatDate(user.created_at)}</div>
+                    </td>
+                    <td className="user-actions">
+                      <div className="cell-content">
+                        <select 
+                          value={user.role}
+                          onChange={(e) => handleRoleChange(user.id, e.target.value)}
+                          className="role-select"
+                          disabled={user.role === 'admin' || user.role === 'security'}
+                        >
+                          <option value="user">User</option>
+                          <option value="security">Security</option>
+                          <option value="admin">Admin</option>
+                        </select>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -466,6 +504,20 @@ const AdminPanel = () => {
         <div className="panel-section">
           <h2>Banned Users</h2>
           {renderErrorMessage(usersError, fetchUsers)}
+          
+          <div className="search-container">
+            <div className="search-box">
+              <i className="fas fa-search search-icon"></i>
+              <input
+                type="text"
+                placeholder="Search banned users..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="search-input"
+              />
+            </div>
+          </div>
+          
           {bannedUsers.length === 0 && !usersError ? (
             <p>No banned users found.</p>
           ) : (
@@ -481,24 +533,47 @@ const AdminPanel = () => {
                 </tr>
               </thead>
               <tbody>
-                {bannedUsers.map(user => (
+                {bannedUsers
+                  .filter(user => {
+                    if (!searchQuery) return true;
+                    const query = searchQuery.toLowerCase();
+                    return (
+                      (user.name && user.name.toLowerCase().includes(query)) ||
+                      (user.email && user.email.toLowerCase().includes(query)) ||
+                      (user.role && user.role.toLowerCase().includes(query)) ||
+                      (user.ban_reason && user.ban_reason.toLowerCase().includes(query))
+                    );
+                  })
+                  .map(user => (
                   <tr key={user.id}>
-                    <td>{user.id}</td>
-                    <td>{user.name}</td>
-                    <td>{user.email}</td>
                     <td>
-                      <span className={`role-badge role-${user.role}`}>
-                        {user.role}
-                      </span>
+                      <div className="cell-content">{user.id}</div>
                     </td>
-                    <td>{user.ban_reason || 'N/A'}</td>
-                    <td>
-                      <button 
-                        onClick={() => handleUnbanUser(user.id)}
-                        className="unban-btn"
-                      >
-                        Unban User
-                      </button>
+                    <td className="user-name">
+                      <div className="cell-content">{user.name || 'N/A'}</div>
+                    </td>
+                    <td className="user-email">
+                      <div className="cell-content">{user.email}</div>
+                    </td>
+                    <td className="user-role">
+                      <div className="cell-content">
+                        <span className={`role-badge role-${user.role}`}>
+                          {user.role}
+                        </span>
+                      </div>
+                    </td>
+                    <td className="ban-reason">
+                      <div className="cell-content">{user.ban_reason || 'N/A'}</div>
+                    </td>
+                    <td className="user-actions">
+                      <div className="cell-content">
+                        <button 
+                          onClick={() => handleUnbanUser(user.id)}
+                          className="unban-btn"
+                        >
+                          Unban User
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -512,6 +587,20 @@ const AdminPanel = () => {
         <div className="panel-section">
           <h2>System Logs</h2>
           {renderErrorMessage(logsError, fetchLogs)}
+          
+          <div className="search-container">
+            <div className="search-box">
+              <i className="fas fa-search search-icon"></i>
+              <input
+                type="text"
+                placeholder="Search logs..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="search-input"
+              />
+            </div>
+          </div>
+          
           {logs.length === 0 && !logsError ? (
             <p>No logs found.</p>
           ) : (
@@ -526,13 +615,33 @@ const AdminPanel = () => {
                 </tr>
               </thead>
               <tbody>
-                {logs.map(log => (
+                {logs
+                  .filter(log => {
+                    if (!searchQuery) return true;
+                    const query = searchQuery.toLowerCase();
+                    return (
+                      (log.action && log.action.toLowerCase().includes(query)) ||
+                      (log.details && log.details.toLowerCase().includes(query)) ||
+                      (log.user_name && log.user_name.toLowerCase().includes(query))
+                    );
+                  })
+                  .map(log => (
                   <tr key={log.id}>
-                    <td>{log.id}</td>
-                    <td>{log.action}</td>
-                    <td>{log.details}</td>
-                    <td>{log.user_name || 'System'}</td>
-                    <td>{formatDate(log.created_at)}</td>
+                    <td>
+                      <div className="cell-content">{log.id}</div>
+                    </td>
+                    <td className="log-action">
+                      <div className="cell-content">{log.action}</div>
+                    </td>
+                    <td className="log-details">
+                      <div className="cell-content">{log.details}</div>
+                    </td>
+                    <td className="log-user">
+                      <div className="cell-content">{log.user_name || 'System'}</div>
+                    </td>
+                    <td className="log-date">
+                      <div className="cell-content">{formatDate(log.created_at)}</div>
+                    </td>
                   </tr>
                 ))}
               </tbody>
