@@ -1,27 +1,130 @@
 /* ViewAllItems.css - Modern design consistent with Dashboard */
 
-/* Import the same styling as DashboardLayout for consistency */
-.dashboard-layout {
-  display: flex;
-  flex-direction: column;
+/* Ultra-aggressive reset to remove all white space */
+html, body, div, span, applet, object, iframe, h1, h2, h3, h4, h5, h6, p, blockquote, pre, a, abbr, acronym, address, big, cite, code, del, dfn, em, img, ins, kbd, q, s, samp, small, strike, strong, sub, sup, tt, var, b, u, i, center, dl, dt, dd, ol, ul, li, fieldset, form, label, legend, table, caption, tbody, tfoot, thead, tr, th, td, article, aside, canvas, details, embed, figure, figcaption, footer, header, hgroup, menu, nav, output, ruby, section, summary, time, mark, audio, video {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  font-size: 100%;
+  font: inherit;
+  vertical-align: baseline;
+}
+
+/* Force the entire document to have the theme background */
+html, body, #root {
+  background-color: #EAE7DC !important;
+  margin: 0 !important;
+  padding: 0 !important;
   min-height: 100vh;
-  background-color: #f5f7fa;
+  width: 100vw;
+  overflow-x: hidden;
+}
+
+/* Aggressively style the dashboard layout */
+.dashboard-layout {
+  display: flex !important;
+  min-height: 100vh !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  background-color: #EAE7DC !important;
+  position: relative !important;
+  z-index: 5 !important;
+  margin-top: -60px !important; /* Negative margin to counteract the body padding */
+}
+
+/* Absolutely position the header to eliminate space */
+.dashboard-header {
+  position: relative;
+  width: 100%;
+  z-index: 10;
+  margin: 0 !important;
+  padding: 0 20px !important;
+  height: 64px !important;
+  display: flex !important;
+  align-items: center !important;
+  border: none !important;
+  border-radius: 0 !important;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.1) !important;
+  background: linear-gradient(135deg, #E98074 0%, #E85A4F 100%) !important;
+}
+
+/* Fix content positioning */
+.dashboard-main, div[style] {
+  width: 100%;
+  max-width: 1200px;
+  background-color: #EAE7DC !important;
+  padding: 0 2rem 2rem !important;
+  margin: 0 auto !important;
+  margin-top: 0 !important;
+  padding-top: 0 !important;
+  position: relative;
+  z-index: 5;
+}
+
+/* Remove margins from the page header */
+.page-header {
+  background-color: #EAE7DC !important;
+  margin: 0 !important;
+  padding-top: 0.75rem !important;
+  padding-bottom: 0.5rem !important;
+}
+
+/* Remove borders and backgrounds from other elements */
+.search-filters, .info-banner, .filter-tabs, .dashboard-content {
+  background-color: inherit !important;
+}
+
+/* Use a custom class for direct application */
+.no-whitespace-fix {
+  margin-top: -60px !important; /* Negative margin to counteract the body padding */
+  padding-top: 0 !important;
+  position: relative;
+  z-index: 5;
+}
+
+/* Make content stick to header */
+.dashboard-header::after {
+  content: "";
+  display: block;
+  height: 0;
+  width: 100%;
+  clear: both;
+  background-color: #EAE7DC;
+}
+
+/* Force all content to have the correct background */
+.dashboard-nav,
+.nav-section,
+.main-nav,
+.actions-nav,
+.user-nav,
+.auth-nav,
+.search-filters,
+.filter-tabs,
+.info-banner,
+.action-status,
+.dashboard-content,
+.items-square-grid,
+.page-header {
+  background-color: #EAE7DC !important;
 }
 
 /* Header and Navigation */
 .dashboard-header {
-  background: linear-gradient(135deg, #3a5683 0%, #1f3a60 100%);
+  background: linear-gradient(135deg, #E98074 0%, #E85A4F 100%);
   color: white;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-  padding: 0;
+  box-shadow: none !important;
+  padding: 0 20px !important;
   position: sticky;
   top: 0;
   z-index: 1000;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 0 20px;
   height: 64px;
+  margin: 0 !important;
+  border-bottom: none !important;
+  border-radius: 0 !important;
 }
 
 .header-brand {
@@ -58,15 +161,18 @@
   justify-content: space-between;
   flex-grow: 1;
   margin-left: 2rem;
+  background-color: transparent;
 }
 
 .nav-section {
   display: flex;
   align-items: center;
+  background-color: transparent;
 }
 
 .main-nav {
   margin-right: auto;
+  background-color: transparent;
 }
 
 .nav-link {
@@ -78,6 +184,7 @@
   display: flex;
   align-items: center;
   margin-right: 5px;
+  background-color: transparent;
 }
 
 .nav-link i {
@@ -87,7 +194,7 @@
 .nav-link:hover, 
 .nav-link.active {
   color: white;
-  background-color: rgba(255, 255, 255, 0.1);
+  background-color: rgba(233, 128, 116, 0.3);
 }
 
 .nav-link.active {
@@ -95,7 +202,7 @@
 }
 
 .action-btn {
-  background-color: rgba(255, 255, 255, 0.1);
+  background-color: rgba(233, 128, 116, 0.3);
   color: white;
   padding: 0.5rem 1rem;
   border-radius: 4px;
@@ -104,6 +211,7 @@
   transition: all 0.2s;
   display: flex;
   align-items: center;
+  background-color: transparent;
 }
 
 .action-btn i {
@@ -111,12 +219,12 @@
 }
 
 .action-btn:hover {
-  background-color: rgba(255, 255, 255, 0.2);
+  background-color: rgba(233, 128, 116, 0.5);
   color: white;
 }
 
 .admin-link {
-  background-color: rgba(233, 128, 116, 0.2);
+  background-color: rgba(233, 128, 116, 0.3);
   color: white;
   padding: 0.5rem 1rem;
   border-radius: 4px;
@@ -124,10 +232,11 @@
   text-decoration: none;
   display: flex;
   align-items: center;
+  background-color: transparent;
 }
 
 .admin-link:hover {
-  background-color: rgba(233, 128, 116, 0.3);
+  background-color: rgba(233, 128, 116, 0.5);
   color: white;
 }
 
@@ -139,6 +248,7 @@
 .user-dropdown {
   position: relative;
   margin-left: 1rem;
+  background-color: transparent;
 }
 
 .user-info {
@@ -148,6 +258,7 @@
   padding: 0.5rem;
   border-radius: 4px;
   transition: background-color 0.2s;
+  background-color: transparent;
 }
 
 .user-info:hover {
@@ -219,6 +330,7 @@
 .auth-nav {
   display: flex;
   align-items: center;
+  background-color: transparent;
 }
 
 .auth-link {
@@ -228,6 +340,7 @@
   border-radius: 4px;
   transition: all 0.2s;
   margin-left: 0.5rem;
+  background-color: transparent;
 }
 
 .auth-link:hover {
@@ -242,22 +355,15 @@
   background-color: rgba(233, 128, 116, 0.3);
 }
 
-/* Main content */
-.dashboard-main {
-  padding: 0 2rem 2rem;
-  padding-top: 4rem;
-  max-width: 1200px;
-  margin: 0 auto;
-  width: 100%;
-}
-
 /* Page header */
 .page-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
   margin-bottom: 1.5rem;
-  margin-top: 1rem;
+  margin-top: 0.5rem !important;
+  background-color: #EAE7DC !important;
+  padding: 0;
 }
 
 .page-header h1 {
@@ -267,11 +373,11 @@
 }
 
 .refresh-btn {
-  background-color: #D8C3A5;
-  color: #4D4C4A;
+  background-color: #E98074;
+  color: white;
   border: none;
   padding: 0.5rem 1rem;
-  border-radius: 2px;
+  border-radius: 4px;
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -282,35 +388,37 @@
 }
 
 .refresh-btn:hover {
-  background-color: #c9b08e;
+  background-color: #E85A4F;
 }
 
 /* Info banner */
 .info-banner {
-  background-color: rgba(59, 130, 246, 0.1);
-  border-left: 4px solid #3b82f6;
+  background-color: rgba(233, 128, 116, 0.1);
+  border-left: 4px solid #E98074;
   padding: 1rem;
+  margin-top: 0;
   margin-bottom: 1.5rem;
   border-radius: 4px;
 }
 
 .info-banner p {
   margin: 0.5rem 0;
-  color: #1e3a8a;
+  color: #4D4C4A;
 }
 
 .info-banner a {
-  color: #3b82f6;
+  color: #E85A4F;
   text-decoration: underline;
 }
 
 .info-banner a:hover {
-  color: #1e40af;
+  color: #d04940;
 }
 
 /* Action status messages */
 .action-status {
   padding: 1rem;
+  margin-top: 0;
   margin-bottom: 1.5rem;
   border-radius: 4px;
   font-weight: 500;
@@ -324,15 +432,15 @@
 }
 
 .action-status.error {
-  background-color: rgba(231, 76, 60, 0.1);
-  border-left: 4px solid #e74c3c;
+  background-color: rgba(232, 90, 79, 0.1);
+  border-left: 4px solid #E85A4F;
   color: #c0392b;
 }
 
 .action-status.info {
-  background-color: rgba(52, 152, 219, 0.1);
-  border-left: 4px solid #3498db;
-  color: #2980b9;
+  background-color: rgba(233, 128, 116, 0.1);
+  border-left: 4px solid #E98074;
+  color: #4D4C4A;
 }
 
 @keyframes slideIn {
@@ -351,8 +459,10 @@
   background-color: white;
   padding: 1.5rem;
   border-radius: 8px;
+  margin-top: 0;
   margin-bottom: 1.5rem;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  border: 1px solid #D8C3A5;
 }
 
 .search-form {
@@ -376,7 +486,7 @@
 }
 
 .search-btn {
-  background-color: #3b82f6;
+  background-color: #E98074;
   color: white;
   border: none;
   padding: 0.75rem 1.25rem;
@@ -393,23 +503,25 @@
 }
 
 .search-btn:hover {
-  background-color: #2563eb;
+  background-color: #E85A4F;
 }
 
 .search-btn.refresh-btn {
-  background-color: #E98074;
+  background-color: #8E8D8A;
 }
 
 .search-btn.refresh-btn:hover {
-  background-color: #E85A4F;
+  background-color: #6D6C6A;
 }
 
 /* Filter tabs */
 .filter-tabs {
   display: flex;
+  margin-top: 0;
   margin-bottom: 1.5rem;
-  border-bottom: 1px solid #ddd;
+  border-bottom: 1px solid #D8C3A5;
   flex-wrap: wrap;
+  background-color: #EAE7DC;
 }
 
 .filter-tab {
@@ -419,23 +531,24 @@
   border-bottom: 3px solid transparent;
   font-size: 1rem;
   font-weight: 500;
-  color: #666;
+  color: #8E8D8A;
   cursor: pointer;
   transition: all 0.2s;
 }
 
 .filter-tab:hover {
-  color: #3b82f6;
+  color: #E98074;
 }
 
 .filter-tab.active {
-  color: #3b82f6;
-  border-bottom-color: #3b82f6;
+  color: #E85A4F;
+  border-bottom-color: #E85A4F;
 }
 
 /* Dashboard content */
 .dashboard-content {
   margin-top: 1.5rem;
+  background-color: #EAE7DC;
 }
 
 /* Items grid */
@@ -534,11 +647,13 @@
 
 /* Empty state */
 .empty-state {
-  padding: 3rem;
-  text-align: center;
   background-color: white;
+  padding: 3rem 2rem;
+  text-align: center;
   border-radius: 8px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  margin-top: 2rem;
+  border: 1px solid #D8C3A5;
 }
 
 .empty-state-icon {
@@ -561,13 +676,16 @@
   background-color: #E98074;
   color: white;
   border: none;
-  padding: 0.75rem 1.25rem;
+  padding: 0.75rem 1.5rem;
   border-radius: 4px;
-  font-weight: 600;
+  font-weight: 500;
+  font-size: 1rem;
   cursor: pointer;
-  display: inline-flex;
-  align-items: center;
   transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 1rem auto 0;
 }
 
 .primary-btn i {
@@ -763,27 +881,27 @@
 /* Grid layout for square items */
 .items-square-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-  gap: 1rem;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 1.5rem;
   margin-bottom: 2rem;
 }
 
 /* Square item container */
 .square-item {
-  position: relative;
-  width: 100%;
-  padding-top: 100%; /* This creates a perfect square */
-  border-radius: 12px;
-  overflow: hidden;
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
   background-color: white;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
   cursor: pointer;
-  transition: transform 0.3s ease, box-shadow 0.3s ease;
+  transition: transform 0.2s, box-shadow 0.2s;
+  position: relative;
+  height: 280px;
+  border: 1px solid #D8C3A5;
 }
 
 .square-item:hover {
   transform: translateY(-5px);
-  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.15);
 }
 
 /* Content wrapper to position absolute elements inside the square */
@@ -852,23 +970,26 @@
   top: 10px;
   right: 10px;
   padding: 5px 10px;
-  border-radius: 20px;
-  font-size: 12px;
+  border-radius: 4px;
+  font-size: 0.8rem;
   font-weight: 600;
-  color: white;
-  z-index: 3;
+  z-index: 10;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
 .status-found {
-  background-color: #3a5683;
+  background-color: #8E8D8A;
+  color: white;
 }
 
 .status-requested {
   background-color: #E98074;
+  color: white;
 }
 
 .status-received {
-  background-color: #4CAF50;
+  background-color: #D8C3A5;
+  color: #4D4C4A;
 }
 
 /* Responsive adjustments */
@@ -908,23 +1029,129 @@
 .report-btn {
   background-color: #E98074;
   color: white;
-  padding: 0.5rem 1rem;
-  border-radius: 2px;
+  border: none;
+  border-radius: 4px;
+  padding: 0.6rem 1.2rem;
+  font-weight: 500;
   text-decoration: none;
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  font-weight: 600;
-  font-size: 0.9rem;
   transition: all 0.2s;
 }
 
 .report-btn:hover {
   background-color: #E85A4F;
   color: white;
-  text-decoration: none;
 }
 
 .report-btn i {
   font-size: 0.8rem;
+}
+
+body, html {
+  margin: 0 !important;
+  padding: 0 !important;
+  background-color: #EAE7DC !important;
+  overflow-x: hidden;
+}
+
+/* Ensure all content has the proper background */
+.dashboard-nav,
+.nav-section,
+.main-nav,
+.actions-nav,
+.user-nav,
+.auth-nav {
+  background-color: transparent;
+}
+
+/* Remove any potential white space from search filters */
+.search-filters {
+  margin-top: 0;
+  border-radius: 4px;
+}
+
+/* Ensure filter tabs don't have excess margin */
+.filter-tabs {
+  margin-top: 0;
+}
+
+/* Ensure action status messages don't add extra space */
+.action-status {
+  margin-top: 0;
+}
+
+/* Make sure info banner doesn't add unnecessary space */
+.info-banner {
+  margin-top: 0;
+}
+
+/* Fix any potential root element backgrounds */
+#root {
+  background-color: #EAE7DC !important;
+}
+
+/* Ensure no space between header and main content */
+.dashboard-header + .dashboard-main {
+  margin-top: 0 !important;
+  padding-top: 0 !important;
+}
+
+/* Create a negative margin trick for the main content */
+div[style] {
+  margin-top: -1px !important; /* Negative margin to pull content up */
+  padding-top: 1px !important; /* Add a tiny bit of padding to prevent overlap */
+}
+
+/* Override any theme styles */
+* {
+  box-sizing: border-box;
+}
+
+/* Complete override of all potential white space issues */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body, html, #root, .dashboard-layout {
+  background-color: #EAE7DC !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  min-height: 100%;
+  overflow-x: hidden;
+}
+
+/* First child of main content */
+.dashboard-main > :first-child, div[style] > :first-child {
+  margin-top: 0.75rem !important;
+}
+
+/* Override any fixed margins on page header */
+.page-header {
+  margin-top: 0.75rem !important;
+  margin-bottom: 1rem !important;
+}
+
+/* Fix for the sidebar layout */
+.dashboard-layout > nav + div,
+.dashboard-layout > div:first-child {
+  margin-top: 0 !important;
+  padding-top: 0 !important;
+}
+
+/* Target the search container and other elements in the view items page */
+.dashboard-layout .page-header,
+.dashboard-layout .info-banner,
+.dashboard-layout .search-filters,
+.dashboard-layout .filter-tabs,
+.dashboard-layout .dashboard-content {
+  background-color: #EAE7DC !important;
+  margin-bottom: 1rem !important;
+}
+
+/* Force the layout to avoid any top margin or padding */
+body > div > div.dashboard-layout {
+  margin-top: -60px !important;
 } 

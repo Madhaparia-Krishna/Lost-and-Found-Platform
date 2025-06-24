@@ -227,7 +227,7 @@ const ViewAllItems = () => {
   }
 
   return (
-    <div className="dashboard-layout">
+    <div className="dashboard-layout" style={{ backgroundColor: '#EAE7DC', margin: 0, padding: 0 }}>
       <header className="dashboard-header">
         <div className="header-brand">
           <Link to="/" className="brand-link">Lost@Campus</Link>
@@ -303,8 +303,16 @@ const ViewAllItems = () => {
         </nav>
       </header>
       
-      <main className="dashboard-main">
-        <div className="page-header">
+      <div style={{ 
+        backgroundColor: '#EAE7DC', 
+        padding: '0 2rem 2rem', 
+        paddingTop: 0, 
+        marginTop: 0, 
+        maxWidth: '1200px', 
+        width: '100%', 
+        margin: '0 auto' 
+      }}>
+        <div className="page-header" style={{ marginTop: '0.75rem', backgroundColor: '#EAE7DC' }}>
           <h1>Found Items</h1>
           <div className="header-actions">
             {currentUser && (
@@ -467,7 +475,7 @@ const ViewAllItems = () => {
             </div>
           )}
         </div>
-      </main>
+      </div>
       
       {/* Item Detail Modal using the enhanced ItemModal component */}
       {showModal && selectedItemId && (

@@ -2,6 +2,8 @@
   display: flex;
   min-height: 100vh;
   background-color: #EAE7DC; /* Match home page background */
+  margin: 0 !important;
+  padding: 0 !important;
 }
 
 .sidebar {
@@ -13,6 +15,7 @@
   box-shadow: 2px 0 5px rgba(0, 0, 0, 0.1);
   padding: 1rem 0;
   flex-shrink: 0; /* Prevent sidebar from shrinking */
+  margin-top: 0 !important;
 }
 
 .sidebar-header {
@@ -74,6 +77,8 @@
   flex-grow: 1;
   display: flex;
   flex-direction: column;
+  margin: 0 !important;
+  padding: 0 !important;
 }
 
 .dashboard-header {
@@ -170,9 +175,10 @@
 }
 
 .dashboard-main {
-  padding: 1.5rem 1rem 0; /* Added top and horizontal padding */
+  padding: 1.5rem 1rem;
   flex-grow: 1;
   background-color: #EAE7DC; /* Match home page background */
+  margin-top: 0 !important;
 }
 
 /* General dashboard elements (cards, graphs - to be styled further) */

@@ -9,6 +9,8 @@
   top: 0;
   z-index: 1000;
   transition: all 0.3s ease;
+  margin: 0 !important;
+  border-bottom: none !important;
 }
 
 .navbar-brand {
@@ -691,4 +693,13 @@
 .navbar-profile-dropdown-item:hover {
   background: #EAE7DC;
   color: #E98074;
+}
+
+/* Remove padding from body */
+body {
+  background-color: var(--light-color) !important;
+  color: var(--gray-800);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  padding: 0 !important;
+  margin: 0 !important;
 } 

@@ -83,6 +83,20 @@ const Home = () => {
             <h3>Get Items Back</h3>
             <p>Verify your identity and arrange to collect your items once they've been found.</p>
           </div>
+          <div className="feature-card">
+            <div className="feature-icon">
+              <i className="fas fa-bell"></i>
+            </div>
+            <h3>Receive Notifications</h3>
+            <p>Get instant alerts when potential matches for your lost items are found or when someone claims your found item.</p>
+          </div>
+          <div className="feature-card">
+            <div className="feature-icon">
+              <i className="fas fa-user-shield"></i>
+            </div>
+            <h3>Secure Verification</h3>
+            <p>Our verification process ensures items are returned to their rightful owners with identity confirmation.</p>
+          </div>
         </div>
         <div className="view-all-button">
           <button className="primary-button" onClick={handleViewItems}>
@@ -95,10 +109,10 @@ const Home = () => {
         <div className="footer-content">
           <p>&copy; {new Date().getFullYear()} Lost@Campus</p>
           <div className="footer-links">
-            <a href="#about">About</a>
-            <a href="#privacy">Privacy Policy</a>
-            <a href="#terms">Terms of Service</a>
-            <a href="#contact">Contact</a>
+            <Link to="/about">About</Link>
+            <Link to="/privacy">Privacy Policy</Link>
+            <Link to="/terms">Terms of Service</Link>
+            <Link to="/contact">Contact</Link>
           </div>
         </div>
       </footer>

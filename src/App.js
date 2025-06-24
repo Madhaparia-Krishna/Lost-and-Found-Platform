@@ -24,6 +24,12 @@ import Profile from './pages/Profile';
 import ForgotPassword from './pages/ForgotPassword';
 import TestRole from './pages/TestRole';
 
+// Footer Pages
+import About from './pages/About';
+import Privacy from './pages/Privacy';
+import Terms from './pages/Terms';
+import Contact from './pages/Contact';
+
 // Dashboard Pages
 import FoundItems from './pages/dashboard/FoundItems';
 import LostItems from './pages/dashboard/LostItems';
@@ -58,6 +64,12 @@ const AppContent = () => {
           <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
           <Route path="/register" element={<PublicRoute><Register /></PublicRoute>} />
           <Route path="/unauthorized" element={<Unauthorized />} />
+          
+          {/* Footer pages */}
+          <Route path="/about" element={<About />} />
+          <Route path="/privacy" element={<Privacy />} />
+          <Route path="/terms" element={<Terms />} />
+          <Route path="/contact" element={<Contact />} />
           
           {/* Dashboard routes */}
           <Route path="/dashboard" element={
