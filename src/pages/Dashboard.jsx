@@ -129,6 +129,17 @@ const Dashboard = () => {
     setShowDebug(!showDebug);
   };
 
+  const isOwner = (item) => {
+    return currentUser && item.user_id === currentUser.id;
+  };
+
+  const canSeeFullDetails = (item) => {
+    if (item.status !== 'found') return true;
+    if (isOwner(item)) return true;
+    if (currentUser && (currentUser.role === 'admin' || currentUser.role === 'security')) return true;
+    return false;
+  };
+
   // Handle claim request
   const handleClaimRequest = (itemId) => {
     navigate(`/claim/${itemId}`);
@@ -282,8 +293,18 @@ const Dashboard = () => {
                     <h3>{item.title}</h3>
                     <p className="category">{item.category}</p>
                     <p className="description">{item.description}</p>
-                    <p className="location"><strong>Location:</strong> {item.location}</p>
-                    <p className="found-date"><strong>Found on:</strong> {item.date ? new Date(item.date).toLocaleDateString() : 'Not specified'}</p>
+                    
+                    {canSeeFullDetails(item) ? (
+                      <>
+                        <p className="location"><strong>Location:</strong> {item.location}</p>
+                        <p className="found-date"><strong>Found on:</strong> {item.date ? new Date(item.date).toLocaleDateString() : 'Not specified'}</p>
+                      </>
+                    ) : (
+                      <div className="restricted-info">
+                        <p><i className="fas fa-lock"></i> Location and date details are hidden</p>
+                        <p className="info-note">These details are only visible to security staff and the person who reported the item.</p>
+                      </div>
+                    )}
                     
                     <div className="item-actions">
                       <button 

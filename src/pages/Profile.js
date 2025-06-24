@@ -1,7 +1,9 @@
 import React, { useState, useEffect, useContext } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { AuthContext } from '../context/AuthContext';
+import { API_BASE_URL } from '../utils/api';
 import '../styles/AuthForms.css';
+import axios from 'axios';
 
 function Profile() {
   const { currentUser } = useContext(AuthContext);
@@ -29,25 +31,23 @@ function Profile() {
       }
       
       try {
-        const response = await fetch('/api/profile', {
-          method: 'GET',
+        setLoading(true);
+        console.log('Fetching profile with token:', currentUser.token);
+        
+        const response = await axios.get(`${API_BASE_URL}/api/profile`, {
           headers: {
             'Authorization': `Bearer ${currentUser.token}`,
             'Content-Type': 'application/json'
           }
         });
         
-        if (!response.ok) {
-          const data = await response.json();
-          throw new Error(data.message || 'Failed to fetch profile');
-        }
-        
-        const data = await response.json();
-        setProfile(data.profile);
-        setLoading(false);
+        console.log('Profile response:', response.data);
+        setProfile(response.data.profile);
+        setError(null);
       } catch (err) {
         console.error('Error fetching profile:', err);
-        setError(err.message);
+        setError(err.response?.data?.message || err.message || 'Failed to fetch profile');
+      } finally {
         setLoading(false);
       }
     };
@@ -75,31 +75,40 @@ function Profile() {
     
     try {
       setLoading(true);
-      const response = await fetch('/api/profile', {
-        method: 'PUT',
+      setError(null);
+      
+      // Prepare profile data with proper types
+      const profileData = {
+        name: profile.name || '',
+        admission_number: profile.admission_number || '',
+        faculty_school: profile.faculty_school || '',
+        year_of_study: profile.year_of_study || '',
+        phone_number: profile.phone_number || ''
+      };
+      
+      console.log('Updating profile with data:', profileData);
+      
+      const response = await axios.put(`${API_BASE_URL}/api/profile`, profileData, {
         headers: {
           'Authorization': `Bearer ${currentUser.token}`,
           'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          name: profile.name,
-          admission_number: profile.admission_number,
-          faculty_school: profile.faculty_school,
-          year_of_study: profile.year_of_study,
-          phone_number: profile.phone_number
-        })
+        }
       });
       
-      if (!response.ok) {
-        const data = await response.json();
-        throw new Error(data.message || 'Failed to update profile');
-      }
+      console.log('Profile update response:', response.data);
       
-      const data = await response.json();
-      setProfile(data.profile);
+      setProfile(response.data.profile);
       setSuccess('Profile updated successfully');
-      setError(null);
-      setLoading(false);
+      
+      // Update the user's name in localStorage
+      if (response.data.profile && response.data.profile.name) {
+        const storedUser = localStorage.getItem('user');
+        if (storedUser) {
+          const userData = JSON.parse(storedUser);
+          userData.name = response.data.profile.name;
+          localStorage.setItem('user', JSON.stringify(userData));
+        }
+      }
       
       // Clear success message after 3 seconds
       setTimeout(() => {
@@ -107,8 +116,9 @@ function Profile() {
       }, 3000);
     } catch (err) {
       console.error('Error updating profile:', err);
-      setError(err.message);
+      setError(err.response?.data?.message || err.message || 'Failed to update profile');
       setSuccess(null);
+    } finally {
       setLoading(false);
     }
   };
@@ -144,6 +154,19 @@ function Profile() {
           </div>
         )}
         
+        {/* Security access panel only */}
+        {currentUser && currentUser.role === 'security' && (
+          <div className="role-panels">
+            <div className="security-panel-access">
+              <h3>Security Access</h3>
+              <p>You have security staff privileges.</p>
+              <Link to="/security" className="panel-access-btn security-btn">
+                Go to Security Panel
+              </Link>
+            </div>
+          </div>
+        )}
+        
         <div className="login-input-group">
           <input
             type="text"
@@ -151,7 +174,7 @@ function Profile() {
             name="name"
             className="login-input"
             placeholder="Full Name"
-            value={profile.name}
+            value={profile.name || ''}
             onChange={handleChange}
             required
           />
@@ -162,7 +185,7 @@ function Profile() {
             id="email"
             name="email"
             className="login-input"
-            value={profile.email}
+            value={profile.email || ''}
             disabled
           />
           <small style={{ color: '#888', marginTop: '5px', display: 'block' }}>Email cannot be changed</small>

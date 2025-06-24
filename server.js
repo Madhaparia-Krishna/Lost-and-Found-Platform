@@ -517,11 +517,35 @@ app.get('/api/profile', authenticateToken, async (req, res) => {
 app.put('/api/profile', authenticateToken, async (req, res) => {
   const { name, admission_number, faculty_school, year_of_study, phone_number } = req.body;
   
+  console.log('Profile update request received:', {
+    userId: req.user.id,
+    name,
+    admission_number,
+    faculty_school,
+    year_of_study,
+    phone_number
+  });
+  
   try {
     // Validate input
     if (!name) {
       return res.status(400).json({ message: 'Name is required' });
     }
+    
+    // Ensure all values are strings to prevent SQL errors
+    const sanitizedName = String(name || '');
+    const sanitizedAdmissionNumber = String(admission_number || '');
+    const sanitizedFacultySchool = String(faculty_school || '');
+    const sanitizedYearOfStudy = String(year_of_study || '');
+    const sanitizedPhoneNumber = String(phone_number || '');
+    
+    console.log('Sanitized profile data:', {
+      name: sanitizedName,
+      admission_number: sanitizedAdmissionNumber,
+      faculty_school: sanitizedFacultySchool,
+      year_of_study: sanitizedYearOfStudy,
+      phone_number: sanitizedPhoneNumber
+    });
     
     // Update user in database
     const [result] = await pool.query(
@@ -532,8 +556,10 @@ app.put('/api/profile', authenticateToken, async (req, res) => {
            year_of_study = ?, 
            phone_number = ? 
        WHERE id = ? AND is_deleted = FALSE`,
-      [name, admission_number, faculty_school, year_of_study, phone_number, req.user.id]
+      [sanitizedName, sanitizedAdmissionNumber, sanitizedFacultySchool, sanitizedYearOfStudy, sanitizedPhoneNumber, req.user.id]
     );
+    
+    console.log('Update query result:', result);
     
     if (result.affectedRows === 0) {
       return res.status(404).json({ message: 'User not found' });
@@ -551,13 +577,19 @@ app.put('/api/profile', authenticateToken, async (req, res) => {
       [req.user.id]
     );
     
+    if (users.length === 0) {
+      return res.status(404).json({ message: 'User not found after update' });
+    }
+    
+    console.log('Updated profile retrieved:', users[0]);
+    
     res.json({ 
       message: 'Profile updated successfully',
       profile: users[0]
     });
   } catch (error) {
     console.error('Profile update error:', error);
-    res.status(500).json({ message: 'Error updating profile' });
+    res.status(500).json({ message: 'Error updating profile', error: error.message });
   }
 });
 

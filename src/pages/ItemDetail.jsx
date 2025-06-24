@@ -113,6 +113,7 @@ const ItemDetail = () => {
   const isOwner = currentUser && item.user_id === currentUser.id;
   const isClaimer = currentUser && item.claimer_id === currentUser.id;
   const isClaimable = currentUser && item.status === 'found' && !item.is_claimed;
+  const canEdit = isOwner && (item.status === 'lost' || item.status === 'found');
 
   return (
     <div className="item-detail-container">
@@ -202,9 +203,12 @@ const ItemDetail = () => {
               </button>
             )}
             
-            {isOwner && (
+            {canEdit && (
               <div className="owner-actions">
-                <button className="edit-btn">
+                <button 
+                  className="edit-btn"
+                  onClick={() => navigate(`/edit-item/${item.id}`)}
+                >
                   <i className="fas fa-edit"></i> Edit Details
                 </button>
               </div>

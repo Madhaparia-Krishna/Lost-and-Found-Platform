@@ -474,18 +474,34 @@
 }
 
 .request-button {
-  background-color: #E85A4F; /* Darker coral/red for consistency */
+  background-color: #e74c3c;
   color: white;
-  padding: 8px 15px;
+  padding: 10px 15px;
   border: none;
   border-radius: 5px;
   cursor: pointer;
-  font-weight: 500;
-  transition: background-color 0.3s ease;
+  font-weight: 600;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 5px rgba(231, 76, 60, 0.3);
 }
 
 .request-button:hover {
-  background-color: #d44d42; /* Even darker red on hover */
+  background-color: #c0392b;
+  box-shadow: 0 4px 8px rgba(231, 76, 60, 0.4);
+  transform: translateY(-2px);
+}
+
+.request-button:active {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(231, 76, 60, 0.4);
+}
+
+.request-button:disabled {
+  background-color: #e57373;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+  opacity: 0.7;
 }
 
 .lost-item-card {
@@ -1240,4 +1256,30 @@
   margin: 0;
   font-size: 0.95rem;
   color: #555;
+}
+
+/* Add these styles for the restricted information */
+.restricted-info {
+  background-color: #f8f9fa;
+  border-left: 3px solid #e67e22;
+  padding: 10px;
+  margin: 10px 0;
+  border-radius: 4px;
+}
+
+.restricted-info p {
+  margin: 0;
+  color: #666;
+}
+
+.restricted-info p i {
+  color: #e67e22;
+  margin-right: 5px;
+}
+
+.restricted-info .info-note {
+  font-size: 0.85rem;
+  margin-top: 5px;
+  color: #888;
+  font-style: italic;
 } 

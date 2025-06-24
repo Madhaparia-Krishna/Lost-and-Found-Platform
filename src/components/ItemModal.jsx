@@ -181,6 +181,9 @@ const ItemModal = ({ itemId, onClose, onRequestItem, refreshItems }) => {
   const isOwner = currentUser && item.user_id === currentUser.id;
   const isClaimer = currentUser && item.claimer_id === currentUser.id;
   const isClaimable = currentUser && item.status === 'found' && !item.is_claimed;
+  const isAdmin = currentUser && currentUser.role === 'admin';
+  const isSecurity = currentUser && currentUser.role === 'security';
+  const canSeeFullDetails = isOwner || isAdmin || isSecurity || item.status !== 'found';
 
   return (
     <div className="modal-overlay" onClick={handleModalClick}>
@@ -216,20 +219,49 @@ const ItemModal = ({ itemId, onClose, onRequestItem, refreshItems }) => {
                   <div className="info-value">{item.category || 'Uncategorized'}</div>
                 </div>
                 
-                <div className="info-row">
-                  <div className="info-label">Location:</div>
-                  <div className="info-value">{item.location || 'Location not specified'}</div>
-                </div>
+                {/* Only show location for lost items or if user has permission */}
+                {canSeeFullDetails ? (
+                  <div className="info-row">
+                    <div className="info-label">Location:</div>
+                    <div className="info-value">{item.location || 'Location not specified'}</div>
+                  </div>
+                ) : (
+                  <div className="info-row">
+                    <div className="info-label">Location:</div>
+                    <div className="info-value restricted">
+                      <i className="fas fa-lock"></i> Hidden for security purposes
+                    </div>
+                  </div>
+                )}
                 
-                <div className="info-row">
-                  <div className="info-label">Date:</div>
-                  <div className="info-value">{formatDateString(item.created_at || item.date)}</div>
-                </div>
+                {/* Only show date for lost items or if user has permission */}
+                {canSeeFullDetails ? (
+                  <div className="info-row">
+                    <div className="info-label">Date:</div>
+                    <div className="info-value">{formatDateString(item.created_at || item.date)}</div>
+                  </div>
+                ) : (
+                  <div className="info-row">
+                    <div className="info-label">Date:</div>
+                    <div className="info-value restricted">
+                      <i className="fas fa-lock"></i> Hidden for security purposes
+                    </div>
+                  </div>
+                )}
                 
                 {item.description && (
                   <div className="info-row description">
                     <div className="info-label">Description:</div>
                     <div className="info-value">{item.description}</div>
+                  </div>
+                )}
+
+                {!canSeeFullDetails && item.status === 'found' && (
+                  <div className="info-notice">
+                    <Alert variant="info">
+                      <i className="fas fa-info-circle"></i> Location and date details are hidden to verify legitimate owners. 
+                      When you claim this item, security staff will ask for these details to confirm ownership.
+                    </Alert>
                   </div>
                 )}
               </div>
@@ -283,7 +315,7 @@ const ItemModal = ({ itemId, onClose, onRequestItem, refreshItems }) => {
           {isClaimable && !requestSuccess && (
             <Button 
               onClick={handleRequestItem} 
-              variant="warning" 
+              variant="danger" 
               className="request-btn"
               disabled={requestLoading}
             >
@@ -295,7 +327,7 @@ const ItemModal = ({ itemId, onClose, onRequestItem, refreshItems }) => {
               ) : (
                 <>
                   <i className="fas fa-hand-paper me-2"></i>
-                  Request This Item
+                  <span className="request-btn-text">Request This Item</span>
                 </>
               )}
             </Button>
