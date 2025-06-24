@@ -28,14 +28,20 @@
 
 .role-badge {
   display: inline-block;
-  padding: 0.3rem 0.7rem;
+  padding: 5px 12px;
   border-radius: 50px;
   font-size: 0.75rem;
   font-weight: 600;
   text-transform: uppercase;
   background-color: #e0e0e0;
   color: #333;
-  margin-left: 0.5rem;
+  min-width: 80px;
+  text-align: center;
+}
+
+td .role-badge {
+  margin: 0 auto;
+  display: inline-block;
 }
 
 .role-admin {
@@ -131,39 +137,123 @@
   color: #333;
 }
 
+/* Search box styling */
+.search-container {
+  margin-bottom: 20px;
+}
+
+.search-box {
+  position: relative;
+  max-width: 400px;
+  margin-bottom: 10px;
+}
+
+.search-icon {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #666;
+  font-size: 0.9rem;
+  z-index: 1;
+}
+
+.search-input {
+  width: 100%;
+  padding: 10px 15px 10px 40px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 0.9rem;
+  transition: border-color 0.2s;
+  position: relative;
+}
+
+.search-input:focus {
+  outline: none;
+  border-color: #2196f3;
+  box-shadow: 0 0 0 2px rgba(33, 150, 243, 0.2);
+}
+
+/* Reset table styles for better alignment */
 .data-table {
   width: 100%;
-  border-collapse: collapse;
+  border-collapse: separate;
+  border-spacing: 0;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
   background-color: white;
-  table-layout: fixed;
   margin-bottom: 2rem;
+  table-layout: fixed;
 }
 
 .data-table th, 
 .data-table td {
-  padding: 0.75rem 1rem;
+  padding: 12px 15px;
   text-align: left;
   border-bottom: 1px solid #eaeaea;
-  word-wrap: break-word;
+  vertical-align: middle;
+  height: 60px;
+  box-sizing: border-box;
+}
+
+/* Column widths for better alignment */
+.data-table th:nth-child(1), 
+.data-table td:nth-child(1) {
+  width: 8%;
+  text-align: center;
+}
+
+.data-table th:nth-child(2), 
+.data-table td:nth-child(2) {
+  width: 18%;
+}
+
+.data-table th:nth-child(3), 
+.data-table td:nth-child(3) {
+  width: 22%;
+}
+
+.data-table th:nth-child(4), 
+.data-table td:nth-child(4) {
+  width: 15%;
+  text-align: center;
+}
+
+.data-table th:nth-child(5), 
+.data-table td:nth-child(5) {
+  width: 17%;
+  text-align: center;
+}
+
+.data-table th:nth-child(6), 
+.data-table td:nth-child(6) {
+  width: 20%;
+  text-align: center;
 }
 
 .data-table th {
   background-color: #f5f5f5;
   font-weight: 600;
   color: #333;
+  position: sticky;
+  top: 0;
+  z-index: 10;
 }
 
 .data-table tr:hover {
   background-color: #f9f9f9;
 }
 
+/* Role select styling */
 .role-select {
-  padding: 0.4rem 0.6rem;
+  padding: 6px 10px;
   border: 1px solid #ddd;
   border-radius: 4px;
-  font-size: 0.8rem;
+  font-size: 0.85rem;
   cursor: pointer;
+  width: 100%;
+  max-width: 120px;
+  margin: 0 auto;
+  display: block;
 }
 
 .role-select:focus {
@@ -224,12 +314,28 @@
 
 .action-status {
   margin: 1rem auto;
-  padding: 0.8rem 1.2rem;
-  border-radius: 4px;
+  padding: 1rem 1.5rem;
+  border-radius: 8px;
   font-weight: 500;
   text-align: center;
   animation: fadeIn 0.3s ease;
   max-width: 600px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+}
+
+.action-status::before {
+  content: '';
+  margin-right: 10px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: 12px;
 }
 
 .action-status.success {
@@ -238,16 +344,31 @@
   border-left: 4px solid #28a745;
 }
 
+.action-status.success::before {
+  background-color: #28a745;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='white'%3E%3Cpath d='M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z'/%3E%3C/svg%3E");
+}
+
 .action-status.error {
   background-color: #f8d7da;
   color: #721c24;
   border-left: 4px solid #dc3545;
 }
 
+.action-status.error::before {
+  background-color: #dc3545;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='white'%3E%3Cpath d='M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z'/%3E%3C/svg%3E");
+}
+
 .action-status.loading {
   background-color: #e2f0fb;
   color: #0c5460;
   border-left: 4px solid #17a2b8;
+}
+
+.action-status.loading::before {
+  background-color: #17a2b8;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='white'%3E%3Cpath d='M12 4V2C6.48 2 2 6.48 2 12h2c0-4.41 3.59-8 8-8zm0 14c-3.31 0-6-2.69-6-6 0-1.01.25-1.97.7-2.8l-1.46-1.46C4.52 8.96 4 10.91 4 13c0 4.42 3.58 8 8 8v-2z'%3E%3CanimateTransform attributeName='transform' attributeType='XML' type='rotate' dur='1s' from='0 12 12' to='360 12 12' repeatCount='indefinite'/%3E%3C/path%3E%3C/svg%3E");
 }
 
 @keyframes fadeIn {
@@ -285,6 +406,7 @@
   background-color: #591519;
 }
 
+/* Mobile responsiveness */
 @media (max-width: 768px) {
   .tabs {
     flex-direction: column;
@@ -308,9 +430,29 @@
   .data-table {
     display: block;
     overflow-x: auto;
+    white-space: nowrap;
+    font-size: 0.9rem;
+  }
+  
+  .data-table th,
+  .data-table td {
+    padding: 8px;
+  }
+  
+  /* Reset fixed widths on mobile for better scrolling */
+  .data-table th:nth-child(n), 
+  .data-table td:nth-child(n) {
+    width: auto;
+    min-width: 100px;
+  }
+  
+  .data-table th:first-child, 
+  .data-table td:first-child {
+    min-width: 50px;
   }
 }
 
+/* Unban button styling */
 .unban-btn {
   background-color: #28a745;
   color: white;
@@ -320,6 +462,10 @@
   cursor: pointer;
   font-size: 0.85rem;
   transition: background-color 0.2s;
+  display: block;
+  margin: 0 auto;
+  width: 100%;
+  max-width: 120px;
 }
 
 .unban-btn:hover {
@@ -353,4 +499,116 @@
 
 .panel-section table tr.banned-user:hover {
   background-color: #f5c6cb;
+}
+
+/* Cell content wrapper for better alignment */
+.cell-content {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+td:nth-child(1) .cell-content,
+td:nth-child(4) .cell-content,
+td:nth-child(5) .cell-content,
+td:nth-child(6) .cell-content,
+.user-role .cell-content,
+.user-date .cell-content,
+.user-actions .cell-content,
+.log-user .cell-content,
+.log-date .cell-content {
+  justify-content: center;
+}
+
+/* Specific cell styling */
+.user-name, .user-email {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.user-role, .log-user {
+  text-align: center;
+}
+
+.user-date, .log-date {
+  text-align: center;
+  white-space: nowrap;
+}
+
+.user-actions {
+  text-align: center;
+}
+
+.log-action {
+  font-weight: 500;
+}
+
+.log-details {
+  max-width: 300px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ban-reason {
+  font-style: italic;
+  color: #721c24;
+}
+
+/* Additional fixes for table alignment */
+table.data-table {
+  border-collapse: separate;
+  border-spacing: 0;
+  width: 100%;
+}
+
+table.data-table tr {
+  box-sizing: border-box;
+}
+
+table.data-table td {
+  position: relative;
+  padding: 12px 15px;
+}
+
+/* Ensure consistent height for all cells */
+table.data-table td, 
+table.data-table th {
+  height: 60px;
+}
+
+/* Fix for search box */
+.search-container {
+  margin-bottom: 20px;
+}
+
+.search-box {
+  position: relative;
+  max-width: 400px;
+  margin-bottom: 10px;
+}
+
+.search-icon {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #666;
+  font-size: 0.9rem;
+  z-index: 1;
+}
+
+.search-input {
+  width: 100%;
+  padding: 10px 15px 10px 40px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 0.9rem;
+  transition: border-color 0.2s;
+  position: relative;
 } 

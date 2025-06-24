@@ -20,6 +20,7 @@ const Navbar = () => {
   return (
     <nav className="navbar modern-navbar">
       <div className="navbar-logo styled-logo">
+        <img src="/images/lost-at-campus-logo.svg" alt="Lost@Campus Logo" className="navbar-logo-image" />
         <span className="logo-blue">Lost</span><span className="logo-dark">@Campus</span>
       </div>
       <div className="navbar-actions">

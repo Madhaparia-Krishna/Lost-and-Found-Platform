@@ -1,21 +1,22 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
-  <style>
-    .text {
-      font-family: 'Arial Black', 'Arial Bold', Arial, sans-serif;
-      font-weight: 900;
-      font-size: 24px;
-      fill: #4B0082;
-      stroke: #FFFFFF;
-      stroke-width: 1px;
-      paint-order: stroke fill;
-    }
-    .outline {
-      fill: none;
-      stroke: #8A2BE2;
-      stroke-width: 3px;
-    }
-  </style>
-  <rect width="64" height="64" fill="transparent" />
-  <text x="32" y="38" text-anchor="middle" class="text">L@C</text>
-  <rect x="8" y="24" width="48" height="28" rx="14" class="outline" />
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 300">
+  <!-- Outer circle (beige/tan) -->
+  <circle cx="150" cy="150" r="125" fill="#e6dbc0" />
+  
+  <!-- Compass rose (red/orange) -->
+  <g fill="#ff5c41">
+    <!-- Main compass points -->
+    <polygon points="150,25 175,150 150,275 125,150" />
+    <polygon points="25,150 150,125 275,150 150,175" />
+    
+    <!-- Diagonal compass points -->
+    <polygon points="65,65 140,140 150,150 160,160 235,235" transform="rotate(45 150 150)" />
+    <polygon points="65,65 140,140 150,150 160,160 235,235" transform="rotate(-45 150 150)" />
+  </g>
+  
+  <!-- Center circle (white) -->
+  <circle cx="150" cy="150" r="20" fill="#ffffff" />
+  
+  <!-- Center star (beige/gold) -->
+  <path d="M150,138 L154,148 L164,148 L156,154 L159,164 L150,158 L141,164 L144,154 L136,148 L146,148 Z" fill="#e6dbc0" />
 </svg> 

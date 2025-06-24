@@ -1054,7 +1054,7 @@ const AdminDashboard = () => {
                   <th width="15%">Name</th>
                   <th width="20%">Email</th>
                   <th width="10%">Role</th>
-                  <th width="10%">Status</th>
+                  <th width="10%">Account Status</th>
                   <th width="15%">Created Date</th>
                   <th width="25%">Actions</th>
                 </tr>
@@ -2151,21 +2151,41 @@ const AdminDashboard = () => {
           autohide
           bg={toastType}
           style={{
-            minWidth: '300px',
-            boxShadow: '0 4px 12px rgba(0,0,0,0.15)'
+            minWidth: '350px',
+            boxShadow: '0 8px 16px rgba(0,0,0,0.2)',
+            borderRadius: '8px',
+            border: 'none'
           }}
         >
-          <Toast.Header className="d-flex justify-content-end">
+          <Toast.Header className="d-flex justify-content-between align-items-center" style={{ 
+            backgroundColor: 'rgba(255,255,255,0.9)',
+            borderBottom: '1px solid rgba(0,0,0,0.1)',
+            padding: '0.75rem 1rem'
+          }}>
+            <strong className="me-auto">
+              {toastType === 'success' && <i className="fas fa-check-circle text-success me-2"></i>}
+              {toastType === 'danger' && <i className="fas fa-exclamation-circle text-danger me-2"></i>}
+              {toastType === 'warning' && <i className="fas fa-exclamation-triangle text-warning me-2"></i>}
+              {toastType === 'info' && <i className="fas fa-info-circle text-info me-2"></i>}
+              {toastType === 'success' ? 'Success' : 
+               toastType === 'danger' ? 'Error' :
+               toastType === 'warning' ? 'Warning' : 'Information'}
+            </strong>
             <Button 
               variant="link" 
               className="p-0 m-0 close-button" 
               onClick={() => setShowToast(false)}
               aria-label="Close"
+              style={{ color: '#666' }}
             >
               <i className="fas fa-times"></i>
             </Button>
           </Toast.Header>
-          <Toast.Body className={toastType !== 'light' ? 'text-white' : ''}>
+          <Toast.Body className={toastType !== 'light' ? 'text-white' : ''} style={{
+            padding: '1rem',
+            fontSize: '0.95rem',
+            fontWeight: '500'
+          }}>
             {toastMessage}
           </Toast.Body>
         </Toast>

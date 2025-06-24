@@ -690,30 +690,30 @@ const SecurityDashboard = () => {
                   <td>
                     <ButtonGroup aria-label="Item Actions">
                       <Button variant="info" size="sm" onClick={() => navigate(`/items/${item.id}`)}>
-                        View
+                        <i className="fas fa-eye"></i> <span>View</span>
                       </Button>
                       {activeKey === 'pendingItems' && (
                         <>
                           <Button variant="success" size="sm" onClick={() => handleApproveItem(item.id)} disabled={actionLoading}> 
-                            <i className="fas fa-check"></i> Approve
+                            <i className="fas fa-check"></i> <span>Approve</span>
                           </Button>
                           <Button variant="warning" size="sm" onClick={() => handleRejectItem(item.id)} disabled={actionLoading}>
-                            <i className="fas fa-times"></i> Reject
+                            <i className="fas fa-times"></i> <span>Reject</span>
                           </Button>
                         </>
                       )}
                       {activeKey === 'requestedItems' && (
                         <>
                           <Button variant="success" size="sm" onClick={() => handleAcceptRequest(item.id)} disabled={actionLoading}> 
-                            Accept
+                            <i className="fas fa-check-circle"></i> <span>Accept</span>
                           </Button>
                           <Button variant="warning" size="sm" onClick={() => handleRejectRequest(item.id)} disabled={actionLoading}>
-                            Reject
+                            <i className="fas fa-ban"></i> <span>Reject</span>
                           </Button>
                         </>
                       )}
                       <Button variant="danger" size="sm" onClick={() => handleSoftDelete(item)} disabled={actionLoading}> 
-                        Delete
+                        <i className="fas fa-trash"></i> <span>Delete</span>
                       </Button>
                     </ButtonGroup>
                   </td>
@@ -794,11 +794,11 @@ const SecurityDashboard = () => {
                           <ButtonGroup aria-label="User Actions">
                             {user.is_deleted ? (
                               <Button variant="success" size="sm" onClick={() => handleUnbanUser(user.id)} disabled={actionLoading}>
-                                {actionLoading ? <Spinner animation="border" size="sm" /> : 'Unban'}
+                                {actionLoading ? <Spinner animation="border" size="sm" /> : <><i className="fas fa-user-check"></i> <span>Unban</span></>}
                               </Button>
                             ) : (
                               <Button variant="warning" size="sm" onClick={() => handleBanUser(user.id, user.name)} disabled={actionLoading}>
-                                {actionLoading ? <Spinner animation="border" size="sm" /> : 'Ban'}
+                                {actionLoading ? <Spinner animation="border" size="sm" /> : <><i className="fas fa-user-slash"></i> <span>Ban</span></>}
                               </Button>
                             )}
                           </ButtonGroup>
