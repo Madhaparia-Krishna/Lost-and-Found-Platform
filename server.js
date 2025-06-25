@@ -13,6 +13,7 @@ const multer = require('multer');
 const { calculateMatchScore } = require('./server-utils');
 const emailService = require('./server-email');
 const fs = require('fs');
+const { matchItems } = require('./services/matching.service');
 
 // Ensure uploads directory exists
 const uploadsDir = path.join(__dirname, 'uploads');
@@ -708,12 +709,17 @@ app.get('/api/security/claims', authenticateToken, async (req, res) => {
 
 app.get('/api/notifications', authenticateToken, async (req, res) => {
   try {
+    // Fetch notifications with additional data
     const [notifications] = await pool.query(
-      `SELECT * FROM Notifications 
-       WHERE user_id = ? 
-       ORDER BY created_at DESC 
+      `SELECT n.*, 
+              (SELECT COUNT(*) > 0 FROM Items 
+               WHERE user_id = ? AND status = 'lost' AND is_deleted = 0) 
+              AS user_has_lost_items
+       FROM Notifications n
+       WHERE n.user_id = ? 
+       ORDER BY n.created_at DESC 
        LIMIT 50`,
-      [req.user.id]
+      [req.user.id, req.user.id]
     );
     
     res.json({ notifications });
@@ -1142,91 +1148,25 @@ app.post('/items/lost', authenticateToken, async (req, res) => {
         // Continue anyway
       }
       
-      // Search for matching found items
+      // Check for matches with existing found items
       try {
-        console.log('Searching for matching found items...');
-        
-        // Get approved found items
-        const [foundItems] = await pool.query(`
-          SELECT * FROM Items 
-          WHERE status = 'found' 
-          AND is_approved = 1 
-          AND is_deleted = 0
-        `);
-        
-        console.log(`Found ${foundItems.length} approved items to match against`);
-        
-        // Get the lost item details
-        const [lostItems] = await pool.query('SELECT * FROM Items WHERE id = ?', [lostItemId]);
-        
-        if (lostItems.length === 0) {
-          console.error('Could not retrieve lost item for matching');
-        } else {
-          const lostItem = lostItems[0];
-          let matches = [];
-          
-          // Calculate match scores
-          for (const foundItem of foundItems) {
-            const matchScore = calculateMatchScore(lostItem, foundItem);
-            console.log(`Match score between lost item ${lostItemId} and found item ${foundItem.id}: ${matchScore}`);
-            
-            // If match score is above threshold, add to matches
-            if (matchScore >= 0.6) {
-              matches.push({
-                lostItemId,
-                foundItemId: foundItem.id,
-                matchScore
-              });
-            }
-          }
-          
-          console.log(`Found ${matches.length} potential matches`);
-          
-          // Store matches in database and notify user
-          if (matches.length > 0) {
-            for (const match of matches) {
-              // Store match in database
-              await pool.query(`
-                INSERT INTO ItemMatches (lost_item_id, found_item_id, match_score, status)
-                VALUES (?, ?, ?, 'pending')
-              `, [match.lostItemId, match.foundItemId, match.matchScore]);
-              
-              // Get found item details for notification
-              const [foundItemDetails] = await pool.query('SELECT * FROM Items WHERE id = ?', [match.foundItemId]);
-              
-              if (foundItemDetails.length > 0) {
-                const foundItem = foundItemDetails[0];
-                
-                // Create notification for user
-                await pool.query(`
-                  INSERT INTO Notifications (user_id, message, type, related_item_id)
-                  VALUES (?, ?, 'match', ?)
-                `, [
-                  userId,
-                  `We found a potential match for your lost item "${title}". Check item #${foundItem.id}: ${foundItem.title}`,
-                  foundItem.id
-                ]);
-                
-                // Mark match as notified
-                await pool.query(`
-                  UPDATE ItemMatches
-                  SET status = 'notified'
-                  WHERE lost_item_id = ? AND found_item_id = ?
-                `, [match.lostItemId, match.foundItemId]);
-                
-                // Log the match
-                await logSystemAction('Match found', { 
-                  lostItemId: match.lostItemId, 
-                  foundItemId: match.foundItemId,
-                  matchScore: match.matchScore
-                });
-              }
-            }
-          }
-        }
+        console.log('Checking for matches with existing found items...');
+        const itemWithId = { 
+          id: lostItemId, 
+          title, 
+          category, 
+          subcategory, 
+          description, 
+          location, 
+          status: 'lost', 
+          date, 
+          user_id: userId 
+        };
+        const matches = await matchItems(itemWithId);
+        console.log(`Found ${matches.length} potential matches for lost item ${lostItemId}`);
       } catch (matchError) {
-        console.error('Error during item matching:', matchError);
-        // Continue anyway, don't fail the request because of matching issues
+        console.error('Error checking for matches:', matchError);
+        // Continue anyway
       }
 
       return res.status(201).json({ 
@@ -1288,6 +1228,31 @@ app.post('/items/found', authenticateToken, async (req, res) => {
       } catch (notifyError) {
         console.error('Error notifying security staff:', notifyError);
         // Continue anyway
+      }
+      
+      // Check for matches with existing lost items if the item is approved
+      if (result.is_approved) {
+        try {
+          console.log('Found item is approved, checking for matches with existing lost items...');
+          const itemWithId = { 
+            id: result.insertId, 
+            title, 
+            category, 
+            subcategory, 
+            description, 
+            location, 
+            status: 'found', 
+            date, 
+            user_id: userId 
+          };
+          const matches = await matchItems(itemWithId);
+          console.log(`Found ${matches.length} potential matches for found item ${result.insertId}`);
+        } catch (matchError) {
+          console.error('Error checking for matches:', matchError);
+          // Continue anyway
+        }
+      } else {
+        console.log('Found item needs approval, skipping match check until approved');
       }
 
       return res.status(201).json({ 
@@ -1568,11 +1533,11 @@ async function trackUserActivity(userId, actionType, actionDetails, req) {
 }
 
 // Helper function to create notifications
-async function createNotification(userId, message, type = 'info') {
+async function createNotification(userId, message, type = 'info', relatedItemId = null, itemStatus = null) {
   try {
     await pool.query(
-      'INSERT INTO Notifications (user_id, message, type) VALUES (?, ?, ?)',
-      [userId, message, type]
+      'INSERT INTO Notifications (user_id, message, type, related_item_id, item_status) VALUES (?, ?, ?, ?, ?)',
+      [userId, message, type, relatedItemId, itemStatus]
     );
   } catch (error) {
     console.error('Error creating notification:', error);
@@ -1605,6 +1570,36 @@ app.post('/api/items', authenticateToken, upload.single('image'), async (req, re
     const message = `New ${status || 'lost'} item "${title}" has been reported. Location: ${location}`;
     await notifySecurityStaff(message, 'new_item');
     
+    // If this is a found item, notify users who have reported lost items
+    if (status === 'found') {
+      try {
+        // Get users who have reported lost items in the last 30 days
+        const [usersWithLostItems] = await pool.query(
+          `SELECT DISTINCT u.id 
+           FROM Users u 
+           JOIN Items i ON u.id = i.user_id 
+           WHERE i.status = 'lost' 
+           AND i.is_deleted = 0 
+           AND i.created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)`
+        );
+        
+        // Notify each user about the new found item
+        for (const user of usersWithLostItems) {
+          await createNotification(
+            user.id,
+            `A new item has been found in category "${category}" at location "${location}". Check if it matches your lost item.`,
+            'new_found_item',
+            result.insertId,
+            'found'
+          );
+        }
+        
+        console.log(`Notified ${usersWithLostItems.length} users about new found item`);
+      } catch (notifyError) {
+        console.error('Error notifying users about new found item:', notifyError);
+      }
+    }
+    
     // Log the action
     await logSystemAction(
       'New item added',
@@ -1612,21 +1607,34 @@ app.post('/api/items', authenticateToken, upload.single('image'), async (req, re
       req.user.id
     );
     
+    // Create a complete item object to pass to matchItems
+    const newItem = {
+      id: result.insertId,
+      title,
+      category,
+      subcategory, 
+      description,
+      location,
+      date: date || new Date(),
+      status: status || 'lost',
+      image: imagePath,
+      user_id: req.user.id
+    };
+    
+    // Check for matches with existing items
+    try {
+      console.log(`Checking for matches for new ${newItem.status} item ${newItem.id}: "${newItem.title}"`);
+      const matches = await matchItems(newItem);
+      console.log(`Found ${matches.length} potential matches for new ${newItem.status} item ${newItem.id}`);
+    } catch (matchError) {
+      console.error('Error checking for matches:', matchError);
+      // Continue anyway, don't block item creation
+    }
+    
     res.status(201).json({ 
       message: 'Item added successfully', 
       itemId: result.insertId,
-      item: {
-        id: result.insertId,
-        title,
-        category,
-        subcategory, 
-        description,
-        location,
-        date,
-        status: status || 'lost',
-        image: imagePath,
-        user_id: req.user.id
-      }
+      item: newItem
     });
   } catch (error) {
     console.error('Error adding item:', error);
@@ -1665,7 +1673,7 @@ app.put('/api/security/items/:itemId/status', authenticateToken, async (req, res
     // Create notification for the item owner
     if (item.reported_by) {
       const message = `Your ${item.type === 'lost' ? 'lost' : 'found'} item "${item.title}" has been ${status}`;
-      await createNotification(item.reported_by, message, 'status_update');
+      await createNotification(item.reported_by, message, 'status_update', item.id, item.type);
     }
 
     // Log the status update
@@ -1725,12 +1733,13 @@ app.post('/api/items/matches', async (req, res) => {
         // Create notification
         await pool.query(
           `INSERT INTO Notifications 
-           (user_id, message, type, related_item_id) 
-           VALUES (?, ?, 'match', ?)`,
+           (user_id, message, type, related_item_id, item_status) 
+           VALUES (?, ?, 'match', ?, ?)`,
           [
             compareItem.user_id,
             `A potential match has been found for your ${isFoundItem ? 'lost' : 'found'} item "${compareItem.title}"`,
-            compareItem.id
+            compareItem.id,
+            isFoundItem ? 'lost' : 'found'
           ]
         );
 
@@ -1872,7 +1881,7 @@ app.put('/api/security/items/:itemId/approve', authenticateToken, async (req, re
         try {
           // Get lost items to compare against
           const [lostItems] = await pool.query(`
-            SELECT i.*, u.email, u.name
+            SELECT i.*, u.email, u.name, u.id as user_id
             FROM Items i
             JOIN Users u ON i.user_id = u.id
             WHERE i.is_deleted = FALSE
@@ -1882,6 +1891,32 @@ app.put('/api/security/items/:itemId/approve', authenticateToken, async (req, re
           const MATCH_THRESHOLD = 0.7; // Minimum score to consider a match
           const { calculateMatchScore } = require('./server-utils');
           const { sendMatchNotification } = require('./server-email');
+          
+          // Get unique user IDs of users who have lost items
+          const lostItemUserIds = [...new Set(lostItems.map(lostItem => lostItem.user_id))];
+          
+          // Notify all users with lost items about the new found item
+          for (const userId of lostItemUserIds) {
+            await pool.query(
+              'INSERT INTO Notifications (user_id, message, type, related_item_id) VALUES (?, ?, ?, ?)',
+              [
+                userId,
+                `A new found item "${item.title}" has been added that might match your lost item`,
+                'new_found_item',
+                itemId
+              ]
+            );
+          }
+
+          // Run our automatic matching after approval
+          try {
+            console.log('Item approved, running automatic matching...');
+            const matches = await matchItems(item);
+            console.log(`Found ${matches.length} potential matches for approved item ${item.id}`);
+          } catch (matchError) {
+            console.error('Error running automatic matching:', matchError);
+            // Continue anyway, use old matching as fallback
+          }
 
           for (const lostItem of lostItems) {
             const score = calculateMatchScore(lostItem, item);
@@ -4390,6 +4425,268 @@ app.put('/api/security/items/:itemId/soft-delete', authenticateToken, async (req
     return res.status(500).json({ 
       message: 'Error soft-deleting item',
       error: error.message 
+    });
+  }
+});
+
+// Matching route
+app.post('/match-items', async (req, res) => {
+  try {
+    const { item } = req.body;
+    
+    if (!item || !item.id || !item.status) {
+      return res.status(400).json({ message: 'Invalid item data provided' });
+    }
+    
+    console.log(`Manual match request for ${item.status} item ${item.id}`);
+    
+    // Run matching algorithm
+    const matches = await matchItems(item);
+    
+    return res.status(200).json({
+      message: `Found ${matches.length} potential matches`,
+      matches: matches.map(match => ({
+        itemId: match.item.id,
+        title: match.item.title,
+        score: match.score,
+        category: match.item.category,
+        location: match.item.location
+      }))
+    });
+  } catch (error) {
+    console.error('Error in match-items endpoint:', error);
+    return res.status(500).json({ message: 'Error matching items', error: error.message });
+  }
+});
+
+// Add this after the /match-items route
+
+// Get matches for a specific item
+app.get('/api/items/:itemId/matches', authenticateToken, async (req, res) => {
+  try {
+    const { itemId } = req.params;
+    
+    // Get item details
+    const [items] = await pool.query(
+      'SELECT * FROM Items WHERE id = ? AND is_deleted = FALSE',
+      [itemId]
+    );
+    
+    if (items.length === 0) {
+      return res.status(404).json({ message: 'Item not found' });
+    }
+    
+    const item = items[0];
+    
+    // Get matches based on item status
+    let matches = [];
+    if (item.status === 'lost') {
+      // Get matches where this is the lost item
+      const [matchResults] = await pool.query(`
+        SELECT m.*, 
+               i.title as found_item_title, 
+               i.category as found_item_category,
+               i.location as found_item_location,
+               i.date as found_item_date,
+               i.image as found_item_image
+        FROM ItemMatches m
+        JOIN Items i ON m.found_item_id = i.id
+        WHERE m.lost_item_id = ?
+        ORDER BY m.match_score DESC
+      `, [itemId]);
+      
+      matches = matchResults.map(match => ({
+        id: match.id,
+        matchScore: match.match_score,
+        status: match.status,
+        createdAt: match.created_at,
+        matchedItem: {
+          id: match.found_item_id,
+          title: match.found_item_title,
+          category: match.found_item_category,
+          location: match.found_item_location,
+          date: match.found_item_date,
+          image: match.found_item_image
+        }
+      }));
+    } else if (item.status === 'found') {
+      // Get matches where this is the found item
+      const [matchResults] = await pool.query(`
+        SELECT m.*, 
+               i.title as lost_item_title, 
+               i.category as lost_item_category,
+               i.location as lost_item_location,
+               i.date as lost_item_date
+        FROM ItemMatches m
+        JOIN Items i ON m.lost_item_id = i.id
+        WHERE m.found_item_id = ?
+        ORDER BY m.match_score DESC
+      `, [itemId]);
+      
+      matches = matchResults.map(match => ({
+        id: match.id,
+        matchScore: match.match_score,
+        status: match.status,
+        createdAt: match.created_at,
+        matchedItem: {
+          id: match.lost_item_id,
+          title: match.lost_item_title,
+          category: match.lost_item_category,
+          location: match.lost_item_location,
+          date: match.lost_item_date
+        }
+      }));
+    }
+    
+    return res.json({ 
+      itemId: parseInt(itemId),
+      matches 
+    });
+  } catch (error) {
+    console.error('Error fetching item matches:', error);
+    return res.status(500).json({ message: 'Error fetching matches', error: error.message });
+  }
+});
+
+// Add this after the /api/items/:itemId/matches route
+
+// Test route for match testing
+app.post('/test-match', async (req, res) => {
+  try {
+    console.log('[TEST-MATCH] Received test match request:', req.body);
+    const { item } = req.body;
+    const { sendMail } = req.query;
+    
+    if (!item || !item.status) {
+      return res.status(400).json({ 
+        message: 'Invalid test item data. Must include status (lost/found).' 
+      });
+    }
+    
+    // Add test identifier to item
+    const testItem = {
+      ...item,
+      id: item.id || 999999, // Use provided ID or default test ID
+      is_test: true
+    };
+    
+    console.log(`[TEST-MATCH] Testing ${testItem.status} item: "${testItem.title}"`);
+    console.log('[TEST-MATCH] Location:', testItem.location);
+    console.log('[TEST-MATCH] Category:', testItem.category);
+    console.log('[TEST-MATCH] Description:', testItem.description);
+    
+    // Get the opposite status items from database for testing
+    const oppositeStatus = testItem.status === 'lost' ? 'found' : 'lost';
+    const fiveDaysAgo = new Date();
+    fiveDaysAgo.setDate(fiveDaysAgo.getDate() - 5);
+    
+    console.log(`[TEST-MATCH] Fetching ${oppositeStatus} items from past 5 days`);
+    
+    const [items] = await pool.query(`
+      SELECT i.*, u.name, u.email 
+      FROM Items i
+      JOIN Users u ON i.user_id = u.id
+      WHERE i.status = ?
+      AND i.is_approved = TRUE
+      AND i.is_deleted = FALSE
+      AND i.created_at >= ?
+    `, [oppositeStatus, fiveDaysAgo.toISOString().slice(0, 10)]);
+    
+    console.log(`[TEST-MATCH] Found ${items.length} ${oppositeStatus} items to test against`);
+    
+    // Match threshold
+    const MATCH_THRESHOLD = 0.7; // 70%
+    
+    // Import the matchItems function
+    const { calculateMatchScore } = require('./services/matching.service');
+    
+    // Calculate match scores for testing
+    const matches = [];
+    let emailResults = [];
+    
+    for (const dbItem of items) {
+      // Calculate match score
+      const score = testItem.status === 'lost'
+        ? calculateMatchScore(testItem, dbItem)
+        : calculateMatchScore(dbItem, testItem);
+      
+      console.log(`[TEST-MATCH] Score for "${dbItem.title}": ${score} (${Math.round(score * 100)}%)`);
+      
+      // If score is above threshold, add to matches
+      if (score >= MATCH_THRESHOLD) {
+        console.log(`[TEST-MATCH] Match found with score ${score} between test ${testItem.status} item and ${oppositeStatus} item ${dbItem.id}`);
+        
+        // If sendMail is true, send test email
+        if (sendMail === 'true' && dbItem.email) {
+          try {
+            console.log(`[TEST-MATCH] Sending test email to ${dbItem.email}`);
+            
+            // Import the email sending function
+            const { sendMatchNotificationEmail } = require('./services/matching.service');
+            
+            // Send test email
+            const lostItem = testItem.status === 'lost' ? testItem : dbItem;
+            const foundItem = testItem.status === 'lost' ? dbItem : testItem;
+            
+            const emailResult = await sendMatchNotificationEmail(
+              {
+                name: dbItem.name,
+                email: dbItem.email
+              },
+              lostItem,
+              foundItem,
+              score
+            );
+            
+            console.log(`[TEST-MATCH] Email result:`, emailResult);
+            emailResults.push({
+              to: dbItem.email,
+              result: emailResult,
+              success: emailResult.success
+            });
+          } catch (emailError) {
+            console.error('[TEST-MATCH] Error sending test email:', emailError);
+            emailResults.push({
+              to: dbItem.email,
+              error: emailError.message,
+              success: false
+            });
+          }
+        }
+        
+        matches.push({
+          item: dbItem,
+          score
+        });
+      }
+    }
+    
+    console.log(`[TEST-MATCH] Found ${matches.length} potential matches above ${MATCH_THRESHOLD * 100}% threshold`);
+    
+    return res.status(200).json({
+      message: `Found ${matches.length} potential matches`,
+      testItem: testItem,
+      totalItemsChecked: items.length,
+      threshold: MATCH_THRESHOLD,
+      matches: matches.map(match => ({
+        id: match.item.id,
+        title: match.item.title,
+        category: match.item.category,
+        location: match.item.location,
+        description: match.item.description?.substring(0, 100) + (match.item.description?.length > 100 ? '...' : ''),
+        score: match.score,
+        scorePercentage: `${Math.round(match.score * 100)}%`,
+        userName: match.item.name,
+        userEmail: sendMail === 'true' ? match.item.email : '[Email hidden]'
+      })),
+      emailResults: sendMail === 'true' ? emailResults : 'Email sending disabled'
+    });
+  } catch (error) {
+    console.error('[TEST-MATCH] Error in test-match endpoint:', error);
+    return res.status(500).json({ 
+      message: 'Error testing match functionality', 
+      error: error.message,
+      stack: process.env.NODE_ENV === 'production' ? undefined : error.stack
     });
   }
 });

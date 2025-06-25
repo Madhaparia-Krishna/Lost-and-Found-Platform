@@ -23,6 +23,7 @@ import Unauthorized from './pages/Unauthorized';
 import Profile from './pages/Profile';
 import ForgotPassword from './pages/ForgotPassword';
 import TestRole from './pages/TestRole';
+import TestMatchPage from './pages/TestMatchPage';
 
 // Footer Pages
 import About from './pages/About';
@@ -150,6 +151,13 @@ const AppContent = () => {
           
           {/* Test role route */}
           <Route path="/test-role" element={<TestRole />} />
+          
+          {/* Match testing routes */}
+          <Route path="/dev/test-match" element={
+            <PrivateRoute>
+              <TestMatchPage />
+            </PrivateRoute>
+          } />
           
           {/* Catch-all route */}
           <Route path="*" element={<NotFound />} />

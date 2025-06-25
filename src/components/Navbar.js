@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import Notification from './Notification';
 import '../styles/Navbar.css';
 
 const Navbar = () => {
@@ -43,6 +44,9 @@ const Navbar = () => {
         
         {currentUser ? (
           <>
+            {/* Notification Bell */}
+            {currentUser && <Notification />}
+            
             <button className="navbar-btn navbar-btn-blue" onClick={logout}>Logout</button>
             <div className="navbar-profile-dropdown-wrapper">
               <div

@@ -11,6 +11,8 @@ const ItemDetail = () => {
   const [item, setItem] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [matches, setMatches] = useState([]);
+  const [matchesLoading, setMatchesLoading] = useState(false);
   
   // Fallback image for when image loading fails
   const fallbackImageSrc = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' fill='%23f0f0f0'/%3E%3Cpath d='M30,40 L70,40 L70,60 L30,60 Z' fill='%23d0d0d0'/%3E%3Ctext x='50' y='50' font-family='Arial' font-size='12' text-anchor='middle' alignment-baseline='middle' fill='%23909090'%3ENo Image%3C/text%3E%3C/svg%3E";
@@ -32,11 +34,36 @@ const ItemDetail = () => {
       }
       
       setItem(fetchedItem);
+      
+      // After successfully fetching the item, fetch matches
+      fetchMatches(fetchedItem);
     } catch (error) {
       console.error('Error fetching item details:', error);
       setError('Error fetching item: ' + error.message);
     } finally {
       setLoading(false);
+    }
+  };
+  
+  const fetchMatches = async (itemData) => {
+    if (!currentUser || !itemData) return;
+    
+    try {
+      setMatchesLoading(true);
+      
+      // Only fetch matches for lost or found items
+      if (itemData.status === 'lost' || itemData.status === 'found') {
+        const matchesResponse = await itemsApi.getMatchStatus(itemData.id, currentUser.token);
+        
+        if (matchesResponse && matchesResponse.matches) {
+          setMatches(matchesResponse.matches);
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching matches:', error);
+      // Don't set an error state for matches, just log it
+    } finally {
+      setMatchesLoading(false);
     }
   };
   
@@ -66,6 +93,11 @@ const ItemDetail = () => {
   
   const handleBackClick = () => {
     navigate(-1);
+  };
+  
+  // Format match score as percentage
+  const formatMatchScore = (score) => {
+    return `${Math.round(score * 100)}%`;
   };
   
   if (loading) {
@@ -114,6 +146,7 @@ const ItemDetail = () => {
   const isClaimer = currentUser && item.claimer_id === currentUser.id;
   const isClaimable = currentUser && item.status === 'found' && !item.is_claimed;
   const canEdit = isOwner && (item.status === 'lost' || item.status === 'found');
+  const hasMatches = matches.length > 0;
 
   return (
     <div className="item-detail-container">
@@ -125,6 +158,11 @@ const ItemDetail = () => {
         <div className={`status-badge ${getStatusBadgeClass(item.status)}`}>
           {item.status}
         </div>
+        {hasMatches && (
+          <div className="match-badge">
+            <i className="fas fa-link"></i> {matches.length} Match{matches.length > 1 ? 'es' : ''}
+          </div>
+        )}
       </div>
       
       <div className="item-detail-content">
@@ -170,6 +208,31 @@ const ItemDetail = () => {
             )}
           </div>
           
+          {/* Matches Section */}
+          {isOwner && hasMatches && (
+            <div className="info-section matches-section">
+              <h3>Potential Matches</h3>
+              <div className="matches-list">
+                {matches.map(match => (
+                  <div key={match.id} className="match-item" onClick={() => navigate(`/items/${match.matchedItem.id}`)}>
+                    <div className="match-title">
+                      {match.matchedItem.title}
+                    </div>
+                    <div className="match-details">
+                      <span className="match-category">{match.matchedItem.category}</span>
+                      <span className="match-location">{match.matchedItem.location}</span>
+                      <span className="match-date">{formatDateString(match.matchedItem.date)}</span>
+                    </div>
+                    <div className="match-score">
+                      <span className="score-label">Match Score:</span>
+                      <span className="score-value">{formatMatchScore(match.matchScore)}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+          
           {(isOwner || isClaimer) && (
             <div className="info-section status-section">
               <h3>Status Information</h3>
@@ -211,6 +274,25 @@ const ItemDetail = () => {
                 >
                   <i className="fas fa-edit"></i> Edit Details
                 </button>
+              </div>
+            )}
+            
+            {/* Manual Match Check Button (only for item owner) */}
+            {isOwner && !matchesLoading && (
+              <button 
+                className="check-matches-btn"
+                onClick={() => {
+                  fetchMatches(item);
+                }}
+              >
+                <i className="fas fa-search"></i> Check for Matches
+              </button>
+            )}
+            
+            {matchesLoading && (
+              <div className="matches-loading">
+                <div className="spinner-small"></div>
+                <span>Checking for matches...</span>
               </div>
             )}
           </div>

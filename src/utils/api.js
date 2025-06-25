@@ -545,6 +545,36 @@ export const itemsApi = {
       console.error('Error rejecting item:', error);
       return handleError(error);
     }
+  },
+  
+  // Check for matches for an item
+  checkMatches: async (itemData, token) => {
+    try {
+      const config = token ? { 
+        headers: { 
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        } 
+      } : {};
+      
+      console.log('Requesting matches for item:', itemData);
+      const response = await axios.post('/match-items', { item: itemData }, config);
+      return handleResponse(response);
+    } catch (error) {
+      return handleError(error);
+    }
+  },
+  
+  // Get match status
+  getMatchStatus: async (itemId, token) => {
+    try {
+      const config = token ? { headers: { Authorization: `Bearer ${token}` } } : {};
+      
+      const response = await axios.get(`/api/items/${itemId}/matches`, config);
+      return handleResponse(response);
+    } catch (error) {
+      return handleError(error);
+    }
   }
 };
 
