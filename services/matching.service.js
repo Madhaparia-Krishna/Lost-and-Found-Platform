@@ -9,6 +9,7 @@ const mysql = require('mysql2/promise');
 const nodemailer = require('nodemailer');
 const fs = require('fs');
 const path = require('path');
+const { createNotification } = require('./notificationService');
 
 // Load environment variables
 require('dotenv').config();
@@ -235,28 +236,6 @@ const recordMatch = async (lostItem, foundItem, matchScore) => {
 };
 
 /**
- * Create notification for user
- * @param {number} userId - User ID to notify
- * @param {string} message - Notification message
- * @param {number} itemId - Related item ID
- * @param {string} type - Notification type ('match' or 'new_found_item')
- * @param {string} itemStatus - Status of the related item ('lost' or 'found')
- * @returns {Promise<void>}
- */
-const createNotification = async (userId, message, itemId, type = 'match', itemStatus = null) => {
-  try {
-    await pool.query(
-      'INSERT INTO Notifications (user_id, message, type, related_item_id, item_status) VALUES (?, ?, ?, ?, ?)',
-      [userId, message, type, itemId, itemStatus]
-    );
-    console.log(`Notification created for user ${userId}`);
-  } catch (error) {
-    console.error('Error creating notification:', error);
-    // Continue anyway
-  }
-};
-
-/**
  * Find matches for a new item
  * @param {Object} newItem - Newly submitted item
  * @returns {Promise<Array>} - Array of match objects
@@ -346,13 +325,21 @@ const matchItems = async (newItem) => {
         
         // Create notification for lost item user
         const lostItemMessage = `A potential match (${Math.round(score * 100)}% similarity) has been found for your lost item "${lostItem.title}"`;
-        await createNotification(lostItem.user_id, lostItemMessage, foundItem.id, 'match', 'lost');
+        await createNotification(
+          lostItem.user_id, 
+          lostItemMessage, 
+          `/items/${foundItem.id}`
+        );
         
         // Create notification for found item user if different from lost item user
         if (foundItemUserDetails.length > 0 && foundItem.user_id !== lostItem.user_id) {
           const foundItemUser = foundItemUserDetails[0];
           const foundItemMessage = `Your found item "${foundItem.title}" has been matched (${Math.round(score * 100)}% similarity) with a lost item`;
-          await createNotification(foundItem.user_id, foundItemMessage, lostItem.id, 'match', 'found');
+          await createNotification(
+            foundItem.user_id, 
+            foundItemMessage, 
+            `/items/${lostItem.id}`
+          );
         }
         
         // Send email notification ONLY to the lost item user if enabled

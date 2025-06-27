@@ -1,8 +1,10 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
+import { NotificationProvider } from './context/NotificationContext';
 import { Toaster } from 'react-hot-toast';
 import Navbar from './components/Navbar';
+import NotificationBell from './components/NotificationBell';
 
 // Layouts
 import DashboardLayout from './components/layouts/DashboardLayout';
@@ -171,30 +173,32 @@ function App() {
   return (
     <Router>
       <AuthProvider>
-        {/* Toast notifications */}
-        <Toaster
-          position="top-right"
-          toastOptions={{
-            duration: 3000,
-            style: {
-              background: '#363636',
-              color: '#fff',
-            },
-            success: {
+        <NotificationProvider>
+          {/* Toast notifications */}
+          <Toaster
+            position="top-right"
+            toastOptions={{
+              duration: 3000,
               style: {
-                background: '#27ae60',
+                background: '#363636',
+                color: '#fff',
               },
-            },
-            error: {
-              style: {
-                background: '#e74c3c',
+              success: {
+                style: {
+                  background: '#27ae60',
+                },
               },
-              duration: 4000,
-            },
-          }}
-        />
-        
-        <AppContent />
+              error: {
+                style: {
+                  background: '#e74c3c',
+                },
+                duration: 4000,
+              },
+            }}
+          />
+          
+          <AppContent />
+        </NotificationProvider>
       </AuthProvider>
     </Router>
   );

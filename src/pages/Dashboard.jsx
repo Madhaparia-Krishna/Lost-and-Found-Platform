@@ -2,6 +2,7 @@ import React, { useState, useEffect, useContext } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { AuthContext } from '../context/AuthContext';
 import { itemsApi, API_BASE_URL, notificationsApi } from '../utils/api';
+import MatchNotification from '../components/MatchNotification';
 import '../styles/Dashboard.css';
 
 const Dashboard = () => {
@@ -209,6 +210,9 @@ const Dashboard = () => {
 
   return (
     <div className="dashboard">
+      {/* Match Notification Component */}
+      <MatchNotification />
+      
       <div className="dashboard-header">
         <h1>Dashboard</h1>
         <div className="user-info">

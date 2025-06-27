@@ -14,6 +14,10 @@ const { calculateMatchScore } = require('./server-utils');
 const emailService = require('./server-email');
 const fs = require('fs');
 const { matchItems } = require('./services/matching.service');
+const { createNotification } = require('./services/notificationService');
+
+// Import routes
+const notificationRoutes = require('./routes/notificationRoutes');
 
 // Ensure uploads directory exists
 const uploadsDir = path.join(__dirname, 'uploads');
@@ -159,21 +163,47 @@ const authenticateToken = (req, res, next) => {
   }
   
   // Verify the token
-  jwt.verify(token, JWT_SECRET, (err, decoded) => {
+  jwt.verify(token, JWT_SECRET, async (err, decoded) => {
     if (err) {
       console.error('Token verification error:', err.message);
       return res.status(403).json({ message: 'Forbidden: Invalid token', error: err.message });
     }
     
     console.log('Decoded token:', decoded);
+    
+    // Check if user is banned
+    try {
+      const [userCheck] = await pool.query(
+        'SELECT is_deleted FROM Users WHERE id = ?',
+        [decoded.id]
+      );
+      
+      if (userCheck.length > 0 && userCheck[0].is_deleted) {
+        console.log(`User ${decoded.id} is banned, rejecting request`);
+        return res.status(403).json({ message: 'Account suspended: Your account has been suspended. Please contact support for assistance.', banned: true });
+      }
+    } catch (error) {
+      console.error('Error checking user ban status:', error);
+      // Continue processing even if check fails
+    }
+    
     req.user = decoded;
     next();
   });
 };
 
+// Apply route middleware
+app.use('/api/notifications', authenticateToken, notificationRoutes);
+
 // Health check endpoint
 app.get('/api/health', (req, res) => {
   res.status(200).json({ status: 'ok', message: 'Server is running' });
+});
+
+// Authentication check endpoint - used to verify if a user is banned
+app.get('/api/check-auth', authenticateToken, (req, res) => {
+  // If the middleware passes, the user is authenticated and not banned
+  res.status(200).json({ status: 'ok', message: 'Authentication valid' });
 });
 
 // Public endpoint to get found items (not lost items)
@@ -707,43 +737,7 @@ app.get('/api/security/claims', authenticateToken, async (req, res) => {
   }
 });
 
-app.get('/api/notifications', authenticateToken, async (req, res) => {
-  try {
-    // Fetch notifications with additional data
-    const [notifications] = await pool.query(
-      `SELECT n.*, 
-              (SELECT COUNT(*) > 0 FROM Items 
-               WHERE user_id = ? AND status = 'lost' AND is_deleted = 0) 
-              AS user_has_lost_items
-       FROM Notifications n
-       WHERE n.user_id = ? 
-       ORDER BY n.created_at DESC 
-       LIMIT 50`,
-      [req.user.id, req.user.id]
-    );
-    
-    res.json({ notifications });
-  } catch (error) {
-    console.error('Error fetching notifications:', error);
-    res.status(500).json({ message: 'Error fetching notifications' });
-  }
-});
-
-app.put('/api/notifications/:notificationId/read', authenticateToken, async (req, res) => {
-  try {
-    const { notificationId } = req.params;
-    
-    await pool.query(
-      'UPDATE Notifications SET status = ? WHERE id = ? AND user_id = ?',
-      ['read', notificationId, req.user.id]
-    );
-    
-    res.json({ message: 'Notification marked as read' });
-  } catch (error) {
-    console.error('Error marking notification as read:', error);
-    res.status(500).json({ message: 'Error marking notification as read' });
-  }
-});
+// Notification routes are already imported and applied at the top of the file
 
 app.put('/api/security/claims/:id/status', authenticateToken, async (req, res) => {
   try {
@@ -793,24 +787,18 @@ app.put('/api/security/claims/:id/status', authenticateToken, async (req, res) =
         const claim = claimDetails[0];
         
         // Create notification for claimer
-        await pool.query(`
-          INSERT INTO Notifications (user_id, message, type)
-          VALUES (?, ?, ?)
-        `, [
+        await createNotification(
           claim.claimer_id,
           `Your claim for "${claim.item_title}" has been approved`,
-          'claim_approved'
-        ]);
+          `/items/${claim.item_id}`
+        );
         
         // Create notification for owner
-        await pool.query(`
-          INSERT INTO Notifications (user_id, message, type)
-          VALUES (?, ?, ?)
-        `, [
+        await createNotification(
           claim.owner_id,
           `Your item "${claim.item_title}" has been claimed and approved`,
-          'item_claimed'
-        ]);
+          `/items/${claim.item_id}`
+        );
       }
     } else if (status === 'rejected') {
       // Get claim details for notification
@@ -830,14 +818,11 @@ app.put('/api/security/claims/:id/status', authenticateToken, async (req, res) =
         const claim = claimDetails[0];
         
         // Create notification for claimer
-        await pool.query(`
-          INSERT INTO Notifications (user_id, message, type)
-          VALUES (?, ?, ?)
-        `, [
+        await createNotification(
           claim.claimer_id,
           `Your claim for "${claim.item_title}" has been rejected`,
-          'claim_rejected'
-        ]);
+          `/items/${claim.item_id}`
+        );
       }
     }
     
@@ -1290,9 +1275,10 @@ async function notifySecurityStaff(message, type = 'item_report') {
 
     // Create notifications for each security staff member
     for (const user of securityUsers) {
-      await pool.query(
-        'INSERT INTO Notifications (user_id, message, type) VALUES (?, ?, ?)',
-        [user.id, message, type]
+      await createNotification(
+        user.id,
+        message,
+        '/security-dashboard'
       );
     }
   } catch (error) {
@@ -1532,17 +1518,7 @@ async function trackUserActivity(userId, actionType, actionDetails, req) {
   }
 }
 
-// Helper function to create notifications
-async function createNotification(userId, message, type = 'info', relatedItemId = null, itemStatus = null) {
-  try {
-    await pool.query(
-      'INSERT INTO Notifications (user_id, message, type, related_item_id, item_status) VALUES (?, ?, ?, ?, ?)',
-      [userId, message, type, relatedItemId, itemStatus]
-    );
-  } catch (error) {
-    console.error('Error creating notification:', error);
-  }
-}
+// Helper function to create notifications is now imported from notificationService
 
 // This function is now consolidated with the other notifySecurityStaff function
 
@@ -1673,7 +1649,7 @@ app.put('/api/security/items/:itemId/status', authenticateToken, async (req, res
     // Create notification for the item owner
     if (item.reported_by) {
       const message = `Your ${item.type === 'lost' ? 'lost' : 'found'} item "${item.title}" has been ${status}`;
-      await createNotification(item.reported_by, message, 'status_update', item.id, item.type);
+      await createNotification(item.reported_by, message, `/items/${item.id}`);
     }
 
     // Log the status update
@@ -1731,16 +1707,10 @@ app.post('/api/items/matches', async (req, res) => {
         );
 
         // Create notification
-        await pool.query(
-          `INSERT INTO Notifications 
-           (user_id, message, type, related_item_id, item_status) 
-           VALUES (?, ?, 'match', ?, ?)`,
-          [
-            compareItem.user_id,
-            `A potential match has been found for your ${isFoundItem ? 'lost' : 'found'} item "${compareItem.title}"`,
-            compareItem.id,
-            isFoundItem ? 'lost' : 'found'
-          ]
+        await createNotification(
+          compareItem.user_id,
+          `A potential match has been found for your ${isFoundItem ? 'lost' : 'found'} item "${compareItem.title}"`,
+          `/items/${compareItem.id}`
         );
 
         // Send email notification to the user who lost the item
@@ -1866,14 +1836,10 @@ app.put('/api/security/items/:itemId/approve', authenticateToken, async (req, re
       const item = items[0];
       
       // Create notification for item owner
-      await pool.query(
-        'INSERT INTO Notifications (user_id, message, type, related_item_id) VALUES (?, ?, ?, ?)',
-        [
-          item.user_id,
-          `Your found item "${item.title}" has been approved`,
-          'approval',
-          itemId
-        ]
+      await createNotification(
+        item.user_id,
+        `Your found item "${item.title}" has been approved`,
+        `/items/${itemId}`
       );
 
       // Check for matches with lost items
@@ -1897,14 +1863,10 @@ app.put('/api/security/items/:itemId/approve', authenticateToken, async (req, re
           
           // Notify all users with lost items about the new found item
           for (const userId of lostItemUserIds) {
-            await pool.query(
-              'INSERT INTO Notifications (user_id, message, type, related_item_id) VALUES (?, ?, ?, ?)',
-              [
-                userId,
-                `A new found item "${item.title}" has been added that might match your lost item`,
-                'new_found_item',
-                itemId
-              ]
+            await createNotification(
+              userId,
+              `A new found item "${item.title}" has been added that might match your lost item`,
+              `/items/${itemId}`
             );
           }
 
@@ -1933,15 +1895,10 @@ app.put('/api/security/items/:itemId/approve', authenticateToken, async (req, re
               );
 
               // Create notification for lost item owner
-              await pool.query(
-                `INSERT INTO Notifications 
-                (user_id, message, type, related_item_id) 
-                VALUES (?, ?, 'match', ?)`,
-                [
-                  lostItem.user_id,
-                  `A potential match has been found for your lost item "${lostItem.title}"`,
-                  lostItem.id
-                ]
+              await createNotification(
+                lostItem.user_id,
+                `A potential match has been found for your lost item "${lostItem.title}"`,
+                `/items/${lostItem.id}`
               );
 
               // Send email notification to the user who reported the lost item
@@ -2008,14 +1965,10 @@ app.put('/api/security/items/:itemId/reject', authenticateToken, async (req, res
       const item = items[0];
       
       // Create notification for item owner
-      await pool.query(
-        'INSERT INTO Notifications (user_id, message, type, related_item_id) VALUES (?, ?, ?, ?)',
-        [
-          item.user_id,
-          `Your found item "${item.title}" has been rejected${reason ? `: ${reason}` : ''}`,
-          'system', // Using a valid ENUM value from the Notifications table
-          itemId
-        ]
+      await createNotification(
+        item.user_id,
+        `Your found item "${item.title}" has been rejected${reason ? `: ${reason}` : ''}`,
+        `/items/${itemId}`
       );
     }
 
@@ -2068,14 +2021,11 @@ app.post('/api/items/:itemId/claim', authenticateToken, async (req, res) => {
     );
 
     for (const staff of securityStaff) {
-      await pool.query(
-        'INSERT INTO Notifications (user_id, message, type, related_item_id) VALUES (?, ?, ?, ?)',
-        [
-          staff.id,
-          `New item request for "${item.title}"`,
-          'request',
-          itemId
-        ]
+      await createNotification(
+        staff.id,
+        `New item request for "${item.title}"`,
+        'request',
+        itemId
       );
     }
 
@@ -2169,14 +2119,10 @@ app.put('/items/:itemId/request', async (req, res) => {
             
             // Notify each security staff member
             for (const secUser of securityUsers) {
-              await pool.query(
-                'INSERT INTO Notifications (user_id, message, type, related_item_id) VALUES (?, ?, ?, ?)',
-                [
-                  secUser.id,
-                  `New item request pending approval: Item #${itemId}`,
-                  'request_pending',
-                  itemId
-                ]
+              await createNotification(
+                secUser.id,
+                `New item request pending approval: Item #${itemId}`,
+                `/security-dashboard`
               );
             }
             console.log('Security staff notifications created');
@@ -2292,14 +2238,10 @@ app.post('/items/request/:itemId', async (req, res) => {
             
             // Notify each security staff member
             for (const secUser of securityUsers) {
-              await pool.query(
-                'INSERT INTO Notifications (user_id, message, type, related_item_id) VALUES (?, ?, ?, ?)',
-                [
-                  secUser.id,
-                  `New item request pending approval: Item #${itemId}`,
-                  'request_pending',
-                  itemId
-                ]
+              await createNotification(
+                secUser.id,
+                `New item request pending approval: Item #${itemId}`,
+                `/security-dashboard`
               );
             }
             console.log('Security staff notifications created');
@@ -2370,20 +2312,33 @@ app.get('/api/security/pending-requests', authenticateToken, async (req, res) =>
       return res.status(403).json({ message: 'Unauthorized access' });
     }
 
+    console.log('Fetching pending item requests for security staff...');
+    
     const [items] = await pool.query(`
       SELECT 
         i.*,
         u.name as requester_name,
         u.email as requester_email,
-        r.name as reporter_name
+        r.name as reporter_name,
+        r.email as reporter_email
       FROM Items i
       LEFT JOIN Users u ON i.request_user_id = u.id
       LEFT JOIN Users r ON i.user_id = r.id
       WHERE i.is_deleted = FALSE 
       AND i.status = 'requested'
-      AND i.request_status = 'pending'
       ORDER BY i.updated_at DESC
     `);
+    
+    console.log(`Found ${items.length} requested items`);
+    
+    // Log the first item for debugging if available
+    if (items.length > 0) {
+      console.log('Sample item details:');
+      console.log(`- Item ID: ${items[0].id}`);
+      console.log(`- Title: ${items[0].title || 'N/A'}`);
+      console.log(`- Requester: ${items[0].requester_name || 'Unknown'} (ID: ${items[0].request_user_id || 'N/A'})`);
+      console.log(`- Reporter: ${items[0].reporter_name || 'Unknown'} (ID: ${items[0].user_id || 'N/A'})`);
+    }
 
     res.json(items);
   } catch (error) {
@@ -2402,23 +2357,39 @@ app.put('/api/security/requests/:itemId/approve', authenticateToken, async (req,
 
     const { itemId } = req.params;
     
-    // Check if item exists and is in requested status
-    const [items] = await pool.query(
-      'SELECT * FROM Items WHERE id = ? AND status = "requested" AND request_status = "pending"',
-      [itemId]
-    );
+    console.log(`Processing request approval for item ${itemId}`);
     
-    if (items.length === 0) {
-      return res.status(404).json({ message: 'Item not found or not in pending request status' });
+    // First check if item exists at all
+    const [itemCheck] = await pool.query('SELECT * FROM Items WHERE id = ?', [itemId]);
+    
+    if (itemCheck.length === 0) {
+      console.log(`Item ${itemId} not found in the database`);
+      return res.status(404).json({ message: 'Item not found' });
     }
     
-    const item = items[0];
+    console.log(`Found item ${itemId}: status=${itemCheck[0].status}, request_user_id=${itemCheck[0].request_user_id || 'null'}`);
+    
+    // If item exists but is not in requested status, update it
+    if (itemCheck[0].status !== 'requested') {
+      console.log(`Item ${itemId} exists but has status "${itemCheck[0].status}" instead of "requested". Updating status.`);
+      await pool.query('UPDATE Items SET status = "requested" WHERE id = ?', [itemId]);
+      console.log(`Updated item ${itemId} status to "requested"`);
+    }
+    
+    // Use the fetched item
+    const item = itemCheck[0];
     
     // Update the request status to approved
-    await pool.query(
-      'UPDATE Items SET request_status = "approved" WHERE id = ?',
-      [itemId]
-    );
+    try {
+      await pool.query(
+        'UPDATE Items SET request_status = "approved" WHERE id = ?',
+        [itemId]
+      );
+      console.log(`Updated request_status to approved for item ${itemId}`);
+    } catch (updateError) {
+      console.error('Error updating request_status:', updateError);
+      // Continue processing even if this specific update fails
+    }
     
     // Notify the requester if available
     if (item.request_user_id) {
@@ -2431,17 +2402,36 @@ app.put('/api/security/requests/:itemId/approve', authenticateToken, async (req,
       if (requesters.length > 0) {
         const requester = requesters[0];
         
+        console.log(`Creating notification for requester ${requester.id} (${requester.name}) about approved item ${itemId}`);
+        
         // Create notification
-        await pool.query(
-          'INSERT INTO Notifications (user_id, message, type, related_item_id) VALUES (?, ?, ?, ?)',
-          [
-            requester.id,
-            `Your request for item "${item.title}" has been approved. Please visit the security office to collect it.`,
-            'request_approved',
-            itemId
-          ]
+        const notification = await createNotification(
+          requester.id,
+          `Your request for item "${item.title}" has been approved. Please visit the security office to collect it.`,
+          `/items/${itemId}`
         );
+        
+        console.log('Notification created:', notification ? 'Success' : 'Failed');
+        
+        // Also try to send an email notification
+        try {
+          const emailService = require('./server-email');
+          await emailService.sendRequestApprovedNotification(
+            requester.email,
+            requester.name,
+            item.title,
+            itemId
+          );
+          console.log(`Email notification sent to ${requester.email}`);
+        } catch (emailError) {
+          console.error('Failed to send email notification:', emailError);
+          // Continue with the process even if email fails
+        }
+      } else {
+        console.log(`No requester found with ID ${item.request_user_id}`);
       }
+    } else {
+      console.log(`No request_user_id found for item ${itemId}`);
     }
     
     // Log the action
@@ -2470,7 +2460,7 @@ app.put('/api/security/requests/:itemId/reject', authenticateToken, async (req, 
     
     // Check if item exists and is in requested status
     const [items] = await pool.query(
-      'SELECT * FROM Items WHERE id = ? AND status = "requested" AND request_status = "pending"',
+      'SELECT * FROM Items WHERE id = ? AND status = "requested"',
       [itemId]
     );
     
@@ -2498,14 +2488,10 @@ app.put('/api/security/requests/:itemId/reject', authenticateToken, async (req, 
         const requester = requesters[0];
         
         // Create notification
-        await pool.query(
-          'INSERT INTO Notifications (user_id, message, type, related_item_id) VALUES (?, ?, ?, ?)',
-          [
-            requester.id,
-            `Your request for item "${item.title}" has been rejected${reason ? `: ${reason}` : ''}.`,
-            'request_rejected',
-            itemId
-          ]
+        await createNotification(
+          requester.id,
+          `Your request for item "${item.title}" has been rejected${reason ? `: ${reason}` : ''}.`,
+          `/items/${itemId}`
         );
       }
     }
@@ -2590,25 +2576,18 @@ app.put('/api/security/claims/:claimId/:action', authenticateToken, async (req, 
       );
 
       // Create notification for claimer
-      await pool.query(
-        'INSERT INTO Notifications (user_id, message, type, related_item_id) VALUES (?, ?, ?, ?)',
-        [
-          claim.claimer_id,
-          'Your request has been approved',
-          'request_approved',
-          claim.item_id
-        ]
+      await createNotification(
+        claim.claimer_id,
+        'Your request has been approved',
+        `/items/${claim.item_id}`,
+        claim.item_id
       );
     } else {
       // Create notification for claimer
-      await pool.query(
-        'INSERT INTO Notifications (user_id, message, type, related_item_id) VALUES (?, ?, ?, ?)',
-        [
-          claim.claimer_id,
-          'Your request has been rejected',
-          'request_rejected',
-          claim.item_id
-        ]
+      await createNotification(
+        claim.claimer_id,
+        'Your request has been rejected',
+        `/items/${claim.item_id}`
       );
     }
 
@@ -2737,14 +2716,10 @@ app.put('/api/security/items/:itemId/return', authenticateToken, async (req, res
       const item = items[0];
       
       // Create notification for item owner
-      await pool.query(
-        'INSERT INTO Notifications (user_id, message, type, related_item_id) VALUES (?, ?, ?, ?)',
-        [
-          item.user_id,
-          `Your item "${item.title}" has been returned to its owner`,
-          'item_returned',
-          itemId
-        ]
+      await createNotification(
+        item.user_id,
+        `Your item "${item.title}" has been returned to its owner`,
+        `/items/${itemId}`
       );
     }
 
@@ -2893,19 +2868,36 @@ app.get('/api/security/all-items', authenticateToken, async (req, res) => {
     }
     
     // Get all items including unapproved ones
+    // Include both reporter and requester information
     const [items] = await pool.query(`
       SELECT 
         i.*,
-        u.name as reporter_name
+        reporter.name as reporter_name,
+        reporter.email as reporter_email,
+        requester.name as requester_name,
+        requester.email as requester_email
       FROM 
         Items i
       LEFT JOIN 
-        Users u ON i.user_id = u.id
+        Users reporter ON i.user_id = reporter.id
+      LEFT JOIN 
+        Users requester ON i.request_user_id = requester.id
       WHERE 
         i.is_deleted = FALSE
       ORDER BY 
         i.created_at DESC
     `);
+    
+    console.log(`Fetched ${items.length} items for security dashboard`);
+    // Log a sample item if available
+    if (items.length > 0 && items[0].status === 'requested') {
+      console.log('Sample requested item:');
+      console.log(`- Item ID: ${items[0].id}`);
+      console.log(`- Title: ${items[0].title}`);
+      console.log(`- Status: ${items[0].status}`);
+      console.log(`- Reporter: ${items[0].reporter_name || 'N/A'}`);
+      console.log(`- Requester: ${items[0].requester_name || 'N/A'}`);
+    }
     
     res.json(items);
   } catch (error) {
@@ -3052,11 +3044,46 @@ app.put('/api/admin/users/:id/unblock', authenticateToken, async (req, res) => {
     
     const userId = req.params.id;
     
+    // Check if user exists and is banned
+    const [userCheck] = await pool.query(
+      'SELECT * FROM Users WHERE id = ? AND is_deleted = TRUE',
+      [userId]
+    );
+    
+    if (userCheck.length === 0) {
+      console.log(`User with ID ${userId} not found or not banned`);
+      return res.status(404).json({ message: 'User not found or not banned' });
+    }
+    
+    const user = userCheck[0];
+    console.log(`Found banned user: ${user.name} (${user.email})`);
+    
     // Unblock the user
-    await pool.query('UPDATE Users SET is_deleted = 0 WHERE id = ?', [userId]);
+    await pool.query('UPDATE Users SET is_deleted = 0, ban_reason = NULL WHERE id = ?', [userId]);
     
     // Log the action
-    await logSystemAction(`User ${userId} unblocked by admin`, { userId }, req.user.id);
+    await logSystemAction(`User ${user.name} (ID: ${userId}) unblocked by admin`, { userId }, req.user.id);
+    
+    // Send email notification to the unbanned user
+    try {
+      console.log('\n==== SENDING UNBAN EMAIL NOTIFICATION ====');
+      console.log('User email:', user.email);
+      console.log('User name:', user.name);
+      
+      const emailService = require('./server-email-nodemailer');
+      const emailResult = await emailService.sendAccountUnblockedNotification(user.email, user.name);
+      
+      if (emailResult.success) {
+        console.log('Unban notification email sent successfully!');
+        console.log('Message ID:', emailResult.messageId);
+      } else {
+        console.error('Failed to send unban notification email:', emailResult.error);
+      }
+      console.log('==========================================\n');
+    } catch (emailError) {
+      console.error('Failed to send unban notification email:', emailError);
+      // Continue with the unban process even if email fails
+    }
     
     res.status(200).json({ message: 'User unblocked successfully' });
   } catch (error) {
@@ -3311,8 +3338,8 @@ app.put('/api/security/users/:userId/ban', authenticateToken, async (req, res) =
 
     // Soft delete the user (set is_deleted to TRUE)
     await pool.query(
-      'UPDATE Users SET is_deleted = TRUE WHERE id = ?',
-      [userId]
+      'UPDATE Users SET is_deleted = TRUE, ban_reason = ? WHERE id = ?',
+      [reason, userId]
     );
     
     // Log the action
@@ -3320,6 +3347,28 @@ app.put('/api/security/users/:userId/ban', authenticateToken, async (req, res) =
       'INSERT INTO Logs (action, by_user) VALUES (?, ?)',
       [`User ${user.name} (ID: ${userId}) banned: ${reason}`, req.user.id]
     );
+    
+    // Send email notification to the banned user
+    try {
+      console.log('\n==== SENDING BAN EMAIL NOTIFICATION ====');
+      console.log('User email:', user.email);
+      console.log('User name:', user.name);
+      console.log('Ban reason:', reason);
+      
+      const emailService = require('./server-email-nodemailer');
+      const emailResult = await emailService.sendAccountBlockedNotification(user.email, user.name);
+      
+      if (emailResult.success) {
+        console.log('Ban notification email sent successfully!');
+        console.log('Message ID:', emailResult.messageId);
+      } else {
+        console.error('Failed to send ban notification email:', emailResult.error);
+      }
+      console.log('========================================\n');
+    } catch (emailError) {
+      console.error('Failed to send ban notification email:', emailError);
+      // Continue with the ban process even if email fails
+    }
 
     res.json({ message: 'User banned successfully' });
   } catch (error) {
@@ -3690,6 +3739,27 @@ app.put('/api/admin/users/:userId/unban', authenticateToken, async (req, res) =>
       'INSERT INTO Logs (action, by_user) VALUES (?, ?)',
       [`User ${user.name} (ID: ${userId}) unbanned`, req.user.id]
     );
+
+    // Send email notification to the unbanned user
+    try {
+      console.log('\n==== SENDING UNBAN EMAIL NOTIFICATION ====');
+      console.log('User email:', user.email);
+      console.log('User name:', user.name);
+      
+      const emailService = require('./server-email-nodemailer');
+      const emailResult = await emailService.sendAccountUnblockedNotification(user.email, user.name);
+      
+      if (emailResult.success) {
+        console.log('Unban notification email sent successfully!');
+        console.log('Message ID:', emailResult.messageId);
+      } else {
+        console.error('Failed to send unban notification email:', emailResult.error);
+      }
+      console.log('==========================================\n');
+    } catch (emailError) {
+      console.error('Failed to send unban notification email:', emailError);
+      // Continue with the unban process even if email fails
+    }
 
     res.json({ message: 'User unbanned successfully' });
   } catch (error) {
@@ -4690,3 +4760,74 @@ app.post('/test-match', async (req, res) => {
     });
   }
 });
+
+
+
+// Unban a user (admin or security)
+app.put('/api/security/users/:userId/unban', authenticateToken, async (req, res) => {
+  try {
+    // Check if user is admin or security
+    if (req.user.role !== 'admin' && req.user.role !== 'security') {
+      return res.status(403).json({ message: 'Unauthorized access: Only admins or security can unban users' });
+    }
+
+    const { userId } = req.params;
+    
+    console.log(`Attempting to unban user ${userId}`);
+
+    // Check if user exists and is banned
+    const [userCheck] = await pool.query(
+      'SELECT * FROM Users WHERE id = ? AND is_deleted = TRUE',
+      [userId]
+    );
+    
+    if (userCheck.length === 0) {
+      console.log(`User with ID ${userId} not found or not banned`);
+      return res.status(404).json({ message: 'User not found or not banned' });
+    }
+    
+    const user = userCheck[0];
+    console.log(`Found banned user: ${user.name} (${user.email})`);
+    
+    // Unban the user (set is_deleted to FALSE)
+    await pool.query(
+      'UPDATE Users SET is_deleted = FALSE, ban_reason = NULL WHERE id = ?',
+      [userId]
+    );
+    
+    // Log the action
+    await pool.query(
+      'INSERT INTO Logs (action, by_user) VALUES (?, ?)',
+      [`User ${user.name} (ID: ${userId}) unbanned`, req.user.id]
+    );
+
+    // Send email notification to the unbanned user
+    try {
+      console.log('\n==== SENDING UNBAN EMAIL NOTIFICATION ====');
+      console.log('User email:', user.email);
+      console.log('User name:', user.name);
+      
+      const emailService = require('./server-email-nodemailer');
+      const emailResult = await emailService.sendAccountUnblockedNotification(user.email, user.name);
+      
+      if (emailResult.success) {
+        console.log('Unban notification email sent successfully!');
+        console.log('Message ID:', emailResult.messageId);
+      } else {
+        console.error('Failed to send unban notification email:', emailResult.error);
+      }
+      console.log('==========================================\n');
+    } catch (emailError) {
+      console.error('Failed to send unban notification email:', emailError);
+      // Continue with the unban process even if email fails
+    }
+
+    res.json({ message: 'User unbanned successfully' });
+  } catch (error) {
+    console.error('Error unbanning user:', error);
+    res.status(500).json({ message: 'Error unbanning user', error: error.message });
+  }
+});
+
+// Admin API endpoints
+// ... existing code ...

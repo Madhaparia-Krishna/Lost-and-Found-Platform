@@ -20,6 +20,33 @@
   transition: all 0.2s ease;
 }
 
+.notification-bell-container {
+  position: relative;
+  display: inline-block;
+}
+
+.notification-bell-button {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0.5rem;
+  position: relative;
+  color: #333;
+  font-size: 1.2rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  transition: all 0.2s ease;
+}
+
+.notification-bell-button:hover {
+  background-color: rgba(233, 128, 116, 0.1);
+  color: #E98074;
+}
+
 .notification-button:hover {
   background-color: rgba(233, 128, 116, 0.1);
   color: #E98074;
@@ -69,6 +96,7 @@
   color: #333;
 }
 
+.mark-all-read-button,
 .mark-all-read {
   background: none;
   border: none;
@@ -78,6 +106,7 @@
   padding: 0.25rem 0.5rem;
 }
 
+.mark-all-read-button:hover,
 .mark-all-read:hover {
   text-decoration: underline;
 }
@@ -94,10 +123,17 @@
   justify-content: space-between;
   align-items: flex-start;
   gap: 1rem;
+  text-decoration: none;
+  color: inherit;
+  transition: background-color 0.2s ease;
 }
 
 .notification-item.unread {
   background-color: #f8f9fa;
+}
+
+.notification-item.read {
+  background-color: white;
 }
 
 .notification-content {
@@ -107,7 +143,7 @@
   gap: 10px;
 }
 
-.notification-content p {
+.notification-message {
   margin: 0 0 0.5rem 0;
   color: #333;
   font-size: 0.9rem;
@@ -117,6 +153,7 @@
 .notification-time {
   font-size: 0.75rem;
   color: #6c757d;
+  display: block;
 }
 
 .mark-read-btn {
@@ -213,4 +250,49 @@
 
 .notification-text {
   flex: 1;
+}
+
+/* Match Notification Toast Styles */
+.match-notifications-container {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  z-index: 1050;
+}
+
+.match-notification-toast {
+  min-width: 300px;
+  max-width: 350px;
+  background-color: white;
+  border-left: 4px solid #E85A4F;
+  margin-bottom: 10px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.match-notification-toast .toast-header {
+  background-color: #f8f9fa;
+  color: #212529;
+  border-bottom: 1px solid #e9ecef;
+}
+
+.match-notification-toast .toast-header i {
+  color: #E85A4F;
+}
+
+.match-notification-content {
+  padding: 5px 0;
+}
+
+.match-notification-content p {
+  margin-bottom: 10px;
+}
+
+.match-score-badge {
+  display: inline-block;
+  margin-bottom: 10px;
+}
+
+.match-notification-footer {
+  font-style: italic;
+  color: #6c757d;
 } 

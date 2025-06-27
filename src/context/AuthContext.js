@@ -150,6 +150,41 @@ export const AuthProvider = ({ children }) => {
     delete axios.defaults.headers.common['Authorization'];
   };
 
+  // Check if the user is banned
+  const checkBanStatus = async () => {
+    if (!currentUser || !currentUser.token) return;
+    
+    try {
+      // Make a request to a protected endpoint to check if the user is banned
+      const response = await axios.get(`${API_BASE_URL}/api/check-auth`, {
+        headers: { Authorization: `Bearer ${currentUser.token}` }
+      });
+      return true; // User is not banned
+    } catch (error) {
+      // If we get a 403 with banned flag, the user is banned
+      if (error.response && error.response.status === 403 && error.response.data.banned) {
+        console.log('User is banned, logging out');
+        logout();
+        setAuthError('Your account has been suspended. Please contact support for assistance.');
+        return false;
+      }
+      // Other errors should not log the user out
+      return true;
+    }
+  };
+  
+  // Set up interval to periodically check ban status
+  useEffect(() => {
+    if (currentUser) {
+      // Check ban status immediately
+      checkBanStatus();
+      
+      // Then check every 5 minutes
+      const interval = setInterval(checkBanStatus, 5 * 60 * 1000);
+      return () => clearInterval(interval);
+    }
+  }, [currentUser]);
+
   // Value object to be provided to consumers
   const authContextValue = {
     currentUser,
@@ -157,7 +192,8 @@ export const AuthProvider = ({ children }) => {
     authError,
     login,
     register,
-    logout
+    logout,
+    checkBanStatus
   };
 
   return (
