@@ -83,13 +83,44 @@ const SecurityDashboard = () => {
       setError(null);
       
       try {
-        await Promise.all([
-          fetchApprovedItems(),
-          fetchRequestedItems(),
-          fetchPendingItems(),
-          fetchNotifications(),
-          fetchUsers()
-        ]);
+        // Load each data type separately with better error handling
+        try {
+          await fetchApprovedItems();
+        } catch (err) {
+          console.error("Error loading approved items:", err);
+          // Continue loading other data
+        }
+        
+        try {
+          await fetchRequestedItems();
+        } catch (err) {
+          console.error("Error loading requested items:", err);
+          // Continue loading other data
+        }
+        
+        try {
+          await fetchPendingItems();
+        } catch (err) {
+          console.error("Error loading pending items:", err);
+          // Continue loading other data
+        }
+        
+        try {
+          await fetchNotifications();
+        } catch (err) {
+          console.error("Error loading notifications:", err);
+          // Continue loading other data
+        }
+        
+        try {
+          await fetchUsers();
+        } catch (err) {
+          console.error("Error loading users:", err);
+          // Continue loading other data
+        }
+        
+        // If we got here, at least some data was loaded successfully
+        setError(null);
       } catch (err) {
         console.error("Error loading dashboard data:", err);
         setError("Failed to load dashboard data. Please try again later.");
@@ -174,21 +205,48 @@ const SecurityDashboard = () => {
   const fetchRequestedItems = async () => {
     try {
       console.log("Fetching requested items...");
-      const itemsArray = await securityApi.getAllItems();
       
-      // Filter to only get requested items - remove the is_approved check
-      // since requested items may not have the is_approved flag set to true
-      const requestedItems = itemsArray.filter(item => 
-        item.status === 'requested' && 
-        item.is_deleted !== true
-      );
+      // Use the dedicated API endpoint that includes requester information
+      const requestedItems = await securityApi.getPendingRequests();
+      console.log("Requested items with requester info:", requestedItems);
       
-      console.log("Filtered requested items count:", requestedItems.length);
-      setRequestedItems(requestedItems);
+      if (requestedItems && requestedItems.length > 0) {
+        // Log sample item to verify requester info is included
+        console.log("Sample requested item:", requestedItems[0]);
+        setRequestedItems(requestedItems);
+      } else {
+        // If no items from dedicated endpoint, fall back to the old method
+        console.log("No items from getPendingRequests, falling back to getAllItems");
+        const itemsArray = await securityApi.getAllItems();
+        
+        // Filter to only get requested items
+        const filteredItems = itemsArray.filter(item => 
+          item.status === 'requested' && 
+          item.is_deleted !== true
+        );
+        
+        console.log("Filtered requested items count:", filteredItems.length);
+        setRequestedItems(filteredItems);
+      }
     } catch (error) {
       console.error('Error fetching requested items:', error);
-      setRequestedItems([]);
-      throw error;
+      
+      // If the API call fails, try the fallback method
+      try {
+        const itemsArray = await securityApi.getAllItems();
+        
+        // Filter to only get requested items
+        const filteredItems = itemsArray.filter(item => 
+          item.status === 'requested' && 
+          item.is_deleted !== true
+        );
+        
+        console.log("Fallback: filtered requested items count:", filteredItems.length);
+        setRequestedItems(filteredItems);
+      } catch (fallbackError) {
+        console.error('Fallback also failed:', fallbackError);
+        setRequestedItems([]);
+      }
     }
   };
   
@@ -392,18 +450,25 @@ const SecurityDashboard = () => {
   };
 
   const handleRejectRequest = async (itemId) => {
+    // Show the rejection reason modal first
+    setItemToReject(itemId);
+    setShowRejectModal(true);
+  };
+
+  const confirmRejectRequest = async () => {
     try {
       setActionLoading(true);
+      const itemId = itemToReject;
       
       // Find the item in requestedItems
-      const itemToReject = requestedItems.find(item => item.id === itemId);
+      const itemToRejectObj = requestedItems.find(item => item.id === itemId);
       
       // Optimistic update - remove from requestedItems
       setRequestedItems(prevItems => prevItems.filter(item => item.id !== itemId));
       
       // If we found the item, add it back to approvedItems
-      if (itemToReject) {
-        const foundItem = { ...itemToReject, status: 'found' };
+      if (itemToRejectObj) {
+        const foundItem = { ...itemToRejectObj, status: 'found' };
         setApprovedItems(prev => [foundItem, ...prev]);
       }
       
@@ -413,9 +478,14 @@ const SecurityDashboard = () => {
         message: 'Request rejected'
       });
       
-      // Make the API call
-      const response = await securityApi.rejectRequest(itemId);
+      // Make the API call with the rejection reason
+      const response = await securityApi.rejectRequest(itemId, rejectReason);
       console.log('Request rejection response:', response);
+      
+      // Clear state
+      setShowRejectModal(false);
+      setItemToReject(null);
+      setRejectReason('');
       
       // Clear status message after a delay
       setTimeout(() => {
@@ -449,7 +519,12 @@ const SecurityDashboard = () => {
   };
 
   const handleBanUser = (userId, userName) => {
+    console.log(`Setting up ban modal for user ${userId} (${userName})`);
+    // Reset the ban reason when opening the modal
+    setBanReason('');
+    // Set the user to ban with both ID and name
     setUserToBan({ id: userId, name: userName });
+    // Show the ban modal
     setShowBanModal(true);
   };
 
@@ -459,16 +534,17 @@ const SecurityDashboard = () => {
       
       // Find the user in the users array
       const userToUnban = users.find(user => user.id === userId);
+      const userName = userToUnban?.name || 'User';
       
       // Optimistic update - update the user's status in the local state
       setUsers(prevUsers => prevUsers.map(user => 
-        user.id === userId ? { ...user, is_deleted: false } : user
+        user.id === userId ? { ...user, is_deleted: false, ban_reason: null } : user
       ));
       
       // Show success message immediately
       setActionStatus({
         type: 'success',
-        message: 'User unbanned'
+        message: `${userName} unbanned successfully`
       });
       
       // Make the API call
@@ -590,35 +666,64 @@ const SecurityDashboard = () => {
         message: `Banning ${userToBan.name || 'user'}...`
       });
       
-      await securityApi.banUser(userToBan.id, banReason);
+      console.log(`Attempting to ban user ${userToBan.id} with reason: ${banReason}`);
       
+      // Store the user information before clearing modal data
+      const bannedUserId = userToBan.id;
+      const bannedUserName = userToBan.name || 'User';
+      const banReasonText = banReason;
+      
+      // Close modal immediately for better UX
+      setShowBanModal(false);
+      
+      // Update the local users array - optimistic update
       setUsers(prevUsers => 
         prevUsers.map(user => 
-          user.id === userToBan.id 
-            ? { ...user, is_deleted: true, ban_reason: banReason } 
+          user.id === bannedUserId 
+            ? { ...user, is_deleted: true, ban_reason: banReasonText } 
             : user
         )
       );
-
-      setActionStatus({
-        type: 'success',
-        message: `${userToBan.name || 'User'} banned successfully`
-      });
       
-      setShowBanModal(false);
+      // Clear inputs
       setUserToBan(null);
       setBanReason('');
+      
+      // Make the API call
+      const response = await securityApi.banUser(bannedUserId, banReasonText);
+      console.log('Ban user response:', response);
 
-      refreshData();
+      // Show success message
+      setActionStatus({
+        type: 'success',
+        message: `${bannedUserName} banned successfully`
+      });
+      
+      // Clear success message after a delay
       setTimeout(() => {
         setActionStatus(null);
       }, 3000);
-    } catch (err) {
-      console.error('Error banning user:', err);
+      
+      // Refresh data in the background
+      refreshData();
+    } catch (error) {
+      console.error('Error banning user:', error);
+      
       setActionStatus({
         type: 'error',
-        message: 'Failed to ban user. Please try again.'
+        message: `Failed to ban user: ${error.message || 'Unknown error'}`
       });
+      
+      // Revert optimistic update if we have the user ID
+      if (userToBan && userToBan.id) {
+        setUsers(prevUsers => 
+          prevUsers.map(user => 
+            user.id === userToBan.id 
+              ? { ...user, is_deleted: false, ban_reason: null } 
+              : user
+          )
+        );
+      }
     } finally {
       setActionLoading(false);
     }
@@ -663,7 +768,7 @@ const SecurityDashboard = () => {
             <th>Status</th>
             <th>Approved</th>
             <th>Date</th>
-            <th>Reported By</th>
+            <th>{activeKey === 'requestedItems' ? 'Requested By' : 'Reported By'}</th>
             {showActions && <th>Actions</th>}
           </tr>
         </thead>
@@ -685,7 +790,10 @@ const SecurityDashboard = () => {
                   )}
                 </td>
                 <td>{formatDate(item.date_found || item.date_lost || item.date)}</td>
-                <td>{item.reporter_name || 'N/A'}</td>
+                <td>
+                  {/* Show requester_name for requested items, otherwise show reporter_name */}
+                  {item.status === 'requested' ? (item.requester_name || 'Unknown') : (item.reporter_name || 'N/A')}
+                </td>
                 {showActions && (
                   <td>
                     <ButtonGroup aria-label="Item Actions">
@@ -737,7 +845,7 @@ const SecurityDashboard = () => {
       <h2 className="page-title">User Overview</h2>
       <p className="section-description">View registered users and their roles. Security staff can ban users.</p>
       {actionStatus && (
-        <Alert variant={actionStatus.type === 'success' ? 'success' : 'danger'} className="mb-3">
+        <Alert variant={actionStatus.type === 'success' ? 'success' : actionStatus.type === 'loading' ? 'info' : 'danger'} className="mb-3">
           {actionStatus.message}
         </Alert>
       )}
@@ -793,12 +901,24 @@ const SecurityDashboard = () => {
                         {currentUser.role === 'security' || currentUser.role === 'admin' ? (
                           <ButtonGroup aria-label="User Actions">
                             {user.is_deleted ? (
-                              <Button variant="success" size="sm" onClick={() => handleUnbanUser(user.id)} disabled={actionLoading}>
-                                {actionLoading ? <Spinner animation="border" size="sm" /> : <><i className="fas fa-user-check"></i> <span>Unban</span></>}
+                              // Both admin and security can unban users
+                              <Button 
+                                variant="outline-success" 
+                                size="sm" 
+                                onClick={() => handleUnbanUser(user.id)} 
+                                disabled={actionLoading}
+                              >
+                                {actionLoading ? <Spinner animation="border" size="sm" /> : <><i className="fas fa-user-check me-1"></i> Unban</>}
                               </Button>
                             ) : (
-                              <Button variant="warning" size="sm" onClick={() => handleBanUser(user.id, user.name)} disabled={actionLoading}>
-                                {actionLoading ? <Spinner animation="border" size="sm" /> : <><i className="fas fa-user-slash"></i> <span>Ban</span></>}
+                              // Both security and admin can ban users
+                              <Button 
+                                variant="outline-danger" 
+                                size="sm" 
+                                onClick={() => handleBanUser(user.id, user.name || user.email)} 
+                                disabled={actionLoading}
+                              >
+                                {actionLoading ? <Spinner animation="border" size="sm" /> : <><i className="fas fa-user-slash me-1"></i> Ban</>}
                               </Button>
                             )}
                           </ButtonGroup>
@@ -819,35 +939,6 @@ const SecurityDashboard = () => {
           </table>
         </div>
       )}
-
-      {/* Ban User Modal (kept as is) */}
-      <Modal show={showBanModal} onHide={() => setShowBanModal(false)} centered>
-        <Modal.Header closeButton>
-          <Modal.Title>Ban User</Modal.Title>
-        </Modal.Header>
-        <Modal.Body>
-          <p>Are you sure you want to ban user <strong>{userToBan?.name || userToBan?.id}</strong>?</p>
-          <Form.Group className="mb-3">
-            <Form.Label>Reason for banning:</Form.Label>
-            <Form.Control
-              as="textarea"
-              rows={3}
-              value={banReason}
-              onChange={(e) => setBanReason(e.target.value)}
-              placeholder="e.g., Repeated policy violations, fraudulent activity"
-              required
-            />
-          </Form.Group>
-        </Modal.Body>
-        <Modal.Footer>
-          <Button variant="secondary" onClick={() => setShowBanModal(false)}>
-            Cancel
-          </Button>
-          <Button variant="danger" onClick={confirmBanUser} disabled={actionLoading}>
-            {actionLoading ? <Spinner animation="border" size="sm" /> : 'Confirm Ban'}
-          </Button>
-        </Modal.Footer>
-      </Modal>
     </div>
   );
 
@@ -1044,31 +1135,66 @@ const SecurityDashboard = () => {
         </Modal.Footer>
       </Modal>
 
-      {/* Ban User Modal (kept as is) */}
+      {/* Ban User Modal */}
       <Modal show={showBanModal} onHide={() => setShowBanModal(false)} centered>
-        <Modal.Header closeButton>
-          <Modal.Title>Ban User</Modal.Title>
+        <Modal.Header closeButton className="bg-light">
+          <Modal.Title>
+            <i className="fas fa-user-slash text-danger me-2"></i>
+            Ban User
+          </Modal.Title>
         </Modal.Header>
         <Modal.Body>
-          <p>Are you sure you want to ban user <strong>{userToBan?.name || userToBan?.id}</strong>?</p>
+          <div className="mb-3">
+            <p>Are you sure you want to ban user <strong>{userToBan?.name || userToBan?.id}</strong>?</p>
+            <p className="text-muted small">
+              <i className="fas fa-info-circle me-1"></i>
+              Banned users will not be able to log in or use any features of the platform.
+              They will receive an email notification about this action.
+            </p>
+          </div>
+          
           <Form.Group className="mb-3">
-            <Form.Label>Reason for banning:</Form.Label>
+            <Form.Label>
+              <strong>Reason for banning:</strong>
+            </Form.Label>
             <Form.Control
               as="textarea"
               rows={3}
               value={banReason}
               onChange={(e) => setBanReason(e.target.value)}
-              placeholder="e.g., Repeated policy violations, fraudulent activity"
+              placeholder="e.g., Repeated policy violations, fraudulent activity, inappropriate behavior"
               required
+              className={!banReason && 'border-danger'}
             />
+            {!banReason && (
+              <div className="text-danger small mt-1">
+                <i className="fas fa-exclamation-circle me-1"></i>
+                Please provide a reason for banning this user
+              </div>
+            )}
           </Form.Group>
         </Modal.Body>
         <Modal.Footer>
-          <Button variant="secondary" onClick={() => setShowBanModal(false)}>
+          <Button variant="outline-secondary" onClick={() => setShowBanModal(false)}>
+            <i className="fas fa-times me-1"></i>
             Cancel
           </Button>
-          <Button variant="danger" onClick={confirmBanUser} disabled={actionLoading}>
-            {actionLoading ? <Spinner animation="border" size="sm" /> : 'Confirm Ban'}
+          <Button 
+            variant="outline-danger" 
+            onClick={confirmBanUser} 
+            disabled={actionLoading || !banReason}
+          >
+            {actionLoading ? (
+              <>
+                <Spinner animation="border" size="sm" className="me-1" />
+                Processing...
+              </>
+            ) : (
+              <>
+                <i className="fas fa-user-slash me-1"></i>
+                Confirm Ban
+              </>
+            )}
           </Button>
         </Modal.Footer>
       </Modal>
@@ -1096,7 +1222,7 @@ const SecurityDashboard = () => {
           <Button variant="secondary" onClick={() => setShowRejectModal(false)}>
             Cancel
           </Button>
-          <Button variant="danger" onClick={confirmRejectItem} disabled={actionLoading}>
+          <Button variant="danger" onClick={confirmRejectRequest} disabled={actionLoading}>
             {actionLoading ? <Spinner animation="border" size="sm" /> : 'Confirm Reject'}
           </Button>
         </Modal.Footer>

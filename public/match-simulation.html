@@ -376,14 +376,14 @@
             document.getElementById('score').textContent = matchScore;
             
             // If score is above threshold, send email
-            if (matchScore >= 50) {
+            if (matchScore >= 70) {
                 sendMatchEmail(userEmail, userName, matchScore);
             } else {
                 const emailStatus = document.getElementById('emailStatus');
                 emailStatus.className = 'result';
                 emailStatus.style.display = 'block';
                 emailStatus.innerHTML = `
-                    <p>Match score (${matchScore}%) is below the 50% threshold.</p>
+                    <p>Match score (${matchScore}%) is below the 70% threshold.</p>
                     <p>No notification email will be sent automatically.</p>
                     <button id="forceSendButton">Send Email Anyway</button>
                 `;

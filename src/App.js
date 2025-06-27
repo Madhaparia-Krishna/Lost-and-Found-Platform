@@ -1,8 +1,10 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
+import { NotificationProvider } from './context/NotificationContext';
 import { Toaster } from 'react-hot-toast';
 import Navbar from './components/Navbar';
+import NotificationBell from './components/NotificationBell';
 
 // Layouts
 import DashboardLayout from './components/layouts/DashboardLayout';
@@ -23,6 +25,13 @@ import Unauthorized from './pages/Unauthorized';
 import Profile from './pages/Profile';
 import ForgotPassword from './pages/ForgotPassword';
 import TestRole from './pages/TestRole';
+import TestMatchPage from './pages/TestMatchPage';
+
+// Footer Pages
+import About from './pages/About';
+import Privacy from './pages/Privacy';
+import Terms from './pages/Terms';
+import Contact from './pages/Contact';
 
 // Dashboard Pages
 import FoundItems from './pages/dashboard/FoundItems';
@@ -58,6 +67,12 @@ const AppContent = () => {
           <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
           <Route path="/register" element={<PublicRoute><Register /></PublicRoute>} />
           <Route path="/unauthorized" element={<Unauthorized />} />
+          
+          {/* Footer pages */}
+          <Route path="/about" element={<About />} />
+          <Route path="/privacy" element={<Privacy />} />
+          <Route path="/terms" element={<Terms />} />
+          <Route path="/contact" element={<Contact />} />
           
           {/* Dashboard routes */}
           <Route path="/dashboard" element={
@@ -139,6 +154,13 @@ const AppContent = () => {
           {/* Test role route */}
           <Route path="/test-role" element={<TestRole />} />
           
+          {/* Match testing routes */}
+          <Route path="/dev/test-match" element={
+            <PrivateRoute>
+              <TestMatchPage />
+            </PrivateRoute>
+          } />
+          
           {/* Catch-all route */}
           <Route path="*" element={<NotFound />} />
         </Routes>
@@ -151,30 +173,32 @@ function App() {
   return (
     <Router>
       <AuthProvider>
-        {/* Toast notifications */}
-        <Toaster
-          position="top-right"
-          toastOptions={{
-            duration: 3000,
-            style: {
-              background: '#363636',
-              color: '#fff',
-            },
-            success: {
+        <NotificationProvider>
+          {/* Toast notifications */}
+          <Toaster
+            position="top-right"
+            toastOptions={{
+              duration: 3000,
               style: {
-                background: '#27ae60',
+                background: '#363636',
+                color: '#fff',
               },
-            },
-            error: {
-              style: {
-                background: '#e74c3c',
+              success: {
+                style: {
+                  background: '#27ae60',
+                },
               },
-              duration: 4000,
-            },
-          }}
-        />
-        
-        <AppContent />
+              error: {
+                style: {
+                  background: '#e74c3c',
+                },
+                duration: 4000,
+              },
+            }}
+          />
+          
+          <AppContent />
+        </NotificationProvider>
       </AuthProvider>
     </Router>
   );

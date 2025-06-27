@@ -222,8 +222,8 @@ button[type="submit"]:hover,
 input[type="submit"]:hover,
 .btn-submit:hover,
 .primary-button:hover {
-  background-color: #E85A4F !important;
-  border-color: #E85A4F !important;
+  background-color: #eb9d95 !important;
+  border-color: #eb9d95 !important;
 }
 
 /* Override Bootstrap blue focus styles */
@@ -243,7 +243,7 @@ a {
 }
 
 a:hover {
-  color: #E85A4F;
+  color: #ffffff;
 }
 
 /* Fix button spinner */

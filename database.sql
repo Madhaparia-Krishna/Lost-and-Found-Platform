@@ -38,6 +38,9 @@ CREATE TABLE Items (
     is_approved BOOLEAN DEFAULT FALSE,
     is_deleted BOOLEAN DEFAULT FALSE,
     is_donated BOOLEAN DEFAULT FALSE,
+    request_status VARCHAR(20) DEFAULT NULL,
+    request_user_id INT DEFAULT NULL,
+    rejection_reason VARCHAR(255) DEFAULT NULL,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES Users(id) ON DELETE CASCADE
@@ -64,16 +67,13 @@ CREATE TABLE Claims (
 DROP TABLE IF EXISTS Notifications;
 CREATE TABLE Notifications (
     id INT PRIMARY KEY AUTO_INCREMENT,
+    user_id INT NOT NULL,
     message TEXT NOT NULL,
-    user_id INT,
-    type ENUM('match', 'request', 'approval', 'request_approved', 'request_rejected', 'item_received', 'item_returned', 'system') DEFAULT 'system',
-    status ENUM('unread', 'read') DEFAULT 'unread',
-    related_item_id INT,
-    is_deleted BOOLEAN DEFAULT FALSE,
+    link_url VARCHAR(255),
+    is_read TINYINT(1) DEFAULT 0,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    FOREIGN KEY (user_id) REFERENCES Users(id) ON DELETE CASCADE,
-    FOREIGN KEY (related_item_id) REFERENCES Items(id) ON DELETE CASCADE
+    FOREIGN KEY (user_id) REFERENCES Users(id) ON DELETE CASCADE
 );
 
 -- LOGS TABLE

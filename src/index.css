@@ -5,13 +5,22 @@
   box-sizing: border-box;
 }
 
+html, body {
+  margin: 0 !important;
+  padding: 0 !important;
+  height: 100%;
+  overflow-x: hidden;
+}
+
 body {
   font-family: 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  background-color: #EAE7DC;
+  background-color: #EAE7DC !important;
   color: #4D4C4A;
   line-height: 1.6;
+  margin: 0 !important;
+  padding: 0 !important;
 }
 
 code {

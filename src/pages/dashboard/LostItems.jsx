@@ -26,7 +26,7 @@ const LostItems = () => {
       setLoading(true);
       setError(null);
       
-      // Fetch only lost items using the status parameter
+      // Fetch all lost items using the status parameter
       const lostItems = await itemsApi.getAll('lost');
       
       if (!Array.isArray(lostItems)) {
@@ -35,20 +35,12 @@ const LostItems = () => {
         return;
       }
       
-      // Filter for items that the current user has reported
-      const userItems = lostItems.filter(item => {
-        // Compare user_id as numbers to handle string/number mismatches
-        const userId = item.user_id === undefined ? 0 : Number(item.user_id);
-        const currentUserId = Number(currentUser.id);
-        
-        // Items should be user's lost items
-        const isUserOwner = userId === currentUserId;
-        const isNotDeleted = item.is_deleted !== true && item.is_deleted !== 1 && item.is_deleted !== '1';
-        
-        return isUserOwner && isNotDeleted;
+      // Filter for non-deleted items
+      const filteredItems = lostItems.filter(item => {
+        return item.is_deleted !== true && item.is_deleted !== 1 && item.is_deleted !== '1';
       });
       
-      setItems(userItems);
+      setItems(filteredItems);
     } catch (error) {
       setError('Error fetching items: ' + (error.message || 'Unknown error'));
     } finally {
@@ -78,6 +70,12 @@ const LostItems = () => {
       
       return matchesSearch && matchesCategory;
     });
+  };
+
+  // Check if the current user is the owner of an item
+  const isItemOwner = (item) => {
+    if (!currentUser || !item.user_id) return false;
+    return Number(item.user_id) === Number(currentUser.id);
   };
 
   // Handle item deletion
@@ -114,7 +112,7 @@ const LostItems = () => {
           <i className="fas fa-question-circle"></i>
         </div>
         <h3>No Lost Items</h3>
-        <p>You haven't reported any lost items yet. When you lose something, report it here.</p>
+        <p>No lost items have been reported yet.</p>
         <button className="primary-btn" onClick={navigateToReportLostItem}>
           <i className="fas fa-plus"></i> Report Lost Item
         </button>
@@ -142,7 +140,7 @@ const LostItems = () => {
   return (
     <div className="dashboard-page">
       <div className="page-header">
-        <h1>Your Lost Items</h1>
+        <h1>Lost Items</h1>
         <button className="primary-btn" onClick={navigateToReportLostItem}>
           <i className="fas fa-plus"></i> Report Lost Item
         </button>
@@ -180,7 +178,7 @@ const LostItems = () => {
       </div>
 
       {loading ? (
-        <LoadingSpinner message="Loading your lost items..." />
+        <LoadingSpinner message="Loading lost items..." />
       ) : error ? (
         <div className="error-state">
           <div className="error-icon">
@@ -215,20 +213,28 @@ const LostItems = () => {
               </div>
               <div className="item-details">
                 <h3>{item.title}</h3>
-                <div className="item-actions">
-                  <button 
-                    className="view-button"
-                    onClick={() => navigateToEditItem(item.id)}
-                  >
-                    Edit
-                  </button>
-                  <button 
-                    className="request-button"
-                    onClick={() => handleDeleteItem(item.id)}
-                  >
-                    Remove
-                  </button>
-                </div>
+                <p className="category">{item.category}</p>
+                <p className="description">{item.description}</p>
+                <p className="location"><strong>Last seen:</strong> {item.location}</p>
+                <p className="lost-date"><strong>Lost on:</strong> {item.date ? new Date(item.date).toLocaleDateString() : 'Not specified'}</p>
+                <p className="reporter"><strong>Reported by:</strong> {item.reporter_name || 'Anonymous'}</p>
+                {/* Only show edit and delete buttons if the current user is the owner */}
+                {isItemOwner(item) && (
+                  <div className="item-actions">
+                    <button 
+                      className="view-button"
+                      onClick={() => navigateToEditItem(item.id)}
+                    >
+                      Edit
+                    </button>
+                    <button 
+                      className="request-button"
+                      onClick={() => handleDeleteItem(item.id)}
+                    >
+                      Remove
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
           ))}

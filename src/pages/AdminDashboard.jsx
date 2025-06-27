@@ -2273,81 +2273,162 @@ const AdminDashboard = () => {
 
       {/* Ban User Modal */}
       <Modal show={showBanModal} onHide={() => setShowBanModal(false)} centered>
-        <Modal.Header closeButton>
-          <Modal.Title>Ban User</Modal.Title>
+        <Modal.Header closeButton className="bg-light">
+          <Modal.Title>
+            <i className="fas fa-user-slash text-danger me-2"></i>
+            Ban User
+          </Modal.Title>
         </Modal.Header>
         <Modal.Body>
-          <p>Are you sure you want to ban user <strong>{userToBan?.name || userToBan?.id}</strong>?</p>
+          <div className="mb-3">
+            <p>Are you sure you want to ban user <strong>{userToBan?.name || userToBan?.id}</strong>?</p>
+            <p className="text-muted small">
+              <i className="fas fa-info-circle me-1"></i>
+              Banned users will not be able to log in or use any features of the platform.
+              They will receive an email notification about this action.
+            </p>
+          </div>
+          
           <Form.Group className="mb-3">
-            <Form.Label>Reason for banning:</Form.Label>
+            <Form.Label>
+              <strong>Reason for banning:</strong>
+            </Form.Label>
             <Form.Control
               as="textarea"
               rows={3}
               value={banReason}
               onChange={(e) => setBanReason(e.target.value)}
-              placeholder="e.g., Repeated policy violations, fraudulent activity"
+              placeholder="e.g., Repeated policy violations, fraudulent activity, inappropriate behavior"
               required
+              className={!banReason && 'border-danger'}
             />
+            {!banReason && (
+              <div className="text-danger small mt-1">
+                <i className="fas fa-exclamation-circle me-1"></i>
+                Please provide a reason for banning this user
+              </div>
+            )}
           </Form.Group>
         </Modal.Body>
         <Modal.Footer>
-          <Button variant="secondary" onClick={() => setShowBanModal(false)}>
+          <Button variant="outline-secondary" onClick={() => setShowBanModal(false)}>
+            <i className="fas fa-times me-1"></i>
             Cancel
           </Button>
-          <Button variant="danger" onClick={confirmBanUser} disabled={actionLoading}>
-            {actionLoading ? <Spinner animation="border" size="sm" /> : 'Confirm Ban'}
+          <Button 
+            variant="outline-danger" 
+            onClick={confirmBanUser} 
+            disabled={actionLoading || !banReason}
+          >
+            {actionLoading ? (
+              <>
+                <Spinner animation="border" size="sm" className="me-1" />
+                Processing...
+              </>
+            ) : (
+              <>
+                <i className="fas fa-user-slash me-1"></i>
+                Confirm Ban
+              </>
+            )}
           </Button>
         </Modal.Footer>
       </Modal>
 
       {/* Role Change Modal */}
       <Modal show={showRoleModal} onHide={() => setShowRoleModal(false)} centered>
-        <Modal.Header closeButton>
-          <Modal.Title>Change User Role</Modal.Title>
+        <Modal.Header closeButton className="bg-light">
+          <Modal.Title>
+            <i className="fas fa-user-tag text-primary me-2"></i>
+            Change User Role
+          </Modal.Title>
         </Modal.Header>
         <Modal.Body>
-          <p>Change role for user <strong>{userToChangeRole?.name || userToChangeRole?.email || userToChangeRole?.id}</strong></p>
+          <div className="mb-3">
+            <p>Change role for user <strong>{userToChangeRole?.name || userToChangeRole?.email || userToChangeRole?.id}</strong></p>
+            <p className="text-muted small">
+              <i className="fas fa-info-circle me-1"></i>
+              Changing a user's role will modify their permissions and access level in the system.
+            </p>
+          </div>
+          
           <Form.Group className="mb-3">
-            <Form.Label>Select Role:</Form.Label>
+            <Form.Label>
+              <strong>Select Role:</strong>
+            </Form.Label>
             <Form.Select
               value={selectedRole}
               onChange={(e) => setSelectedRole(e.target.value)}
               required
+              className={!selectedRole && 'border-danger'}
             >
               <option value="">Select a role</option>
               <option value="user">User</option>
               <option value="security">Security</option>
               <option value="admin">Admin</option>
             </Form.Select>
-            <Form.Text className="text-muted">
-              <ul>
+            {!selectedRole && (
+              <div className="text-danger small mt-1">
+                <i className="fas fa-exclamation-circle me-1"></i>
+                Please select a role for this user
+              </div>
+            )}
+            <div className="mt-3 p-3 bg-light rounded">
+              <h6 className="mb-2">Role Permissions:</h6>
+              <ul className="mb-0 small">
                 <li><strong>User:</strong> Regular user with basic permissions</li>
                 <li><strong>Security:</strong> Can approve/reject items and manage claims</li>
                 <li><strong>Admin:</strong> Full system access and user management</li>
               </ul>
-            </Form.Text>
+            </div>
           </Form.Group>
         </Modal.Body>
         <Modal.Footer>
-          <Button variant="secondary" onClick={() => setShowRoleModal(false)}>
+          <Button variant="outline-secondary" onClick={() => setShowRoleModal(false)}>
+            <i className="fas fa-times me-1"></i>
             Cancel
           </Button>
-          <Button variant="primary" onClick={confirmRoleChange} disabled={actionLoading}>
-            {actionLoading ? <Spinner animation="border" size="sm" /> : 'Update Role'}
+          <Button 
+            variant="outline-primary" 
+            onClick={confirmRoleChange} 
+            disabled={actionLoading || !selectedRole}
+          >
+            {actionLoading ? (
+              <>
+                <Spinner animation="border" size="sm" className="me-1" />
+                Processing...
+              </>
+            ) : (
+              <>
+                <i className="fas fa-user-tag me-1"></i>
+                Update Role
+              </>
+            )}
           </Button>
         </Modal.Footer>
       </Modal>
 
       {/* Delete Item Modal */}
       <Modal show={showDeleteModal} onHide={() => setShowDeleteModal(false)} centered>
-        <Modal.Header closeButton>
-          <Modal.Title>Delete Item Permanently</Modal.Title>
+        <Modal.Header closeButton className="bg-light">
+          <Modal.Title>
+            <i className="fas fa-trash text-danger me-2"></i>
+            Delete Item Permanently
+          </Modal.Title>
         </Modal.Header>
         <Modal.Body>
-          <p>Are you sure you want to permanently delete item <strong>{itemToDelete?.name || itemToDelete?.id}</strong>?</p>
-          <p className="text-danger">This action cannot be undone.</p>
+          <div className="mb-3">
+            <p>Are you sure you want to permanently delete item <strong>{itemToDelete?.name || itemToDelete?.id}</strong>?</p>
+            <p className="text-danger small">
+              <i className="fas fa-exclamation-triangle me-1"></i>
+              This action cannot be undone. The item will be permanently removed from the system.
+            </p>
+          </div>
+          
           <Form.Group className="mb-3">
-            <Form.Label>Reason for permanent deletion:</Form.Label>
+            <Form.Label>
+              <strong>Reason for permanent deletion:</strong>
+            </Form.Label>
             <Form.Control
               as="textarea"
               rows={3}
@@ -2355,28 +2436,62 @@ const AdminDashboard = () => {
               onChange={(e) => setDeleteReason(e.target.value)}
               placeholder="e.g., Item unclaimed for over a year, data cleanup"
               required
+              className={!deleteReason && 'border-danger'}
             />
+            {!deleteReason && (
+              <div className="text-danger small mt-1">
+                <i className="fas fa-exclamation-circle me-1"></i>
+                Please provide a reason for deleting this item
+              </div>
+            )}
           </Form.Group>
         </Modal.Body>
         <Modal.Footer>
-          <Button variant="secondary" onClick={() => setShowDeleteModal(false)}>
+          <Button variant="outline-secondary" onClick={() => setShowDeleteModal(false)}>
+            <i className="fas fa-times me-1"></i>
             Cancel
           </Button>
-          <Button variant="danger" onClick={confirmDeleteItem} disabled={actionLoading}>
-            {actionLoading ? <Spinner animation="border" size="sm" /> : 'Confirm Delete'}
+          <Button 
+            variant="outline-danger" 
+            onClick={confirmDeleteItem} 
+            disabled={actionLoading || !deleteReason}
+          >
+            {actionLoading ? (
+              <>
+                <Spinner animation="border" size="sm" className="me-1" />
+                Processing...
+              </>
+            ) : (
+              <>
+                <i className="fas fa-trash me-1"></i>
+                Confirm Delete
+              </>
+            )}
           </Button>
         </Modal.Footer>
       </Modal>
 
       {/* Donate Item Modal */}
       <Modal show={showDonateModal} onHide={() => setShowDonateModal(false)} centered>
-        <Modal.Header closeButton>
-          <Modal.Title>Donate Item</Modal.Title>
+        <Modal.Header closeButton className="bg-light">
+          <Modal.Title>
+            <i className="fas fa-hand-holding-heart text-warning me-2"></i>
+            Donate Item
+          </Modal.Title>
         </Modal.Header>
         <Modal.Body>
-          <p>You are about to mark item <strong>{itemToDonate?.name || itemToDonate?.title || itemToDonate?.id}</strong> for donation.</p>
+          <div className="mb-3">
+            <p>You are about to mark item <strong>{itemToDonate?.name || itemToDonate?.title || itemToDonate?.id}</strong> for donation.</p>
+            <p className="text-muted small">
+              <i className="fas fa-info-circle me-1"></i>
+              Items marked for donation will be removed from the active inventory and prepared for donation to charity organizations.
+            </p>
+          </div>
+          
           <Form.Group className="mb-3">
-            <Form.Label>Reason for donation:</Form.Label>
+            <Form.Label>
+              <strong>Reason for donation:</strong>
+            </Form.Label>
             <Form.Control
               as="textarea"
               rows={2}
@@ -2384,10 +2499,20 @@ const AdminDashboard = () => {
               onChange={(e) => setDonationReason(e.target.value)}
               placeholder="e.g., Unclaimed for over a year"
               required
+              className={!donationReason && 'border-danger'}
             />
+            {!donationReason && (
+              <div className="text-danger small mt-1">
+                <i className="fas fa-exclamation-circle me-1"></i>
+                Please provide a reason for donating this item
+              </div>
+            )}
           </Form.Group>
+          
           <Form.Group className="mb-3">
-            <Form.Label>Donation Organization (optional):</Form.Label>
+            <Form.Label>
+              <strong>Donation Organization (optional):</strong>
+            </Form.Label>
             <Form.Control
               type="text"
               value={donationOrganization}
@@ -2397,11 +2522,26 @@ const AdminDashboard = () => {
           </Form.Group>
         </Modal.Body>
         <Modal.Footer>
-          <Button variant="secondary" onClick={() => setShowDonateModal(false)}>
+          <Button variant="outline-secondary" onClick={() => setShowDonateModal(false)}>
+            <i className="fas fa-times me-1"></i>
             Cancel
           </Button>
-          <Button variant="warning" onClick={confirmDonateItem} disabled={actionLoading}>
-            {actionLoading ? <Spinner animation="border" size="sm" /> : 'Confirm Donation'}
+          <Button 
+            variant="outline-warning" 
+            onClick={confirmDonateItem} 
+            disabled={actionLoading || !donationReason}
+          >
+            {actionLoading ? (
+              <>
+                <Spinner animation="border" size="sm" className="me-1" />
+                Processing...
+              </>
+            ) : (
+              <>
+                <i className="fas fa-hand-holding-heart me-1"></i>
+                Confirm Donation
+              </>
+            )}
           </Button>
         </Modal.Footer>
       </Modal>

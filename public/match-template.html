@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            line-height: 1.7;
+            color: #2c3e50;
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+            padding: 20px;
+        }
+        
+        .email-container {
+            max-width: 600px;
+            margin: 0 auto;
+            background: #ffffff;
+            border-radius: 16px;
+            overflow: hidden;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.08);
+            border: 1px solid rgba(255, 255, 255, 0.18);
+        }
+        
+        .email-header {
+            background: linear-gradient(135deg, #E98074 0%, #E85A4F 100%);
+            padding: 40px 30px;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .email-header::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: url('data:image/svg+xml,<svg width="60" height="60" viewBox="0 0 60 60" xmlns="http://www.w3.org/2000/svg"><g fill="none" fill-rule="evenodd"><g fill="%23ffffff" fill-opacity="0.1"><circle cx="30" cy="30" r="4"/></g></svg>') repeat;
+            opacity: 0.3;
+        }
+        
+        .logo-container {
+            margin-bottom: 20px;
+            position: relative;
+            z-index: 1;
+        }
+        
+        .logo {
+            width: 80px;
+            height: 80px;
+            margin: 0 auto;
+            background: #ffffff;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+        }
+        
+        .compass-icon {
+            width: 45px;
+            height: 45px;
+            position: relative;
+        }
+        
+        .email-header h1 {
+            color: #ffffff;
+            font-size: 28px;
+            font-weight: 700;
+            margin-bottom: 8px;
+            position: relative;
+            z-index: 1;
+        }
+        
+        .email-header .subtitle {
+            color: rgba(255, 255, 255, 0.9);
+            font-size: 16px;
+            font-weight: 400;
+            position: relative;
+            z-index: 1;
+        }
+        
+        .email-body {
+            padding: 40px 30px;
+        }
+        
+        .greeting {
+            font-size: 18px;
+            color: #2c3e50;
+            margin-bottom: 20px;
+            font-weight: 500;
+        }
+        
+        .main-message {
+            font-size: 16px;
+            color: #34495e;
+            margin-bottom: 25px;
+            line-height: 1.8;
+        }
+        
+        .match-score-container {
+            text-align: center;
+            margin: 30px 0;
+            padding: 25px;
+            background: linear-gradient(135deg, #fff5f5 0%, #fef7f7 100%);
+            border-radius: 12px;
+            border: 2px solid #E98074;
+        }
+        
+        .match-score-label {
+            font-size: 14px;
+            color: #E85A4F;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 8px;
+        }
+        
+        .match-score {
+            font-size: 36px;
+            font-weight: 800;
+            color: #E98074;
+            margin-bottom: 5px;
+        }
+        
+        .match-description {
+            font-size: 14px;
+            color: #E85A4F;
+            font-weight: 500;
+        }
+        
+        .item-details {
+            background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+            border-radius: 12px;
+            padding: 25px;
+            margin: 25px 0;
+            border-left: 4px solid #E98074;
+            position: relative;
+        }
+        
+        .item-details::before {
+            content: '📍';
+            position: absolute;
+            top: 15px;
+            right: 20px;
+            font-size: 20px;
+            opacity: 0.6;
+        }
+        
+        .item-details h3 {
+            color: #1e293b;
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .detail-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 0;
+            border-bottom: 1px solid rgba(148, 163, 184, 0.2);
+        }
+        
+        .detail-row:last-child {
+            border-bottom: none;
+        }
+        
+        .detail-label {
+            font-weight: 600;
+            color: #475569;
+            font-size: 14px;
+        }
+        
+        .detail-value {
+            color: #1e293b;
+            font-size: 14px;
+            font-weight: 500;
+        }
+        
+        .cta-section {
+            text-align: center;
+            margin: 35px 0;
+        }
+        
+        .cta-button {
+            display: inline-block;
+            background: linear-gradient(135deg, #E98074 0%, #E85A4F 100%);
+            color: #ffffff;
+            text-decoration: none;
+            padding: 16px 32px;
+            border-radius: 50px;
+            font-weight: 600;
+            font-size: 16px;
+            transition: all 0.3s ease;
+            box-shadow: 0 8px 25px rgba(233, 128, 116, 0.3);
+            border: none;
+            cursor: pointer;
+        }
+        
+        .cta-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 12px 35px rgba(233, 128, 116, 0.4);
+        }
+        
+        .secondary-text {
+            color: #64748b;
+            font-size: 15px;
+            line-height: 1.7;
+            margin: 20px 0;
+        }
+        
+        .signature {
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 1px solid #e2e8f0;
+        }
+        
+        .signature-name {
+            font-weight: 600;
+            color: #2c3e50;
+            margin-bottom: 5px;
+        }
+        
+        .signature-title {
+            color: #64748b;
+            font-size: 14px;
+        }
+        
+        .email-footer {
+            background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+            padding: 25px 30px;
+            text-align: center;
+            border-top: 1px solid #e2e8f0;
+        }
+        
+        .footer-text {
+            font-size: 13px;
+            color: #64748b;
+            margin-bottom: 10px;
+        }
+        
+        .footer-brand {
+            font-size: 12px;
+            color: #94a3b8;
+            font-weight: 500;
+        }
+        
+        @media (max-width: 600px) {
+            body {
+                padding: 10px;
+            }
+            
+            .email-header {
+                padding: 30px 20px;
+            }
+            
+            .email-body {
+                padding: 30px 20px;
+            }
+            
+            .email-header h1 {
+                font-size: 24px;
+            }
+            
+            .match-score {
+                font-size: 28px;
+            }
+            
+            .detail-row {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 5px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="email-container">
+        <div class="email-header">
+            <div class="logo-container">
+                <div class="logo">
+                    <img src="/logo2.png" alt="Lost@Campus Logo" style="width: 50px; height: 50px; object-fit: contain;">
+                </div>
+            </div>
+            <h1>Match Found!</h1>
+            <div class="subtitle">Lost@Campus Auto-Detection System</div>
+        </div>
+        
+        <div class="email-body">
+            <div class="greeting">Hello {{user_name}},</div>
+            
+            <div class="main-message">
+                {{message}}
+            </div>
+            
+            <div class="match-score-container">
+                <div class="match-score-label">Confidence Score</div>
+                <div class="match-score">{{match_score}}</div>
+                <div class="match-description">High Match Probability</div>
+            </div>
+            
+            <div class="item-details">
+                <h3>📋 Item Details</h3>
+                <div class="detail-row">
+                    <span class="detail-label">Item Name:</span>
+                    <span class="detail-value">{{item_title}}</span>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-label">Category:</span>
+                    <span class="detail-value">{{category}}</span>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-label">Location Found:</span>
+                    <span class="detail-value">{{location}}</span>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-label">Date Found:</span>
+                    <span class="detail-value">{{date}}</span>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-label">Alert Time:</span>
+                    <span class="detail-value">{{time}}</span>
+                </div>
+            </div>
+            
+            <div class="secondary-text">
+                Our AI-powered matching system has identified a significant correlation between your reported item and another entry in our database. This automated detection helps reunite lost items with their owners faster than ever.
+            </div>
+            
+            <div class="cta-section">
+                <a href="{{match_link}}" class="cta-button">View Match Details →</a>
+            </div>
+            
+            <div class="secondary-text">
+                If this match looks correct, you can proceed with the verification process through our secure platform. For any questions or assistance, our support team is ready to help.
+            </div>
+            
+            <div class="signature">
+                <div class="signature-name">The Lost@Campus Team</div>
+                <div class="signature-title">Automated Matching System</div>
+            </div>
+        </div>
+        
+        <div class="email-footer">
+            <div class="footer-text">
+                This is an automated notification. Please do not reply to this email.
+            </div>
+            <div class="footer-brand">
+                © 2024 Lost@Campus. Connecting students with their belongings.
+            </div>
+        </div>
+    </div>
+</body>
+</html>

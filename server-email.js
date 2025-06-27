@@ -123,7 +123,7 @@ const sendAccountBlockedNotification = async (userEmail, userName, reason) => {
       name: "Lost & Found System",
       user_name: userName,
       time: formattedTime,
-      message: `Your account has been blocked. Reason: ${reason || 'Policy violation'}`,
+      message: `Your account has been blocked.`,
       item_title: "Account Status Update",
       category: "Account",
       date: now.toLocaleDateString(),
@@ -151,6 +151,54 @@ const sendAccountBlockedNotification = async (userEmail, userName, reason) => {
     return { success: true, response: response.data };
   } catch (error) {
     console.error('Error sending account blocked notification:', error.response ? error.response.data : error.message);
+    return { 
+      success: false, 
+      error: error.response ? error.response.data : error.message 
+    };
+  }
+};
+
+// Send account unblocked notification
+const sendAccountUnblockedNotification = async (userEmail, userName) => {
+  try {
+    // Format current time
+    const now = new Date();
+    const formattedTime = now.toLocaleString();
+    
+    // Build parameters for template
+    const templateParams = {
+      to_email: userEmail,
+      name: "Lost & Found System",
+      user_name: userName,
+      time: formattedTime,
+      message: `Your account has been unblocked. You can now log in and use the system again.`,
+      item_title: "Account Status Update",
+      category: "Account",
+      date: now.toLocaleDateString(),
+      match_link: `http://localhost:3000/login`
+    };
+
+    console.log('Sending account unblocked notification with params:', templateParams);
+
+    // Make direct API call to EmailJS
+    const response = await axios({
+      method: 'post',
+      url: 'https://api.emailjs.com/api/v1.0/email/send',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      data: JSON.stringify({
+        service_id: emailConfig.serviceId,
+        template_id: emailConfig.templates.accountBlocked, // Reusing the same template
+        user_id: emailConfig.publicKey,
+        template_params: templateParams
+      })
+    });
+    
+    console.log('Account unblocked notification email sent!', response.data);
+    return { success: true, response: response.data };
+  } catch (error) {
+    console.error('Error sending account unblocked notification:', error.response ? error.response.data : error.message);
     return { 
       success: false, 
       error: error.response ? error.response.data : error.message 
@@ -258,6 +306,7 @@ module.exports = {
   sendMatchNotification,
   sendPasswordReset,
   sendAccountBlockedNotification,
+  sendAccountUnblockedNotification,
   sendItemReturnedNotification,
   sendRequestApprovedNotification,
   emailConfig

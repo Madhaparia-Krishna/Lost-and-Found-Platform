@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useContext } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { AuthContext } from '../context/AuthContext';
-import { itemsApi, API_BASE_URL } from '../utils/api';
+import { itemsApi, API_BASE_URL, notificationsApi } from '../utils/api';
+import MatchNotification from '../components/MatchNotification';
 import '../styles/Dashboard.css';
 
 const Dashboard = () => {
@@ -11,6 +12,7 @@ const Dashboard = () => {
   const [foundItems, setFoundItems] = useState([]);
   const [userItems, setUserItems] = useState([]);
   const [allItems, setAllItems] = useState([]); // Store all items for debugging
+  const [matchNotifications, setMatchNotifications] = useState([]); // Store match notifications
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [activeTab, setActiveTab] = useState('lost');
@@ -27,6 +29,44 @@ const Dashboard = () => {
     setRefreshTrigger(prev => prev + 1);
   };
 
+  // Fetch notifications from the server
+  const fetchNotifications = async () => {
+    if (!currentUser || !currentUser.token) return;
+    
+    try {
+      const result = await notificationsApi.getAll(currentUser.token);
+      
+      // Filter only match notifications for lost items and sort by newest first
+      const matchNotifs = result.notifications
+        .filter(n => (n.type === 'match' && n.item_status === 'lost') || 
+                     (n.type === 'new_found_item' && n.user_has_lost_items === true))
+        .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+      
+      setMatchNotifications(matchNotifs);
+      console.log(`Fetched ${matchNotifs.length} relevant notifications`);
+    } catch (error) {
+      console.error('Error fetching notifications:', error);
+    }
+  };
+  
+  // Mark notification as read
+  const markNotificationAsRead = async (notificationId) => {
+    if (!currentUser || !currentUser.token) return;
+    
+    try {
+      await notificationsApi.markAsRead(notificationId, currentUser.token);
+      
+      // Update local state to mark notification as read
+      setMatchNotifications(matchNotifications.map(notification =>
+        notification.id === notificationId
+          ? { ...notification, status: 'read' }
+          : notification
+      ));
+    } catch (error) {
+      console.error('Error marking notification as read:', error);
+    }
+  };
+
   useEffect(() => {
     const loadData = async () => {
       if (!currentUser) {
@@ -39,15 +79,22 @@ const Dashboard = () => {
       
       try {
         await fetchItems();
+        await fetchNotifications();
       } catch (err) {
-        console.error("Error loading items:", err);
-        setError("Failed to load items. Please try again later.");
+        console.error("Error loading data:", err);
+        setError("Failed to load data. Please try again later.");
       }
       
       setLoading(false);
     };
     
     loadData();
+    
+    // Set up polling for notifications every 30 seconds
+    const notificationInterval = setInterval(fetchNotifications, 30000);
+    
+    // Cleanup
+    return () => clearInterval(notificationInterval);
   }, [refreshTrigger, currentUser, navigate]);
 
   const fetchItems = async () => {
@@ -129,6 +176,17 @@ const Dashboard = () => {
     setShowDebug(!showDebug);
   };
 
+  const isOwner = (item) => {
+    return currentUser && item.user_id === currentUser.id;
+  };
+
+  const canSeeFullDetails = (item) => {
+    if (item.status !== 'found') return true;
+    if (isOwner(item)) return true;
+    if (currentUser && (currentUser.role === 'admin' || currentUser.role === 'security')) return true;
+    return false;
+  };
+
   // Handle claim request
   const handleClaimRequest = (itemId) => {
     navigate(`/claim/${itemId}`);
@@ -152,6 +210,9 @@ const Dashboard = () => {
 
   return (
     <div className="dashboard">
+      {/* Match Notification Component */}
+      <MatchNotification />
+      
       <div className="dashboard-header">
         <h1>Dashboard</h1>
         <div className="user-info">
@@ -179,6 +240,77 @@ const Dashboard = () => {
       {actionStatus && (
         <div className={`action-status ${actionStatus.type}`}>
           {actionStatus.message}
+        </div>
+      )}
+      
+      {/* Match Notifications Section */}
+      {matchNotifications.length > 0 && (
+        <div className="match-notifications-section">
+          <h2>Match Notifications</h2>
+          <div className="match-notifications-container">
+            {matchNotifications.slice(0, 3).map((notification) => (
+              <div 
+                key={notification.id}
+                className={`match-notification-card ${notification.status}`}
+                onClick={() => {
+                  if (notification.related_item_id) {
+                    navigate(`/items/${notification.related_item_id}`);
+                    markNotificationAsRead(notification.id);
+                  }
+                }}
+              >
+                <div className="match-notification-content">
+                  <div className="match-notification-header">
+                    <span className="match-icon">🔍</span>
+                    <span className="match-status">{notification.status === 'unread' ? 'New Match!' : 'Match'}</span>
+                    {notification.status === 'unread' && (
+                      <span className="unread-indicator"></span>
+                    )}
+                  </div>
+                  <p>{notification.message}</p>
+                  <div className="match-notification-footer">
+                    <span className="notification-time">
+                      {new Date(notification.created_at).toLocaleString()}
+                    </span>
+                    <button 
+                      className="view-match-btn"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (notification.related_item_id) {
+                          navigate(`/items/${notification.related_item_id}`);
+                          markNotificationAsRead(notification.id);
+                        }
+                      }}
+                    >
+                      View Match
+                    </button>
+                    {notification.status === 'unread' && (
+                      <button
+                        className="mark-read-btn"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          markNotificationAsRead(notification.id);
+                        }}
+                      >
+                        Mark as read
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            ))}
+            {matchNotifications.length > 3 && (
+              <div className="more-notifications">
+                <span>{matchNotifications.length - 3} more notifications</span>
+                <button 
+                  className="view-all-btn"
+                  onClick={() => document.querySelector('.notification-button').click()}
+                >
+                  View all
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       )}
       
@@ -282,8 +414,18 @@ const Dashboard = () => {
                     <h3>{item.title}</h3>
                     <p className="category">{item.category}</p>
                     <p className="description">{item.description}</p>
-                    <p className="location"><strong>Location:</strong> {item.location}</p>
-                    <p className="found-date"><strong>Found on:</strong> {item.date ? new Date(item.date).toLocaleDateString() : 'Not specified'}</p>
+                    
+                    {canSeeFullDetails(item) ? (
+                      <>
+                        <p className="location"><strong>Location:</strong> {item.location}</p>
+                        <p className="found-date"><strong>Found on:</strong> {item.date ? new Date(item.date).toLocaleDateString() : 'Not specified'}</p>
+                      </>
+                    ) : (
+                      <div className="restricted-info">
+                        <p><i className="fas fa-lock"></i> Location and date details are hidden</p>
+                        <p className="info-note">These details are only visible to security staff and the person who reported the item.</p>
+                      </div>
+                    )}
                     
                     <div className="item-actions">
                       <button 

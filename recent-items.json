@@ -1,0 +1,102 @@
+[
+  {
+    "id": 45,
+    "title": "watch",
+    "category": "Accessories",
+    "subcategory": null,
+    "description": "silversilver",
+    "location": "Library",
+    "status": "lost",
+    "date": "2025-06-19T21:00:00.000Z"
+  },
+  {
+    "id": 44,
+    "title": "watch",
+    "category": "Accessories",
+    "subcategory": null,
+    "description": "silver",
+    "location": "Library",
+    "status": "lost",
+    "date": "2025-06-19T21:00:00.000Z"
+  },
+  {
+    "id": 43,
+    "title": "watch",
+    "category": "Accessories",
+    "subcategory": null,
+    "description": "silver color",
+    "location": "Library",
+    "status": "lost",
+    "date": "2025-06-19T21:00:00.000Z"
+  },
+  {
+    "id": 42,
+    "title": "watch",
+    "category": "Accessories",
+    "subcategory": null,
+    "description": "silver color",
+    "location": "Library",
+    "status": "lost",
+    "date": "2025-06-19T21:00:00.000Z"
+  },
+  {
+    "id": 41,
+    "title": "Papers",
+    "category": "Documents",
+    "subcategory": null,
+    "description": "exam papers",
+    "location": "LT6",
+    "status": "lost",
+    "date": "2025-06-01T21:00:00.000Z"
+  },
+  {
+    "id": 39,
+    "title": "hoodie",
+    "category": "Clothing",
+    "subcategory": null,
+    "description": "Blue hoodie",
+    "location": "Library",
+    "status": "lost",
+    "date": "2025-06-06T21:00:00.000Z"
+  },
+  {
+    "id": 36,
+    "title": "watch",
+    "category": "Accessories",
+    "subcategory": null,
+    "description": "silver watch",
+    "location": "STC",
+    "status": "found",
+    "date": "2022-06-10T21:00:00.000Z"
+  },
+  {
+    "id": 35,
+    "title": "Watch",
+    "category": "Accessories",
+    "subcategory": null,
+    "description": "Silver colored watch",
+    "location": "Library",
+    "status": "found",
+    "date": "2025-06-04T21:00:00.000Z"
+  },
+  {
+    "id": 34,
+    "title": "Calculus Book",
+    "category": "Books",
+    "subcategory": null,
+    "description": "A yellowish colored book with title Calculus",
+    "location": "Stc",
+    "status": "returned",
+    "date": "2025-06-01T21:00:00.000Z"
+  },
+  {
+    "id": 33,
+    "title": "book",
+    "category": "Books",
+    "subcategory": null,
+    "description": "",
+    "location": "parking",
+    "status": "found",
+    "date": "2025-06-02T21:00:00.000Z"
+  }
+]

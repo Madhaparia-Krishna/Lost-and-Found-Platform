@@ -13,6 +13,11 @@ const multer = require('multer');
 const { calculateMatchScore } = require('./server-utils');
 const emailService = require('./server-email');
 const fs = require('fs');
+const { matchItems } = require('./services/matching.service');
+const { createNotification } = require('./services/notificationService');
+
+// Import routes
+const notificationRoutes = require('./routes/notificationRoutes');
 
 // Ensure uploads directory exists
 const uploadsDir = path.join(__dirname, 'uploads');
@@ -158,21 +163,47 @@ const authenticateToken = (req, res, next) => {
   }
   
   // Verify the token
-  jwt.verify(token, JWT_SECRET, (err, decoded) => {
+  jwt.verify(token, JWT_SECRET, async (err, decoded) => {
     if (err) {
       console.error('Token verification error:', err.message);
       return res.status(403).json({ message: 'Forbidden: Invalid token', error: err.message });
     }
     
     console.log('Decoded token:', decoded);
+    
+    // Check if user is banned
+    try {
+      const [userCheck] = await pool.query(
+        'SELECT is_deleted FROM Users WHERE id = ?',
+        [decoded.id]
+      );
+      
+      if (userCheck.length > 0 && userCheck[0].is_deleted) {
+        console.log(`User ${decoded.id} is banned, rejecting request`);
+        return res.status(403).json({ message: 'Account suspended: Your account has been suspended. Please contact support for assistance.', banned: true });
+      }
+    } catch (error) {
+      console.error('Error checking user ban status:', error);
+      // Continue processing even if check fails
+    }
+    
     req.user = decoded;
     next();
   });
 };
 
+// Apply route middleware
+app.use('/api/notifications', authenticateToken, notificationRoutes);
+
 // Health check endpoint
 app.get('/api/health', (req, res) => {
   res.status(200).json({ status: 'ok', message: 'Server is running' });
+});
+
+// Authentication check endpoint - used to verify if a user is banned
+app.get('/api/check-auth', authenticateToken, (req, res) => {
+  // If the middleware passes, the user is authenticated and not banned
+  res.status(200).json({ status: 'ok', message: 'Authentication valid' });
 });
 
 // Public endpoint to get found items (not lost items)
@@ -517,11 +548,35 @@ app.get('/api/profile', authenticateToken, async (req, res) => {
 app.put('/api/profile', authenticateToken, async (req, res) => {
   const { name, admission_number, faculty_school, year_of_study, phone_number } = req.body;
   
+  console.log('Profile update request received:', {
+    userId: req.user.id,
+    name,
+    admission_number,
+    faculty_school,
+    year_of_study,
+    phone_number
+  });
+  
   try {
     // Validate input
     if (!name) {
       return res.status(400).json({ message: 'Name is required' });
     }
+    
+    // Ensure all values are strings to prevent SQL errors
+    const sanitizedName = String(name || '');
+    const sanitizedAdmissionNumber = String(admission_number || '');
+    const sanitizedFacultySchool = String(faculty_school || '');
+    const sanitizedYearOfStudy = String(year_of_study || '');
+    const sanitizedPhoneNumber = String(phone_number || '');
+    
+    console.log('Sanitized profile data:', {
+      name: sanitizedName,
+      admission_number: sanitizedAdmissionNumber,
+      faculty_school: sanitizedFacultySchool,
+      year_of_study: sanitizedYearOfStudy,
+      phone_number: sanitizedPhoneNumber
+    });
     
     // Update user in database
     const [result] = await pool.query(
@@ -532,8 +587,10 @@ app.put('/api/profile', authenticateToken, async (req, res) => {
            year_of_study = ?, 
            phone_number = ? 
        WHERE id = ? AND is_deleted = FALSE`,
-      [name, admission_number, faculty_school, year_of_study, phone_number, req.user.id]
+      [sanitizedName, sanitizedAdmissionNumber, sanitizedFacultySchool, sanitizedYearOfStudy, sanitizedPhoneNumber, req.user.id]
     );
+    
+    console.log('Update query result:', result);
     
     if (result.affectedRows === 0) {
       return res.status(404).json({ message: 'User not found' });
@@ -551,13 +608,19 @@ app.put('/api/profile', authenticateToken, async (req, res) => {
       [req.user.id]
     );
     
+    if (users.length === 0) {
+      return res.status(404).json({ message: 'User not found after update' });
+    }
+    
+    console.log('Updated profile retrieved:', users[0]);
+    
     res.json({ 
       message: 'Profile updated successfully',
       profile: users[0]
     });
   } catch (error) {
     console.error('Profile update error:', error);
-    res.status(500).json({ message: 'Error updating profile' });
+    res.status(500).json({ message: 'Error updating profile', error: error.message });
   }
 });
 
@@ -674,38 +737,7 @@ app.get('/api/security/claims', authenticateToken, async (req, res) => {
   }
 });
 
-app.get('/api/notifications', authenticateToken, async (req, res) => {
-  try {
-    const [notifications] = await pool.query(
-      `SELECT * FROM Notifications 
-       WHERE user_id = ? 
-       ORDER BY created_at DESC 
-       LIMIT 50`,
-      [req.user.id]
-    );
-    
-    res.json({ notifications });
-  } catch (error) {
-    console.error('Error fetching notifications:', error);
-    res.status(500).json({ message: 'Error fetching notifications' });
-  }
-});
-
-app.put('/api/notifications/:notificationId/read', authenticateToken, async (req, res) => {
-  try {
-    const { notificationId } = req.params;
-    
-    await pool.query(
-      'UPDATE Notifications SET status = ? WHERE id = ? AND user_id = ?',
-      ['read', notificationId, req.user.id]
-    );
-    
-    res.json({ message: 'Notification marked as read' });
-  } catch (error) {
-    console.error('Error marking notification as read:', error);
-    res.status(500).json({ message: 'Error marking notification as read' });
-  }
-});
+// Notification routes are already imported and applied at the top of the file
 
 app.put('/api/security/claims/:id/status', authenticateToken, async (req, res) => {
   try {
@@ -755,24 +787,18 @@ app.put('/api/security/claims/:id/status', authenticateToken, async (req, res) =
         const claim = claimDetails[0];
         
         // Create notification for claimer
-        await pool.query(`
-          INSERT INTO Notifications (user_id, message, type)
-          VALUES (?, ?, ?)
-        `, [
+        await createNotification(
           claim.claimer_id,
           `Your claim for "${claim.item_title}" has been approved`,
-          'claim_approved'
-        ]);
+          `/items/${claim.item_id}`
+        );
         
         // Create notification for owner
-        await pool.query(`
-          INSERT INTO Notifications (user_id, message, type)
-          VALUES (?, ?, ?)
-        `, [
+        await createNotification(
           claim.owner_id,
           `Your item "${claim.item_title}" has been claimed and approved`,
-          'item_claimed'
-        ]);
+          `/items/${claim.item_id}`
+        );
       }
     } else if (status === 'rejected') {
       // Get claim details for notification
@@ -792,14 +818,11 @@ app.put('/api/security/claims/:id/status', authenticateToken, async (req, res) =
         const claim = claimDetails[0];
         
         // Create notification for claimer
-        await pool.query(`
-          INSERT INTO Notifications (user_id, message, type)
-          VALUES (?, ?, ?)
-        `, [
+        await createNotification(
           claim.claimer_id,
           `Your claim for "${claim.item_title}" has been rejected`,
-          'claim_rejected'
-        ]);
+          `/items/${claim.item_id}`
+        );
       }
     }
     
@@ -1110,91 +1133,25 @@ app.post('/items/lost', authenticateToken, async (req, res) => {
         // Continue anyway
       }
       
-      // Search for matching found items
+      // Check for matches with existing found items
       try {
-        console.log('Searching for matching found items...');
-        
-        // Get approved found items
-        const [foundItems] = await pool.query(`
-          SELECT * FROM Items 
-          WHERE status = 'found' 
-          AND is_approved = 1 
-          AND is_deleted = 0
-        `);
-        
-        console.log(`Found ${foundItems.length} approved items to match against`);
-        
-        // Get the lost item details
-        const [lostItems] = await pool.query('SELECT * FROM Items WHERE id = ?', [lostItemId]);
-        
-        if (lostItems.length === 0) {
-          console.error('Could not retrieve lost item for matching');
-        } else {
-          const lostItem = lostItems[0];
-          let matches = [];
-          
-          // Calculate match scores
-          for (const foundItem of foundItems) {
-            const matchScore = calculateMatchScore(lostItem, foundItem);
-            console.log(`Match score between lost item ${lostItemId} and found item ${foundItem.id}: ${matchScore}`);
-            
-            // If match score is above threshold, add to matches
-            if (matchScore >= 0.6) {
-              matches.push({
-                lostItemId,
-                foundItemId: foundItem.id,
-                matchScore
-              });
-            }
-          }
-          
-          console.log(`Found ${matches.length} potential matches`);
-          
-          // Store matches in database and notify user
-          if (matches.length > 0) {
-            for (const match of matches) {
-              // Store match in database
-              await pool.query(`
-                INSERT INTO ItemMatches (lost_item_id, found_item_id, match_score, status)
-                VALUES (?, ?, ?, 'pending')
-              `, [match.lostItemId, match.foundItemId, match.matchScore]);
-              
-              // Get found item details for notification
-              const [foundItemDetails] = await pool.query('SELECT * FROM Items WHERE id = ?', [match.foundItemId]);
-              
-              if (foundItemDetails.length > 0) {
-                const foundItem = foundItemDetails[0];
-                
-                // Create notification for user
-                await pool.query(`
-                  INSERT INTO Notifications (user_id, message, type, related_item_id)
-                  VALUES (?, ?, 'match', ?)
-                `, [
-                  userId,
-                  `We found a potential match for your lost item "${title}". Check item #${foundItem.id}: ${foundItem.title}`,
-                  foundItem.id
-                ]);
-                
-                // Mark match as notified
-                await pool.query(`
-                  UPDATE ItemMatches
-                  SET status = 'notified'
-                  WHERE lost_item_id = ? AND found_item_id = ?
-                `, [match.lostItemId, match.foundItemId]);
-                
-                // Log the match
-                await logSystemAction('Match found', { 
-                  lostItemId: match.lostItemId, 
-                  foundItemId: match.foundItemId,
-                  matchScore: match.matchScore
-                });
-              }
-            }
-          }
-        }
+        console.log('Checking for matches with existing found items...');
+        const itemWithId = { 
+          id: lostItemId, 
+          title, 
+          category, 
+          subcategory, 
+          description, 
+          location, 
+          status: 'lost', 
+          date, 
+          user_id: userId 
+        };
+        const matches = await matchItems(itemWithId);
+        console.log(`Found ${matches.length} potential matches for lost item ${lostItemId}`);
       } catch (matchError) {
-        console.error('Error during item matching:', matchError);
-        // Continue anyway, don't fail the request because of matching issues
+        console.error('Error checking for matches:', matchError);
+        // Continue anyway
       }
 
       return res.status(201).json({ 
@@ -1257,6 +1214,31 @@ app.post('/items/found', authenticateToken, async (req, res) => {
         console.error('Error notifying security staff:', notifyError);
         // Continue anyway
       }
+      
+      // Check for matches with existing lost items if the item is approved
+      if (result.is_approved) {
+        try {
+          console.log('Found item is approved, checking for matches with existing lost items...');
+          const itemWithId = { 
+            id: result.insertId, 
+            title, 
+            category, 
+            subcategory, 
+            description, 
+            location, 
+            status: 'found', 
+            date, 
+            user_id: userId 
+          };
+          const matches = await matchItems(itemWithId);
+          console.log(`Found ${matches.length} potential matches for found item ${result.insertId}`);
+        } catch (matchError) {
+          console.error('Error checking for matches:', matchError);
+          // Continue anyway
+        }
+      } else {
+        console.log('Found item needs approval, skipping match check until approved');
+      }
 
       return res.status(201).json({ 
         message: 'Found item submitted successfully', 
@@ -1293,9 +1275,10 @@ async function notifySecurityStaff(message, type = 'item_report') {
 
     // Create notifications for each security staff member
     for (const user of securityUsers) {
-      await pool.query(
-        'INSERT INTO Notifications (user_id, message, type) VALUES (?, ?, ?)',
-        [user.id, message, type]
+      await createNotification(
+        user.id,
+        message,
+        '/security-dashboard'
       );
     }
   } catch (error) {
@@ -1535,17 +1518,7 @@ async function trackUserActivity(userId, actionType, actionDetails, req) {
   }
 }
 
-// Helper function to create notifications
-async function createNotification(userId, message, type = 'info') {
-  try {
-    await pool.query(
-      'INSERT INTO Notifications (user_id, message, type) VALUES (?, ?, ?)',
-      [userId, message, type]
-    );
-  } catch (error) {
-    console.error('Error creating notification:', error);
-  }
-}
+// Helper function to create notifications is now imported from notificationService
 
 // This function is now consolidated with the other notifySecurityStaff function
 
@@ -1573,6 +1546,36 @@ app.post('/api/items', authenticateToken, upload.single('image'), async (req, re
     const message = `New ${status || 'lost'} item "${title}" has been reported. Location: ${location}`;
     await notifySecurityStaff(message, 'new_item');
     
+    // If this is a found item, notify users who have reported lost items
+    if (status === 'found') {
+      try {
+        // Get users who have reported lost items in the last 30 days
+        const [usersWithLostItems] = await pool.query(
+          `SELECT DISTINCT u.id 
+           FROM Users u 
+           JOIN Items i ON u.id = i.user_id 
+           WHERE i.status = 'lost' 
+           AND i.is_deleted = 0 
+           AND i.created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)`
+        );
+        
+        // Notify each user about the new found item
+        for (const user of usersWithLostItems) {
+          await createNotification(
+            user.id,
+            `A new item has been found in category "${category}" at location "${location}". Check if it matches your lost item.`,
+            'new_found_item',
+            result.insertId,
+            'found'
+          );
+        }
+        
+        console.log(`Notified ${usersWithLostItems.length} users about new found item`);
+      } catch (notifyError) {
+        console.error('Error notifying users about new found item:', notifyError);
+      }
+    }
+    
     // Log the action
     await logSystemAction(
       'New item added',
@@ -1580,21 +1583,34 @@ app.post('/api/items', authenticateToken, upload.single('image'), async (req, re
       req.user.id
     );
     
+    // Create a complete item object to pass to matchItems
+    const newItem = {
+      id: result.insertId,
+      title,
+      category,
+      subcategory, 
+      description,
+      location,
+      date: date || new Date(),
+      status: status || 'lost',
+      image: imagePath,
+      user_id: req.user.id
+    };
+    
+    // Check for matches with existing items
+    try {
+      console.log(`Checking for matches for new ${newItem.status} item ${newItem.id}: "${newItem.title}"`);
+      const matches = await matchItems(newItem);
+      console.log(`Found ${matches.length} potential matches for new ${newItem.status} item ${newItem.id}`);
+    } catch (matchError) {
+      console.error('Error checking for matches:', matchError);
+      // Continue anyway, don't block item creation
+    }
+    
     res.status(201).json({ 
       message: 'Item added successfully', 
       itemId: result.insertId,
-      item: {
-        id: result.insertId,
-        title,
-        category,
-        subcategory, 
-        description,
-        location,
-        date,
-        status: status || 'lost',
-        image: imagePath,
-        user_id: req.user.id
-      }
+      item: newItem
     });
   } catch (error) {
     console.error('Error adding item:', error);
@@ -1633,7 +1649,7 @@ app.put('/api/security/items/:itemId/status', authenticateToken, async (req, res
     // Create notification for the item owner
     if (item.reported_by) {
       const message = `Your ${item.type === 'lost' ? 'lost' : 'found'} item "${item.title}" has been ${status}`;
-      await createNotification(item.reported_by, message, 'status_update');
+      await createNotification(item.reported_by, message, `/items/${item.id}`);
     }
 
     // Log the status update
@@ -1691,15 +1707,10 @@ app.post('/api/items/matches', async (req, res) => {
         );
 
         // Create notification
-        await pool.query(
-          `INSERT INTO Notifications 
-           (user_id, message, type, related_item_id) 
-           VALUES (?, ?, 'match', ?)`,
-          [
-            compareItem.user_id,
-            `A potential match has been found for your ${isFoundItem ? 'lost' : 'found'} item "${compareItem.title}"`,
-            compareItem.id
-          ]
+        await createNotification(
+          compareItem.user_id,
+          `A potential match has been found for your ${isFoundItem ? 'lost' : 'found'} item "${compareItem.title}"`,
+          `/items/${compareItem.id}`
         );
 
         // Send email notification to the user who lost the item
@@ -1825,14 +1836,10 @@ app.put('/api/security/items/:itemId/approve', authenticateToken, async (req, re
       const item = items[0];
       
       // Create notification for item owner
-      await pool.query(
-        'INSERT INTO Notifications (user_id, message, type, related_item_id) VALUES (?, ?, ?, ?)',
-        [
-          item.user_id,
-          `Your found item "${item.title}" has been approved`,
-          'approval',
-          itemId
-        ]
+      await createNotification(
+        item.user_id,
+        `Your found item "${item.title}" has been approved`,
+        `/items/${itemId}`
       );
 
       // Check for matches with lost items
@@ -1840,7 +1847,7 @@ app.put('/api/security/items/:itemId/approve', authenticateToken, async (req, re
         try {
           // Get lost items to compare against
           const [lostItems] = await pool.query(`
-            SELECT i.*, u.email, u.name
+            SELECT i.*, u.email, u.name, u.id as user_id
             FROM Items i
             JOIN Users u ON i.user_id = u.id
             WHERE i.is_deleted = FALSE
@@ -1850,6 +1857,28 @@ app.put('/api/security/items/:itemId/approve', authenticateToken, async (req, re
           const MATCH_THRESHOLD = 0.7; // Minimum score to consider a match
           const { calculateMatchScore } = require('./server-utils');
           const { sendMatchNotification } = require('./server-email');
+          
+          // Get unique user IDs of users who have lost items
+          const lostItemUserIds = [...new Set(lostItems.map(lostItem => lostItem.user_id))];
+          
+          // Notify all users with lost items about the new found item
+          for (const userId of lostItemUserIds) {
+            await createNotification(
+              userId,
+              `A new found item "${item.title}" has been added that might match your lost item`,
+              `/items/${itemId}`
+            );
+          }
+
+          // Run our automatic matching after approval
+          try {
+            console.log('Item approved, running automatic matching...');
+            const matches = await matchItems(item);
+            console.log(`Found ${matches.length} potential matches for approved item ${item.id}`);
+          } catch (matchError) {
+            console.error('Error running automatic matching:', matchError);
+            // Continue anyway, use old matching as fallback
+          }
 
           for (const lostItem of lostItems) {
             const score = calculateMatchScore(lostItem, item);
@@ -1866,15 +1895,10 @@ app.put('/api/security/items/:itemId/approve', authenticateToken, async (req, re
               );
 
               // Create notification for lost item owner
-              await pool.query(
-                `INSERT INTO Notifications 
-                (user_id, message, type, related_item_id) 
-                VALUES (?, ?, 'match', ?)`,
-                [
-                  lostItem.user_id,
-                  `A potential match has been found for your lost item "${lostItem.title}"`,
-                  lostItem.id
-                ]
+              await createNotification(
+                lostItem.user_id,
+                `A potential match has been found for your lost item "${lostItem.title}"`,
+                `/items/${lostItem.id}`
               );
 
               // Send email notification to the user who reported the lost item
@@ -1941,14 +1965,10 @@ app.put('/api/security/items/:itemId/reject', authenticateToken, async (req, res
       const item = items[0];
       
       // Create notification for item owner
-      await pool.query(
-        'INSERT INTO Notifications (user_id, message, type, related_item_id) VALUES (?, ?, ?, ?)',
-        [
-          item.user_id,
-          `Your found item "${item.title}" has been rejected${reason ? `: ${reason}` : ''}`,
-          'system', // Using a valid ENUM value from the Notifications table
-          itemId
-        ]
+      await createNotification(
+        item.user_id,
+        `Your found item "${item.title}" has been rejected${reason ? `: ${reason}` : ''}`,
+        `/items/${itemId}`
       );
     }
 
@@ -2001,14 +2021,11 @@ app.post('/api/items/:itemId/claim', authenticateToken, async (req, res) => {
     );
 
     for (const staff of securityStaff) {
-      await pool.query(
-        'INSERT INTO Notifications (user_id, message, type, related_item_id) VALUES (?, ?, ?, ?)',
-        [
-          staff.id,
-          `New item request for "${item.title}"`,
-          'request',
-          itemId
-        ]
+      await createNotification(
+        staff.id,
+        `New item request for "${item.title}"`,
+        'request',
+        itemId
       );
     }
 
@@ -2102,14 +2119,10 @@ app.put('/items/:itemId/request', async (req, res) => {
             
             // Notify each security staff member
             for (const secUser of securityUsers) {
-              await pool.query(
-                'INSERT INTO Notifications (user_id, message, type, related_item_id) VALUES (?, ?, ?, ?)',
-                [
-                  secUser.id,
-                  `New item request pending approval: Item #${itemId}`,
-                  'request_pending',
-                  itemId
-                ]
+              await createNotification(
+                secUser.id,
+                `New item request pending approval: Item #${itemId}`,
+                `/security-dashboard`
               );
             }
             console.log('Security staff notifications created');
@@ -2225,14 +2238,10 @@ app.post('/items/request/:itemId', async (req, res) => {
             
             // Notify each security staff member
             for (const secUser of securityUsers) {
-              await pool.query(
-                'INSERT INTO Notifications (user_id, message, type, related_item_id) VALUES (?, ?, ?, ?)',
-                [
-                  secUser.id,
-                  `New item request pending approval: Item #${itemId}`,
-                  'request_pending',
-                  itemId
-                ]
+              await createNotification(
+                secUser.id,
+                `New item request pending approval: Item #${itemId}`,
+                `/security-dashboard`
               );
             }
             console.log('Security staff notifications created');
@@ -2303,20 +2312,33 @@ app.get('/api/security/pending-requests', authenticateToken, async (req, res) =>
       return res.status(403).json({ message: 'Unauthorized access' });
     }
 
+    console.log('Fetching pending item requests for security staff...');
+    
     const [items] = await pool.query(`
       SELECT 
         i.*,
         u.name as requester_name,
         u.email as requester_email,
-        r.name as reporter_name
+        r.name as reporter_name,
+        r.email as reporter_email
       FROM Items i
       LEFT JOIN Users u ON i.request_user_id = u.id
       LEFT JOIN Users r ON i.user_id = r.id
       WHERE i.is_deleted = FALSE 
       AND i.status = 'requested'
-      AND i.request_status = 'pending'
       ORDER BY i.updated_at DESC
     `);
+    
+    console.log(`Found ${items.length} requested items`);
+    
+    // Log the first item for debugging if available
+    if (items.length > 0) {
+      console.log('Sample item details:');
+      console.log(`- Item ID: ${items[0].id}`);
+      console.log(`- Title: ${items[0].title || 'N/A'}`);
+      console.log(`- Requester: ${items[0].requester_name || 'Unknown'} (ID: ${items[0].request_user_id || 'N/A'})`);
+      console.log(`- Reporter: ${items[0].reporter_name || 'Unknown'} (ID: ${items[0].user_id || 'N/A'})`);
+    }
 
     res.json(items);
   } catch (error) {
@@ -2335,23 +2357,39 @@ app.put('/api/security/requests/:itemId/approve', authenticateToken, async (req,
 
     const { itemId } = req.params;
     
-    // Check if item exists and is in requested status
-    const [items] = await pool.query(
-      'SELECT * FROM Items WHERE id = ? AND status = "requested" AND request_status = "pending"',
-      [itemId]
-    );
+    console.log(`Processing request approval for item ${itemId}`);
     
-    if (items.length === 0) {
-      return res.status(404).json({ message: 'Item not found or not in pending request status' });
+    // First check if item exists at all
+    const [itemCheck] = await pool.query('SELECT * FROM Items WHERE id = ?', [itemId]);
+    
+    if (itemCheck.length === 0) {
+      console.log(`Item ${itemId} not found in the database`);
+      return res.status(404).json({ message: 'Item not found' });
     }
     
-    const item = items[0];
+    console.log(`Found item ${itemId}: status=${itemCheck[0].status}, request_user_id=${itemCheck[0].request_user_id || 'null'}`);
+    
+    // If item exists but is not in requested status, update it
+    if (itemCheck[0].status !== 'requested') {
+      console.log(`Item ${itemId} exists but has status "${itemCheck[0].status}" instead of "requested". Updating status.`);
+      await pool.query('UPDATE Items SET status = "requested" WHERE id = ?', [itemId]);
+      console.log(`Updated item ${itemId} status to "requested"`);
+    }
+    
+    // Use the fetched item
+    const item = itemCheck[0];
     
     // Update the request status to approved
-    await pool.query(
-      'UPDATE Items SET request_status = "approved" WHERE id = ?',
-      [itemId]
-    );
+    try {
+      await pool.query(
+        'UPDATE Items SET request_status = "approved" WHERE id = ?',
+        [itemId]
+      );
+      console.log(`Updated request_status to approved for item ${itemId}`);
+    } catch (updateError) {
+      console.error('Error updating request_status:', updateError);
+      // Continue processing even if this specific update fails
+    }
     
     // Notify the requester if available
     if (item.request_user_id) {
@@ -2364,17 +2402,36 @@ app.put('/api/security/requests/:itemId/approve', authenticateToken, async (req,
       if (requesters.length > 0) {
         const requester = requesters[0];
         
+        console.log(`Creating notification for requester ${requester.id} (${requester.name}) about approved item ${itemId}`);
+        
         // Create notification
-        await pool.query(
-          'INSERT INTO Notifications (user_id, message, type, related_item_id) VALUES (?, ?, ?, ?)',
-          [
-            requester.id,
-            `Your request for item "${item.title}" has been approved. Please visit the security office to collect it.`,
-            'request_approved',
-            itemId
-          ]
+        const notification = await createNotification(
+          requester.id,
+          `Your request for item "${item.title}" has been approved. Please visit the security office to collect it.`,
+          `/items/${itemId}`
         );
+        
+        console.log('Notification created:', notification ? 'Success' : 'Failed');
+        
+        // Also try to send an email notification
+        try {
+          const emailService = require('./server-email');
+          await emailService.sendRequestApprovedNotification(
+            requester.email,
+            requester.name,
+            item.title,
+            itemId
+          );
+          console.log(`Email notification sent to ${requester.email}`);
+        } catch (emailError) {
+          console.error('Failed to send email notification:', emailError);
+          // Continue with the process even if email fails
+        }
+      } else {
+        console.log(`No requester found with ID ${item.request_user_id}`);
       }
+    } else {
+      console.log(`No request_user_id found for item ${itemId}`);
     }
     
     // Log the action
@@ -2403,7 +2460,7 @@ app.put('/api/security/requests/:itemId/reject', authenticateToken, async (req, 
     
     // Check if item exists and is in requested status
     const [items] = await pool.query(
-      'SELECT * FROM Items WHERE id = ? AND status = "requested" AND request_status = "pending"',
+      'SELECT * FROM Items WHERE id = ? AND status = "requested"',
       [itemId]
     );
     
@@ -2431,14 +2488,10 @@ app.put('/api/security/requests/:itemId/reject', authenticateToken, async (req, 
         const requester = requesters[0];
         
         // Create notification
-        await pool.query(
-          'INSERT INTO Notifications (user_id, message, type, related_item_id) VALUES (?, ?, ?, ?)',
-          [
-            requester.id,
-            `Your request for item "${item.title}" has been rejected${reason ? `: ${reason}` : ''}.`,
-            'request_rejected',
-            itemId
-          ]
+        await createNotification(
+          requester.id,
+          `Your request for item "${item.title}" has been rejected${reason ? `: ${reason}` : ''}.`,
+          `/items/${itemId}`
         );
       }
     }
@@ -2523,25 +2576,18 @@ app.put('/api/security/claims/:claimId/:action', authenticateToken, async (req, 
       );
 
       // Create notification for claimer
-      await pool.query(
-        'INSERT INTO Notifications (user_id, message, type, related_item_id) VALUES (?, ?, ?, ?)',
-        [
-          claim.claimer_id,
-          'Your request has been approved',
-          'request_approved',
-          claim.item_id
-        ]
+      await createNotification(
+        claim.claimer_id,
+        'Your request has been approved',
+        `/items/${claim.item_id}`,
+        claim.item_id
       );
     } else {
       // Create notification for claimer
-      await pool.query(
-        'INSERT INTO Notifications (user_id, message, type, related_item_id) VALUES (?, ?, ?, ?)',
-        [
-          claim.claimer_id,
-          'Your request has been rejected',
-          'request_rejected',
-          claim.item_id
-        ]
+      await createNotification(
+        claim.claimer_id,
+        'Your request has been rejected',
+        `/items/${claim.item_id}`
       );
     }
 
@@ -2670,14 +2716,10 @@ app.put('/api/security/items/:itemId/return', authenticateToken, async (req, res
       const item = items[0];
       
       // Create notification for item owner
-      await pool.query(
-        'INSERT INTO Notifications (user_id, message, type, related_item_id) VALUES (?, ?, ?, ?)',
-        [
-          item.user_id,
-          `Your item "${item.title}" has been returned to its owner`,
-          'item_returned',
-          itemId
-        ]
+      await createNotification(
+        item.user_id,
+        `Your item "${item.title}" has been returned to its owner`,
+        `/items/${itemId}`
       );
     }
 
@@ -2826,19 +2868,36 @@ app.get('/api/security/all-items', authenticateToken, async (req, res) => {
     }
     
     // Get all items including unapproved ones
+    // Include both reporter and requester information
     const [items] = await pool.query(`
       SELECT 
         i.*,
-        u.name as reporter_name
+        reporter.name as reporter_name,
+        reporter.email as reporter_email,
+        requester.name as requester_name,
+        requester.email as requester_email
       FROM 
         Items i
       LEFT JOIN 
-        Users u ON i.user_id = u.id
+        Users reporter ON i.user_id = reporter.id
+      LEFT JOIN 
+        Users requester ON i.request_user_id = requester.id
       WHERE 
         i.is_deleted = FALSE
       ORDER BY 
         i.created_at DESC
     `);
+    
+    console.log(`Fetched ${items.length} items for security dashboard`);
+    // Log a sample item if available
+    if (items.length > 0 && items[0].status === 'requested') {
+      console.log('Sample requested item:');
+      console.log(`- Item ID: ${items[0].id}`);
+      console.log(`- Title: ${items[0].title}`);
+      console.log(`- Status: ${items[0].status}`);
+      console.log(`- Reporter: ${items[0].reporter_name || 'N/A'}`);
+      console.log(`- Requester: ${items[0].requester_name || 'N/A'}`);
+    }
     
     res.json(items);
   } catch (error) {
@@ -2985,11 +3044,46 @@ app.put('/api/admin/users/:id/unblock', authenticateToken, async (req, res) => {
     
     const userId = req.params.id;
     
+    // Check if user exists and is banned
+    const [userCheck] = await pool.query(
+      'SELECT * FROM Users WHERE id = ? AND is_deleted = TRUE',
+      [userId]
+    );
+    
+    if (userCheck.length === 0) {
+      console.log(`User with ID ${userId} not found or not banned`);
+      return res.status(404).json({ message: 'User not found or not banned' });
+    }
+    
+    const user = userCheck[0];
+    console.log(`Found banned user: ${user.name} (${user.email})`);
+    
     // Unblock the user
-    await pool.query('UPDATE Users SET is_deleted = 0 WHERE id = ?', [userId]);
+    await pool.query('UPDATE Users SET is_deleted = 0, ban_reason = NULL WHERE id = ?', [userId]);
     
     // Log the action
-    await logSystemAction(`User ${userId} unblocked by admin`, { userId }, req.user.id);
+    await logSystemAction(`User ${user.name} (ID: ${userId}) unblocked by admin`, { userId }, req.user.id);
+    
+    // Send email notification to the unbanned user
+    try {
+      console.log('\n==== SENDING UNBAN EMAIL NOTIFICATION ====');
+      console.log('User email:', user.email);
+      console.log('User name:', user.name);
+      
+      const emailService = require('./server-email-nodemailer');
+      const emailResult = await emailService.sendAccountUnblockedNotification(user.email, user.name);
+      
+      if (emailResult.success) {
+        console.log('Unban notification email sent successfully!');
+        console.log('Message ID:', emailResult.messageId);
+      } else {
+        console.error('Failed to send unban notification email:', emailResult.error);
+      }
+      console.log('==========================================\n');
+    } catch (emailError) {
+      console.error('Failed to send unban notification email:', emailError);
+      // Continue with the unban process even if email fails
+    }
     
     res.status(200).json({ message: 'User unblocked successfully' });
   } catch (error) {
@@ -3244,8 +3338,8 @@ app.put('/api/security/users/:userId/ban', authenticateToken, async (req, res) =
 
     // Soft delete the user (set is_deleted to TRUE)
     await pool.query(
-      'UPDATE Users SET is_deleted = TRUE WHERE id = ?',
-      [userId]
+      'UPDATE Users SET is_deleted = TRUE, ban_reason = ? WHERE id = ?',
+      [reason, userId]
     );
     
     // Log the action
@@ -3253,6 +3347,28 @@ app.put('/api/security/users/:userId/ban', authenticateToken, async (req, res) =
       'INSERT INTO Logs (action, by_user) VALUES (?, ?)',
       [`User ${user.name} (ID: ${userId}) banned: ${reason}`, req.user.id]
     );
+    
+    // Send email notification to the banned user
+    try {
+      console.log('\n==== SENDING BAN EMAIL NOTIFICATION ====');
+      console.log('User email:', user.email);
+      console.log('User name:', user.name);
+      console.log('Ban reason:', reason);
+      
+      const emailService = require('./server-email-nodemailer');
+      const emailResult = await emailService.sendAccountBlockedNotification(user.email, user.name);
+      
+      if (emailResult.success) {
+        console.log('Ban notification email sent successfully!');
+        console.log('Message ID:', emailResult.messageId);
+      } else {
+        console.error('Failed to send ban notification email:', emailResult.error);
+      }
+      console.log('========================================\n');
+    } catch (emailError) {
+      console.error('Failed to send ban notification email:', emailError);
+      // Continue with the ban process even if email fails
+    }
 
     res.json({ message: 'User banned successfully' });
   } catch (error) {
@@ -3623,6 +3739,27 @@ app.put('/api/admin/users/:userId/unban', authenticateToken, async (req, res) =>
       'INSERT INTO Logs (action, by_user) VALUES (?, ?)',
       [`User ${user.name} (ID: ${userId}) unbanned`, req.user.id]
     );
+
+    // Send email notification to the unbanned user
+    try {
+      console.log('\n==== SENDING UNBAN EMAIL NOTIFICATION ====');
+      console.log('User email:', user.email);
+      console.log('User name:', user.name);
+      
+      const emailService = require('./server-email-nodemailer');
+      const emailResult = await emailService.sendAccountUnblockedNotification(user.email, user.name);
+      
+      if (emailResult.success) {
+        console.log('Unban notification email sent successfully!');
+        console.log('Message ID:', emailResult.messageId);
+      } else {
+        console.error('Failed to send unban notification email:', emailResult.error);
+      }
+      console.log('==========================================\n');
+    } catch (emailError) {
+      console.error('Failed to send unban notification email:', emailError);
+      // Continue with the unban process even if email fails
+    }
 
     res.json({ message: 'User unbanned successfully' });
   } catch (error) {
@@ -4361,3 +4498,336 @@ app.put('/api/security/items/:itemId/soft-delete', authenticateToken, async (req
     });
   }
 });
+
+// Matching route
+app.post('/match-items', async (req, res) => {
+  try {
+    const { item } = req.body;
+    
+    if (!item || !item.id || !item.status) {
+      return res.status(400).json({ message: 'Invalid item data provided' });
+    }
+    
+    console.log(`Manual match request for ${item.status} item ${item.id}`);
+    
+    // Run matching algorithm
+    const matches = await matchItems(item);
+    
+    return res.status(200).json({
+      message: `Found ${matches.length} potential matches`,
+      matches: matches.map(match => ({
+        itemId: match.item.id,
+        title: match.item.title,
+        score: match.score,
+        category: match.item.category,
+        location: match.item.location
+      }))
+    });
+  } catch (error) {
+    console.error('Error in match-items endpoint:', error);
+    return res.status(500).json({ message: 'Error matching items', error: error.message });
+  }
+});
+
+// Add this after the /match-items route
+
+// Get matches for a specific item
+app.get('/api/items/:itemId/matches', authenticateToken, async (req, res) => {
+  try {
+    const { itemId } = req.params;
+    
+    // Get item details
+    const [items] = await pool.query(
+      'SELECT * FROM Items WHERE id = ? AND is_deleted = FALSE',
+      [itemId]
+    );
+    
+    if (items.length === 0) {
+      return res.status(404).json({ message: 'Item not found' });
+    }
+    
+    const item = items[0];
+    
+    // Get matches based on item status
+    let matches = [];
+    if (item.status === 'lost') {
+      // Get matches where this is the lost item
+      const [matchResults] = await pool.query(`
+        SELECT m.*, 
+               i.title as found_item_title, 
+               i.category as found_item_category,
+               i.location as found_item_location,
+               i.date as found_item_date,
+               i.image as found_item_image
+        FROM ItemMatches m
+        JOIN Items i ON m.found_item_id = i.id
+        WHERE m.lost_item_id = ?
+        ORDER BY m.match_score DESC
+      `, [itemId]);
+      
+      matches = matchResults.map(match => ({
+        id: match.id,
+        matchScore: match.match_score,
+        status: match.status,
+        createdAt: match.created_at,
+        matchedItem: {
+          id: match.found_item_id,
+          title: match.found_item_title,
+          category: match.found_item_category,
+          location: match.found_item_location,
+          date: match.found_item_date,
+          image: match.found_item_image
+        }
+      }));
+    } else if (item.status === 'found') {
+      // Get matches where this is the found item
+      const [matchResults] = await pool.query(`
+        SELECT m.*, 
+               i.title as lost_item_title, 
+               i.category as lost_item_category,
+               i.location as lost_item_location,
+               i.date as lost_item_date
+        FROM ItemMatches m
+        JOIN Items i ON m.lost_item_id = i.id
+        WHERE m.found_item_id = ?
+        ORDER BY m.match_score DESC
+      `, [itemId]);
+      
+      matches = matchResults.map(match => ({
+        id: match.id,
+        matchScore: match.match_score,
+        status: match.status,
+        createdAt: match.created_at,
+        matchedItem: {
+          id: match.lost_item_id,
+          title: match.lost_item_title,
+          category: match.lost_item_category,
+          location: match.lost_item_location,
+          date: match.lost_item_date
+        }
+      }));
+    }
+    
+    return res.json({ 
+      itemId: parseInt(itemId),
+      matches 
+    });
+  } catch (error) {
+    console.error('Error fetching item matches:', error);
+    return res.status(500).json({ message: 'Error fetching matches', error: error.message });
+  }
+});
+
+// Add this after the /api/items/:itemId/matches route
+
+// Test route for match testing
+app.post('/test-match', async (req, res) => {
+  try {
+    console.log('[TEST-MATCH] Received test match request:', req.body);
+    const { item } = req.body;
+    const { sendMail } = req.query;
+    
+    if (!item || !item.status) {
+      return res.status(400).json({ 
+        message: 'Invalid test item data. Must include status (lost/found).' 
+      });
+    }
+    
+    // Add test identifier to item
+    const testItem = {
+      ...item,
+      id: item.id || 999999, // Use provided ID or default test ID
+      is_test: true
+    };
+    
+    console.log(`[TEST-MATCH] Testing ${testItem.status} item: "${testItem.title}"`);
+    console.log('[TEST-MATCH] Location:', testItem.location);
+    console.log('[TEST-MATCH] Category:', testItem.category);
+    console.log('[TEST-MATCH] Description:', testItem.description);
+    
+    // Get the opposite status items from database for testing
+    const oppositeStatus = testItem.status === 'lost' ? 'found' : 'lost';
+    const fiveDaysAgo = new Date();
+    fiveDaysAgo.setDate(fiveDaysAgo.getDate() - 5);
+    
+    console.log(`[TEST-MATCH] Fetching ${oppositeStatus} items from past 5 days`);
+    
+    const [items] = await pool.query(`
+      SELECT i.*, u.name, u.email 
+      FROM Items i
+      JOIN Users u ON i.user_id = u.id
+      WHERE i.status = ?
+      AND i.is_approved = TRUE
+      AND i.is_deleted = FALSE
+      AND i.created_at >= ?
+    `, [oppositeStatus, fiveDaysAgo.toISOString().slice(0, 10)]);
+    
+    console.log(`[TEST-MATCH] Found ${items.length} ${oppositeStatus} items to test against`);
+    
+    // Match threshold
+    const MATCH_THRESHOLD = 0.7; // 70%
+    
+    // Import the matchItems function
+    const { calculateMatchScore } = require('./services/matching.service');
+    
+    // Calculate match scores for testing
+    const matches = [];
+    let emailResults = [];
+    
+    for (const dbItem of items) {
+      // Calculate match score
+      const score = testItem.status === 'lost'
+        ? calculateMatchScore(testItem, dbItem)
+        : calculateMatchScore(dbItem, testItem);
+      
+      console.log(`[TEST-MATCH] Score for "${dbItem.title}": ${score} (${Math.round(score * 100)}%)`);
+      
+      // If score is above threshold, add to matches
+      if (score >= MATCH_THRESHOLD) {
+        console.log(`[TEST-MATCH] Match found with score ${score} between test ${testItem.status} item and ${oppositeStatus} item ${dbItem.id}`);
+        
+        // If sendMail is true, send test email
+        if (sendMail === 'true' && dbItem.email) {
+          try {
+            console.log(`[TEST-MATCH] Sending test email to ${dbItem.email}`);
+            
+            // Import the email sending function
+            const { sendMatchNotificationEmail } = require('./services/matching.service');
+            
+            // Send test email
+            const lostItem = testItem.status === 'lost' ? testItem : dbItem;
+            const foundItem = testItem.status === 'lost' ? dbItem : testItem;
+            
+            const emailResult = await sendMatchNotificationEmail(
+              {
+                name: dbItem.name,
+                email: dbItem.email
+              },
+              lostItem,
+              foundItem,
+              score
+            );
+            
+            console.log(`[TEST-MATCH] Email result:`, emailResult);
+            emailResults.push({
+              to: dbItem.email,
+              result: emailResult,
+              success: emailResult.success
+            });
+          } catch (emailError) {
+            console.error('[TEST-MATCH] Error sending test email:', emailError);
+            emailResults.push({
+              to: dbItem.email,
+              error: emailError.message,
+              success: false
+            });
+          }
+        }
+        
+        matches.push({
+          item: dbItem,
+          score
+        });
+      }
+    }
+    
+    console.log(`[TEST-MATCH] Found ${matches.length} potential matches above ${MATCH_THRESHOLD * 100}% threshold`);
+    
+    return res.status(200).json({
+      message: `Found ${matches.length} potential matches`,
+      testItem: testItem,
+      totalItemsChecked: items.length,
+      threshold: MATCH_THRESHOLD,
+      matches: matches.map(match => ({
+        id: match.item.id,
+        title: match.item.title,
+        category: match.item.category,
+        location: match.item.location,
+        description: match.item.description?.substring(0, 100) + (match.item.description?.length > 100 ? '...' : ''),
+        score: match.score,
+        scorePercentage: `${Math.round(match.score * 100)}%`,
+        userName: match.item.name,
+        userEmail: sendMail === 'true' ? match.item.email : '[Email hidden]'
+      })),
+      emailResults: sendMail === 'true' ? emailResults : 'Email sending disabled'
+    });
+  } catch (error) {
+    console.error('[TEST-MATCH] Error in test-match endpoint:', error);
+    return res.status(500).json({ 
+      message: 'Error testing match functionality', 
+      error: error.message,
+      stack: process.env.NODE_ENV === 'production' ? undefined : error.stack
+    });
+  }
+});
+
+
+
+// Unban a user (admin or security)
+app.put('/api/security/users/:userId/unban', authenticateToken, async (req, res) => {
+  try {
+    // Check if user is admin or security
+    if (req.user.role !== 'admin' && req.user.role !== 'security') {
+      return res.status(403).json({ message: 'Unauthorized access: Only admins or security can unban users' });
+    }
+
+    const { userId } = req.params;
+    
+    console.log(`Attempting to unban user ${userId}`);
+
+    // Check if user exists and is banned
+    const [userCheck] = await pool.query(
+      'SELECT * FROM Users WHERE id = ? AND is_deleted = TRUE',
+      [userId]
+    );
+    
+    if (userCheck.length === 0) {
+      console.log(`User with ID ${userId} not found or not banned`);
+      return res.status(404).json({ message: 'User not found or not banned' });
+    }
+    
+    const user = userCheck[0];
+    console.log(`Found banned user: ${user.name} (${user.email})`);
+    
+    // Unban the user (set is_deleted to FALSE)
+    await pool.query(
+      'UPDATE Users SET is_deleted = FALSE, ban_reason = NULL WHERE id = ?',
+      [userId]
+    );
+    
+    // Log the action
+    await pool.query(
+      'INSERT INTO Logs (action, by_user) VALUES (?, ?)',
+      [`User ${user.name} (ID: ${userId}) unbanned`, req.user.id]
+    );
+
+    // Send email notification to the unbanned user
+    try {
+      console.log('\n==== SENDING UNBAN EMAIL NOTIFICATION ====');
+      console.log('User email:', user.email);
+      console.log('User name:', user.name);
+      
+      const emailService = require('./server-email-nodemailer');
+      const emailResult = await emailService.sendAccountUnblockedNotification(user.email, user.name);
+      
+      if (emailResult.success) {
+        console.log('Unban notification email sent successfully!');
+        console.log('Message ID:', emailResult.messageId);
+      } else {
+        console.error('Failed to send unban notification email:', emailResult.error);
+      }
+      console.log('==========================================\n');
+    } catch (emailError) {
+      console.error('Failed to send unban notification email:', emailError);
+      // Continue with the unban process even if email fails
+    }
+
+    res.json({ message: 'User unbanned successfully' });
+  } catch (error) {
+    console.error('Error unbanning user:', error);
+    res.status(500).json({ message: 'Error unbanning user', error: error.message });
+  }
+});
+
+// Admin API endpoints
+// ... existing code ...

@@ -545,6 +545,36 @@ export const itemsApi = {
       console.error('Error rejecting item:', error);
       return handleError(error);
     }
+  },
+  
+  // Check for matches for an item
+  checkMatches: async (itemData, token) => {
+    try {
+      const config = token ? { 
+        headers: { 
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        } 
+      } : {};
+      
+      console.log('Requesting matches for item:', itemData);
+      const response = await axios.post('/match-items', { item: itemData }, config);
+      return handleResponse(response);
+    } catch (error) {
+      return handleError(error);
+    }
+  },
+  
+  // Get match status
+  getMatchStatus: async (itemId, token) => {
+    try {
+      const config = token ? { headers: { Authorization: `Bearer ${token}` } } : {};
+      
+      const response = await axios.get(`/api/items/${itemId}/matches`, config);
+      return handleResponse(response);
+    } catch (error) {
+      return handleError(error);
+    }
   }
 };
 
@@ -638,11 +668,28 @@ export const notificationsApi = {
   // Get all notifications
   getAll: async (token) => {
     try {
+      console.log('Fetching notifications...');
       const config = token ? { headers: { Authorization: `Bearer ${token}` } } : {};
-      const response = await axios.get('/api/notifications', config);
-      return handleResponse(response);
+      
+      try {
+        const response = await axios.get('/api/notifications', config);
+        console.log('Notifications response:', response.data);
+        return handleResponse(response);
+      } catch (directError) {
+        console.error('Error fetching notifications:', directError);
+        
+        // Return empty data structure instead of throwing error
+        return {
+          notifications: [],
+          unreadCount: 0
+        };
+      }
     } catch (error) {
-      return handleError(error);
+      console.error('Unexpected error in notifications API:', error);
+      return {
+        notifications: [],
+        unreadCount: 0
+      };
     }
   },
   
@@ -653,7 +700,20 @@ export const notificationsApi = {
       const response = await axios.put(`/api/notifications/${notificationId}/read`, {}, config);
       return handleResponse(response);
     } catch (error) {
-      return handleError(error);
+      console.error('Error marking notification as read:', error);
+      return { success: false, message: 'Failed to mark notification as read' };
+    }
+  },
+  
+  // Mark all as read
+  markAllAsRead: async (token) => {
+    try {
+      const config = token ? { headers: { Authorization: `Bearer ${token}` } } : {};
+      const response = await axios.post(`/api/notifications/mark-read`, {}, config);
+      return handleResponse(response);
+    } catch (error) {
+      console.error('Error marking all notifications as read:', error);
+      return { success: false, message: 'Failed to mark all notifications as read' };
     }
   }
 };
@@ -858,7 +918,8 @@ export const securityApi = {
   acceptRequest: async (itemId) => {
     try {
       console.log(`Accepting request for item ${itemId}...`);
-      const response = await api.put(`/api/security/items/${itemId}/return`);
+      // Use the correct endpoint that creates notifications for the requester
+      const response = await api.put(`/api/security/requests/${itemId}/approve`);
       console.log('Request acceptance response:', response);
       return handleResponse(response);
     } catch (error) {
@@ -868,10 +929,10 @@ export const securityApi = {
   },
   
   // Reject a request
-  rejectRequest: async (itemId) => {
+  rejectRequest: async (itemId, reason = '') => {
     try {
       console.log(`Rejecting request for item ${itemId}...`);
-      const response = await api.put(`/api/security/items/${itemId}/revert-status`, { status: 'found' });
+      const response = await api.put(`/api/security/requests/${itemId}/reject`, { reason });
       console.log('Request rejection response:', response);
       return handleResponse(response);
     } catch (error) {
@@ -973,11 +1034,48 @@ export const securityApi = {
     }
   },
   
-  // Get users
+  // Unban a user (admin only)
+  unbanUser: async (userId) => {
+    try {
+      const response = await api.put(`/api/security/users/${userId}/unban`);
+      return handleResponse(response);
+    } catch (error) {
+      return handleError(error);
+    }
+  },
+  
+  // Get all users (security staff only)
   getUsers: async () => {
     try {
-      const response = await api.get('/api/security/users');
-      return handleResponse(response);
+      console.log('Fetching users for security dashboard...');
+      
+      try {
+        // Try direct API call first
+        const response = await api.get('/api/security/users');
+        console.log('Users fetched successfully:', response.data.length);
+        return handleResponse(response);
+      } catch (directError) {
+        console.error('Error fetching users via security API:', directError);
+        
+        // Try alternative endpoint if first one fails
+        try {
+          console.log('Trying alternative endpoint for users...');
+          const token = localStorage.getItem('user') ? JSON.parse(localStorage.getItem('user')).token : null;
+          
+          if (!token) {
+            console.error('No authentication token available');
+            return [];
+          }
+          
+          const config = { headers: { Authorization: `Bearer ${token}` } };
+          const response = await axios.get(`${API_BASE_URL}/api/admin/users`, config);
+          console.log('Users fetched via admin API:', response.data.length);
+          return response.data;
+        } catch (altError) {
+          console.error('Alternative endpoint also failed:', altError);
+          return [];
+        }
+      }
     } catch (error) {
       console.error('Error fetching users:', error);
       return [];
@@ -1067,7 +1165,8 @@ export const adminApi = {
   // Unban a user
   unbanUser: async (userId) => {
     try {
-      const response = await api.put(`/api/admin/users/${userId}/unban`);
+      // Use the security API endpoint for both security and admin
+      const response = await api.put(`/api/security/users/${userId}/unban`);
       return handleResponse(response);
     } catch (error) {
       return handleError(error);
@@ -1077,7 +1176,8 @@ export const adminApi = {
   // Ban a user
   banUser: async (userId, reason) => {
     try {
-      const response = await api.put(`/api/admin/users/${userId}/ban`, { reason });
+      // Use the security API endpoint for both security and admin
+      const response = await api.put(`/api/security/users/${userId}/ban`, { reason });
       return handleResponse(response);
     } catch (error) {
       return handleError(error);
