@@ -2145,15 +2145,11 @@ app.put('/items/:itemId/request', async (req, res) => {
   }
 });
 
-// Alternative POST endpoint for requesting items
 app.post('/items/request/:itemId', async (req, res) => {
   try {
     console.log('Request item POST endpoint called');
     const { itemId } = req.params;
-    
-    // Log for debugging
-    console.log(`Attempting to request item with ID: ${itemId}`);
-    
+
     // Get the user ID from the token if available
     let userId = null;
     if (req.headers.authorization) {
@@ -2167,106 +2163,78 @@ app.post('/items/request/:itemId', async (req, res) => {
         // Continue without user ID
       }
     }
-    
-    // Verify the item exists and is available
-    console.log(`Checking if item ${itemId} exists and is available`);
-    try {
-      const [items] = await pool.query(
-        'SELECT * FROM Items WHERE id = ? AND is_deleted = 0',
-        [itemId]
+
+    // Verify the item exists and is not deleted
+    const [items] = await pool.query(
+      'SELECT * FROM Items WHERE id = ? AND is_deleted = 0',
+      [itemId]
+    );
+
+    if (items.length === 0) {
+      console.log(`Item with ID ${itemId} not found`);
+      return res.status(404).json({ message: 'Item not found' });
+    }
+
+    const item = items[0];
+    console.log(`Found item: ${JSON.stringify(item)}`);
+
+    // Only allow requesting items with 'found' status
+    if (item.status !== 'found') {
+      console.log(`Item with ID ${itemId} has status '${item.status}', not 'found'`);
+      return res.status(400).json({ 
+        message: `Item cannot be requested because its status is '${item.status}'` 
+      });
+    }
+
+    // Update item status to 'requested' and assign user
+    await pool.query(
+      'UPDATE Items SET status = "requested", request_status = "pending", request_user_id = ?, updated_at = NOW() WHERE id = ?',
+      [userId, itemId]
+    );
+    console.log(`Successfully updated item ${itemId} to 'requested'`);
+
+    // Notify security staff
+    if (userId) {
+      const [securityUsers] = await pool.query(
+        'SELECT id FROM Users WHERE role IN ("security", "admin") AND is_deleted = FALSE'
       );
 
-      if (items.length === 0) {
-        console.log(`Item with ID ${itemId} not found`);
-        return res.status(404).json({ message: 'Item not found' });
+      console.log(`Found ${securityUsers.length} security/admin users to notify`);
+
+      for (const secUser of securityUsers) {
+        await pool.query(
+          'INSERT INTO Notifications (user_id, message, type, related_item_id) VALUES (?, ?, ?, ?)',
+          [
+            secUser.id,
+            `New item request pending approval: Item #${itemId}`,
+            'request_pending',
+            itemId
+          ]
+        );
       }
 
-      const item = items[0];
-      console.log(`Found item: ${JSON.stringify(item)}`);
-      
-      // Only allow requesting items with 'found' status
-      if (item.status !== 'found') {
-        console.log(`Item with ID ${itemId} has status ${item.status}, not 'found'`);
-        return res.status(400).json({ 
-          message: `Item cannot be requested because its status is '${item.status}' not 'found'` 
-        });
-      }
-      
-      // Update item status to 'requested' with pending approval
-      try {
-        // Add request_status column if it doesn't exist
-        try {
-          await pool.query(`
-            ALTER TABLE Items 
-            ADD COLUMN IF NOT EXISTS request_status VARCHAR(20) DEFAULT NULL,
-            ADD COLUMN IF NOT EXISTS request_user_id INT DEFAULT NULL
-          `);
-        } catch (alterError) {
-          console.error('Error altering Items table:', alterError);
-          // Continue anyway, column might already exist
-        }
-        
-        // Update with pending approval status
-        await pool.query(
-          'UPDATE Items SET status = "requested", request_status = "pending", request_user_id = ?, updated_at = NOW() WHERE id = ?',
-          [userId, itemId]
-        );
-        console.log(`Successfully updated item ${itemId} to 'requested' status with pending approval`);
-        
-        // Create notification for security staff
-        if (userId) {
-          try {
-            // Get security users
-            const [securityUsers] = await pool.query(
-              'SELECT id FROM Users WHERE role = "security" OR role = "admin"'
-            );
-            
-            console.log(`Found ${securityUsers.length} security/admin users to notify`);
-            
-            // Notify each security staff member
-            for (const secUser of securityUsers) {
-              await pool.query(
-                'INSERT INTO Notifications (user_id, message, type, related_item_id) VALUES (?, ?, ?, ?)',
-                [
-                  secUser.id,
-                  `New item request pending approval: Item #${itemId}`,
-                  'request_pending',
-                  itemId
-                ]
-              );
-            }
-            console.log('Security staff notifications created');
-          } catch (notifyError) {
-            console.error('Error notifying security staff:', notifyError);
-            // Continue anyway
-          }
-        }
-      } catch (statusUpdateError) {
-        console.error('Error updating item status:', statusUpdateError);
-        return res.status(500).json({ 
-          message: 'Error updating item status', 
-          error: statusUpdateError.message 
-        });
-      }
-      
-      // Return the updated item
-      res.json({ 
-        message: 'Item requested successfully. Your request is pending approval by security staff.',
-        item: {
-          ...item,
-          status: 'requested',
-          request_status: 'pending'
-        }
-      });
-    } catch (dbError) {
-      console.error('Database error:', dbError);
-      res.status(500).json({ message: 'Database error', error: dbError.message });
+      console.log('Security staff notifications created');
     }
+
+    // Return the updated item info
+    res.json({
+      message: 'Item requested successfully. Your request is pending approval by security staff.',
+      item: {
+        ...item,
+        status: 'requested',
+        request_status: 'pending',
+        request_user_id: userId
+      }
+    });
   } catch (error) {
     console.error('Error requesting item:', error);
-    res.status(500).json({ message: 'Error requesting item', error: error.message });
+    res.status(500).json({ 
+      message: 'Error requesting item', 
+      error: error.message 
+    });
   }
 });
+
 
 // Get pending items for security review
 app.get('/api/security/pending-items', authenticateToken, async (req, res) => {
