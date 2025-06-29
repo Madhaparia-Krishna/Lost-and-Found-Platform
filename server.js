@@ -3412,7 +3412,7 @@ app.put('/api/security/users/:userId/ban', authenticateToken, async (req, res) =
       console.log('Ban reason:', reason);
       
       const emailService = require('./server-email-nodemailer');
-      const emailResult = await emailService.sendAccountSuspensionNotification(user.email, user.name, reason);
+      const emailResult = await emailService.sendAccountBlockedNotification(user.email, user.name, reason);
       
       if (emailResult.success) {
         console.log('Ban notification email sent successfully!');
