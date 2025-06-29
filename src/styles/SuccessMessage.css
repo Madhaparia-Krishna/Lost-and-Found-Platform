@@ -1,9 +1,9 @@
 .success-message-container {
   background-color: white;
-  border-radius: 2px;
+  border-radius: 8px;
   padding: 3rem 2rem;
   text-align: center;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.15);
   max-width: 600px;
   margin: 2rem auto;
   animation: fadeIn 0.5s ease-out;
@@ -25,6 +25,16 @@
   font-size: 4.5rem;
   color: #E98074;
   margin-bottom: 1.5rem;
+  animation: scaleIn 0.5s ease-out 0.3s both;
+}
+
+@keyframes scaleIn {
+  from {
+    transform: scale(0.8);
+  }
+  to {
+    transform: scale(1);
+  }
 }
 
 .success-message-container h2 {
@@ -56,7 +66,7 @@
 
 .btn {
   padding: 0.75rem 1.5rem;
-  border-radius: 2px;
+  border-radius: 4px;
   font-weight: 500;
   text-decoration: none;
   cursor: pointer;
@@ -65,33 +75,38 @@
   align-items: center;
   justify-content: center;
   min-width: 180px;
+  border: none;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
 }
 
 .primary-btn {
   background-color: #E98074;
   color: white;
-  border: none;
 }
 
 .primary-btn:hover {
   background-color: #E85A4F;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
 }
 
 .secondary-btn {
   background-color: #D8C3A5;
   color: #4D4C4A;
-  border: none;
 }
 
 .secondary-btn:hover {
   background-color: #c9b08e;
   color: #4D4C4A;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
 }
 
 @media (max-width: 576px) {
   .success-message-container {
     padding: 2rem 1.5rem;
     margin: 1rem;
+    border-radius: 4px;
   }
   
   .success-actions {

@@ -31,6 +31,17 @@ exports.serverConfig = {
   }
 };
 
+// Email configuration
+exports.emailConfig = {
+  service: process.env.EMAIL_SERVICE || 'gmail',
+  auth: {
+    user: process.env.EMAIL_USER || 'lostatcampus@gmail.com',
+    pass: process.env.EMAIL_PASS || 'your-app-password-here'
+  },
+  sendMatchEmails: process.env.SEND_MATCH_EMAILS === 'true' || true,
+  sendBanEmails: process.env.SEND_BAN_EMAILS === 'true' || true
+};
+
 // Helper function to get actual server URL (for use in logs or responses)
 exports.getServerUrl = (port) => {
   const actualPort = port || exports.serverConfig.port;

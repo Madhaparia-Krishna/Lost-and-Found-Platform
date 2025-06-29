@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { useNotifications } from '../context/NotificationContext';
 import '../styles/Notification.css';
@@ -6,7 +6,8 @@ import '../styles/Notification.css';
 const NotificationBell = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [animate, setAnimate] = useState(false);
-  const { notifications, unreadCount, markAsRead, markAllAsRead } = useNotifications();
+  const { notifications, unreadCount, markAsRead, markAllAsRead, deleteNotification } = useNotifications();
+  const dropdownRef = useRef(null);
 
   // Add animation when unread count changes
   useEffect(() => {
@@ -18,6 +19,22 @@ const NotificationBell = () => {
       return () => clearTimeout(timer);
     }
   }, [unreadCount]);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setIsOpen(false);
+      }
+    };
+
+    if (isOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isOpen]);
 
   const handleToggle = () => {
     // If opening the dropdown and there are unread notifications, mark them as read
@@ -36,8 +53,14 @@ const NotificationBell = () => {
     setIsOpen(false);
   };
 
+  const handleDeleteNotification = async (e, notificationId) => {
+    e.preventDefault();
+    e.stopPropagation();
+    await deleteNotification(notificationId);
+  };
+
   return (
-    <div className="notification-bell-container">
+    <div className="notification-bell-container" ref={dropdownRef}>
       <button 
         className={`notification-bell-button ${animate ? 'animate-bell' : ''}`}
         onClick={handleToggle}
@@ -53,7 +76,7 @@ const NotificationBell = () => {
         <div className="notification-dropdown">
           <div className="notification-header">
             <h3>Notifications</h3>
-            {unreadCount > 0 && (
+            {notifications.length > 0 && (
               <button 
                 className="mark-all-read-button"
                 onClick={markAllAsRead}
@@ -66,19 +89,27 @@ const NotificationBell = () => {
           <div className="notification-list">
             {notifications.length > 0 ? (
               notifications.map(notification => (
-                <Link
-                  key={notification.id}
-                  to={notification.link_url || '#'}
-                  className={`notification-item ${notification.is_read ? 'read' : 'unread'}`}
-                  onClick={() => handleNotificationClick(notification)}
-                >
-                  <div className="notification-content">
-                    <p className="notification-message">{notification.message}</p>
-                    <span className="notification-time">
-                      {new Date(notification.created_at).toLocaleString()}
-                    </span>
-                  </div>
-                </Link>
+                <div key={notification.id} className="notification-item-wrapper">
+                  <Link
+                    to={notification.link_url || '#'}
+                    className={`notification-item ${notification.is_read ? 'read' : 'unread'}`}
+                    onClick={() => handleNotificationClick(notification)}
+                  >
+                    <div className="notification-content">
+                      <p className="notification-message">{notification.message}</p>
+                      <span className="notification-time">
+                        {new Date(notification.created_at).toLocaleString()}
+                      </span>
+                    </div>
+                  </Link>
+                  <button 
+                    className="notification-delete-btn"
+                    onClick={(e) => handleDeleteNotification(e, notification.id)}
+                    title="Delete notification"
+                  >
+                    <i className="fas fa-times"></i>
+                  </button>
+                </div>
               ))
             ) : (
               <p className="no-notifications">No notifications</p>

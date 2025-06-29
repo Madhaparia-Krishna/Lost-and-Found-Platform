@@ -1172,16 +1172,27 @@ const SecurityDashboard = () => {
       </div>
       
       {/* Modals for delete, ban, reject */}
-      {/* Delete Item Modal (kept as is) */}
+      {/* Delete Item Modal */}
       <Modal show={showDeleteModal} onHide={() => setShowDeleteModal(false)} centered>
-        <Modal.Header closeButton>
-          <Modal.Title>Soft Delete Item</Modal.Title>
+        <Modal.Header closeButton className="bg-light">
+          <Modal.Title>
+            <i className="fas fa-trash-alt text-danger me-2"></i>
+            Soft Delete Item
+          </Modal.Title>
         </Modal.Header>
         <Modal.Body>
-          <p>Are you sure you want to soft delete item <strong>{itemToDelete?.name || itemToDelete?.id}</strong>?</p>
-          <p className="text-danger">This item will be hidden from public view but can be restored by an administrator.</p>
+          <div className="mb-3">
+            <p>Are you sure you want to soft delete item <strong>{itemToDelete?.name || itemToDelete?.id}</strong>?</p>
+            <p className="text-muted small">
+              <i className="fas fa-info-circle me-1"></i>
+              This item will be hidden from public view but can be restored by an administrator.
+            </p>
+          </div>
+          
           <Form.Group className="mb-3">
-            <Form.Label>Reason for soft deletion:</Form.Label>
+            <Form.Label>
+              <strong>Reason for soft deletion:</strong>
+            </Form.Label>
             <Form.Control
               as="textarea"
               rows={3}
@@ -1189,15 +1200,37 @@ const SecurityDashboard = () => {
               onChange={(e) => setDeleteReason(e.target.value)}
               placeholder="e.g., Inappropriate content, duplicate entry, resolved externally"
               required
+              className={!deleteReason && 'border-danger'}
             />
+            {!deleteReason && (
+              <div className="text-danger small mt-1">
+                <i className="fas fa-exclamation-circle me-1"></i>
+                Please provide a reason for deleting this item
+              </div>
+            )}
           </Form.Group>
         </Modal.Body>
         <Modal.Footer>
-          <Button variant="secondary" onClick={() => setShowDeleteModal(false)}>
+          <Button variant="outline-secondary" onClick={() => setShowDeleteModal(false)}>
+            <i className="fas fa-times me-1"></i>
             Cancel
           </Button>
-          <Button variant="danger" onClick={confirmSoftDelete} disabled={actionLoading}>
-            {actionLoading ? <Spinner animation="border" size="sm" /> : 'Confirm Soft Delete'}
+          <Button 
+            variant="outline-danger" 
+            onClick={confirmSoftDelete} 
+            disabled={actionLoading || !deleteReason}
+          >
+            {actionLoading ? (
+              <>
+                <Spinner animation="border" size="sm" className="me-1" />
+                Processing...
+              </>
+            ) : (
+              <>
+                <i className="fas fa-trash-alt me-1"></i>
+                Confirm Soft Delete
+              </>
+            )}
           </Button>
         </Modal.Footer>
       </Modal>
@@ -1266,15 +1299,27 @@ const SecurityDashboard = () => {
         </Modal.Footer>
       </Modal>
 
-      {/* Reject Item Modal (kept as is) */}
+      {/* Reject Item Modal */}
       <Modal show={showRejectModal} onHide={() => setShowRejectModal(false)} centered>
-        <Modal.Header closeButton>
-          <Modal.Title>Reject Item Approval</Modal.Title>
+        <Modal.Header closeButton className="bg-light">
+          <Modal.Title>
+            <i className="fas fa-times-circle text-danger me-2"></i>
+            Reject Item Approval
+          </Modal.Title>
         </Modal.Header>
         <Modal.Body>
-          <p>Are you sure you want to reject the approval for item <strong>{itemToReject}</strong>?</p>
+          <div className="mb-3">
+            <p>Are you sure you want to reject the approval for item <strong>{itemToReject}</strong>?</p>
+            <p className="text-muted small">
+              <i className="fas fa-info-circle me-1"></i>
+              The user will be notified about this rejection and the item will be removed from pending approval.
+            </p>
+          </div>
+          
           <Form.Group className="mb-3">
-            <Form.Label>Reason for rejection:</Form.Label>
+            <Form.Label>
+              <strong>Reason for rejection:</strong>
+            </Form.Label>
             <Form.Control
               as="textarea"
               rows={3}
@@ -1282,15 +1327,37 @@ const SecurityDashboard = () => {
               onChange={(e) => setRejectReason(e.target.value)}
               placeholder="e.g., Insufficient details, fake entry, already claimed"
               required
+              className={!rejectReason && 'border-danger'}
             />
+            {!rejectReason && (
+              <div className="text-danger small mt-1">
+                <i className="fas fa-exclamation-circle me-1"></i>
+                Please provide a reason for rejecting this item
+              </div>
+            )}
           </Form.Group>
         </Modal.Body>
         <Modal.Footer>
-          <Button variant="secondary" onClick={() => setShowRejectModal(false)}>
+          <Button variant="outline-secondary" onClick={() => setShowRejectModal(false)}>
+            <i className="fas fa-times me-1"></i>
             Cancel
           </Button>
-          <Button variant="danger" onClick={confirmRejectRequest} disabled={actionLoading}>
-            {actionLoading ? <Spinner animation="border" size="sm" /> : 'Confirm Reject'}
+          <Button 
+            variant="outline-danger" 
+            onClick={confirmRejectRequest} 
+            disabled={actionLoading || !rejectReason}
+          >
+            {actionLoading ? (
+              <>
+                <Spinner animation="border" size="sm" className="me-1" />
+                Processing...
+              </>
+            ) : (
+              <>
+                <i className="fas fa-times-circle me-1"></i>
+                Confirm Reject
+              </>
+            )}
           </Button>
         </Modal.Footer>
       </Modal>

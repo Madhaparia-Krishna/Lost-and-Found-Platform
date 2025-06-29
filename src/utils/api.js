@@ -715,6 +715,18 @@ export const notificationsApi = {
       console.error('Error marking all notifications as read:', error);
       return { success: false, message: 'Failed to mark all notifications as read' };
     }
+  },
+  
+  // Delete notification
+  deleteNotification: async (notificationId, token) => {
+    try {
+      const config = token ? { headers: { Authorization: `Bearer ${token}` } } : {};
+      const response = await axios.delete(`/api/notifications/${notificationId}`, config);
+      return handleResponse(response);
+    } catch (error) {
+      console.error('Error deleting notification:', error);
+      return handleError(error);
+    }
   }
 };
 
@@ -1034,7 +1046,7 @@ export const securityApi = {
     }
   },
   
-  // Unban a user (admin only)
+  // Unban a user
   unbanUser: async (userId) => {
     try {
       const response = await api.put(`/api/security/users/${userId}/unban`);

@@ -83,9 +83,28 @@ export const NotificationProvider = ({ children }) => {
         // Show browser notification if supported
         if ('Notification' in window && Notification.permission === 'granted') {
           try {
-            new Notification('New Notification', {
+            // Determine notification type and customize the browser notification
+            let title = 'New Notification';
+            let icon = '/favicon.ico';
+            
+            // Check notification message to determine type
+            if (notification.message.includes('match')) {
+              title = 'Item Match Found!';
+              icon = '/images/favicon.svg';
+            } else if (notification.message.includes('found item')) {
+              title = 'New Found Item';
+              icon = '/images/favicon.svg';
+            } else if (notification.message.includes('approved')) {
+              title = 'Request Approved';
+              icon = '/images/favicon.svg';
+            } else if (notification.message.includes('rejected')) {
+              title = 'Request Rejected';
+              icon = '/images/favicon.svg';
+            }
+            
+            new Notification(title, {
               body: notification.message,
-              icon: '/favicon.ico'
+              icon: icon
             });
           } catch (e) {
             console.log('Browser notification failed:', e);
@@ -121,6 +140,17 @@ export const NotificationProvider = ({ children }) => {
         setUnreadCount(unreadCount);
       });
       
+      // Listen for notification deleted events
+      socket.on('notification_deleted', ({ id, unreadCount }) => {
+        console.log('Notification deleted:', id);
+        
+        // Remove notification from state
+        setNotifications(prev => prev.filter(notification => notification.id !== id));
+        
+        // Update unread count
+        setUnreadCount(unreadCount);
+      });
+      
       // Listen for all notifications read event
       socket.on('all_notifications_read', () => {
         console.log('All notifications marked as read');
@@ -151,9 +181,22 @@ export const NotificationProvider = ({ children }) => {
           // Show browser notification if supported
           if ('Notification' in window && Notification.permission === 'granted') {
             try {
-              new Notification('Security Alert', {
+              // Determine security notification type
+              let title = 'Security Alert';
+              let icon = '/images/favicon.svg';
+              
+              // Check notification message to determine type
+              if (data.message.includes('request')) {
+                title = 'New Item Request';
+              } else if (data.message.includes('found item')) {
+                title = 'New Found Item';
+              } else if (data.message.includes('lost item')) {
+                title = 'New Lost Item Report';
+              }
+              
+              new Notification(title, {
                 body: data.message,
-                icon: '/favicon.ico'
+                icon: icon
               });
             } catch (e) {
               console.log('Browser notification failed:', e);
@@ -173,6 +216,7 @@ export const NotificationProvider = ({ children }) => {
       return () => {
         socket.off('new_notification');
         socket.off('notification_read');
+        socket.off('notification_deleted');
         socket.off('all_notifications_read');
         socket.off('unread_count');
         socket.off('security_notification');
@@ -248,6 +292,33 @@ export const NotificationProvider = ({ children }) => {
     }
   }, [currentUser, notifications]);
 
+  const deleteNotification = useCallback(async (notificationId) => {
+    if (!currentUser || !currentUser.token) return;
+
+    try {
+      const response = await notificationsApi.deleteNotification(notificationId, currentUser.token);
+      
+      // Update local state optimistically
+      setNotifications(prev => prev.filter(notification => notification.id !== notificationId));
+      
+      // Update unread count from response or calculate
+      if (response && response.unreadCount !== undefined) {
+        setUnreadCount(response.unreadCount);
+      } else {
+        // Count unread notifications after removal
+        const remainingUnread = notifications.filter(n => 
+          n.id !== notificationId && n.is_read === 0
+        ).length;
+        setUnreadCount(remainingUnread);
+      }
+
+      return { success: true };
+    } catch (error) {
+      console.error('Error deleting notification:', error);
+      return { success: false, error };
+    }
+  }, [currentUser, notifications]);
+
   // Request notification permission
   useEffect(() => {
     if ('Notification' in window && Notification.permission === 'default') {
@@ -276,7 +347,8 @@ export const NotificationProvider = ({ children }) => {
         loading,
         fetchNotifications,
         markAsRead,
-        markAllAsRead
+        markAllAsRead,
+        deleteNotification
       }}
     >
       {children}

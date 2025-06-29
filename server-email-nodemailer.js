@@ -5,9 +5,10 @@ require('dotenv').config();
 const nodemailer = require('nodemailer');
 const fs = require('fs');
 const path = require('path');
+const config = require('./server-config');
 
 // Email configuration
-const emailConfig = {
+const emailConfig = config.emailConfig || {
   service: 'gmail',
   auth: {
     user: process.env.EMAIL_USER || 'your-email@gmail.com',
@@ -20,6 +21,7 @@ console.log('Email Service Configuration:');
 console.log('- Service:', emailConfig.service);
 console.log('- User:', emailConfig.auth.user);
 console.log('- Password:', emailConfig.auth.pass ? '[CONFIGURED]' : '[NOT CONFIGURED]');
+console.log('- Send Ban Emails:', config.emailConfig?.sendBanEmails ? 'Enabled' : 'Disabled');
 
 // Create transporter
 const createTransporter = () => {
@@ -42,7 +44,15 @@ const createTransporter = () => {
 // Send account blocked notification
 const sendAccountBlockedNotification = async (userEmail, userName, reason = 'Policy violation') => {
   try {
+    // Check if ban emails are disabled
+    if (config.emailConfig && config.emailConfig.sendBanEmails === false) {
+      console.log(`Ban email notifications are disabled. Skipping email to ${userEmail}`);
+      return { success: false, skipped: true, reason: 'Ban emails disabled' };
+    }
+    
     console.log(`Sending account blocked notification to ${userEmail}`);
+    console.log(`User name: ${userName}`);
+    console.log(`Reason: ${reason || 'No reason provided'}`);
     
     // Create email content with theme colors - removing reason from template
     const htmlContent = `
@@ -64,7 +74,28 @@ const sendAccountBlockedNotification = async (userEmail, userName, reason = 'Pol
     `;
     
     // Create transporter
-    const transporter = createTransporter();
+    console.log('Creating email transporter for ban notification...');
+    console.log('Email service:', emailConfig.service);
+    console.log('Email user:', emailConfig.auth.user);
+    
+    const transporter = nodemailer.createTransport({
+      service: emailConfig.service,
+      auth: {
+        user: emailConfig.auth.user,
+        pass: emailConfig.auth.pass
+      },
+      debug: true
+    });
+    
+    // Verify transporter
+    try {
+      console.log('Verifying transporter configuration...');
+      await transporter.verify();
+      console.log('Transporter verification successful!');
+    } catch (verifyError) {
+      console.error('Transporter verification failed:', verifyError);
+      return { success: false, error: `Email configuration error: ${verifyError.message}` };
+    }
     
     // Send mail
     console.log('Sending ban notification email...');
@@ -86,7 +117,14 @@ const sendAccountBlockedNotification = async (userEmail, userName, reason = 'Pol
 // Send account unblocked notification
 const sendAccountUnblockedNotification = async (userEmail, userName) => {
   try {
+    // Check if ban emails are disabled
+    if (config.emailConfig && config.emailConfig.sendBanEmails === false) {
+      console.log(`Ban email notifications are disabled. Skipping unban email to ${userEmail}`);
+      return { success: false, skipped: true, reason: 'Ban emails disabled' };
+    }
+    
     console.log(`Sending account unblocked notification to ${userEmail}`);
+    console.log(`User name: ${userName}`);
     
     // Create email content with theme colors
     const htmlContent = `
@@ -117,7 +155,28 @@ const sendAccountUnblockedNotification = async (userEmail, userName) => {
     `;
     
     // Create transporter
-    const transporter = createTransporter();
+    console.log('Creating email transporter for unban notification...');
+    console.log('Email service:', emailConfig.service);
+    console.log('Email user:', emailConfig.auth.user);
+    
+    const transporter = nodemailer.createTransport({
+      service: emailConfig.service,
+      auth: {
+        user: emailConfig.auth.user,
+        pass: emailConfig.auth.pass
+      },
+      debug: true
+    });
+    
+    // Verify transporter
+    try {
+      console.log('Verifying transporter configuration...');
+      await transporter.verify();
+      console.log('Transporter verification successful!');
+    } catch (verifyError) {
+      console.error('Transporter verification failed:', verifyError);
+      return { success: false, error: `Email configuration error: ${verifyError.message}` };
+    }
     
     // Send mail
     console.log('Sending unban notification email...');

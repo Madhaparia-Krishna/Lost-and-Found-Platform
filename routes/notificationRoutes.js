@@ -113,6 +113,58 @@ router.put('/:id/read', async (req, res) => {
 });
 
 /**
+ * @route   DELETE /api/notifications/:id
+ * @desc    Delete a specific notification
+ * @access  Private
+ */
+router.delete('/:id', async (req, res) => {
+  try {
+    const notificationId = req.params.id;
+    const userId = req.user.id;
+    
+    // Make sure the notification belongs to the user
+    const [notification] = await pool.query(
+      'SELECT * FROM Notifications WHERE id = ? AND user_id = ?',
+      [notificationId, userId]
+    );
+    
+    if (notification.length === 0) {
+      return res.status(404).json({ message: 'Notification not found' });
+    }
+    
+    // Delete the notification
+    await pool.query(
+      'DELETE FROM Notifications WHERE id = ?',
+      [notificationId]
+    );
+    
+    // Count remaining unread notifications
+    const [unreadResult] = await pool.query(
+      'SELECT COUNT(*) as count FROM Notifications WHERE user_id = ? AND is_read = 0',
+      [userId]
+    );
+    
+    const unreadCount = unreadResult[0].count;
+    
+    // Emit socket event if io is available
+    if (io) {
+      io.to(`user:${userId}`).emit('notification_deleted', { 
+        id: notificationId,
+        unreadCount
+      });
+    }
+    
+    res.json({ 
+      message: 'Notification deleted successfully',
+      unreadCount
+    });
+  } catch (error) {
+    console.error('Error deleting notification:', error);
+    res.status(500).json({ message: 'Error deleting notification' });
+  }
+});
+
+/**
  * @route   POST /api/notifications/mark-read
  * @desc    Mark all notifications as read for the current user
  * @access  Private

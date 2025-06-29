@@ -1563,35 +1563,36 @@ app.post('/api/items', authenticateToken, upload.single('image'), async (req, re
     
     console.log('Item inserted with ID:', result.insertId);
     
-    // Notify security staff
+    // Notify security staff about any new item
     const message = `New ${status || 'lost'} item "${title}" has been reported. Location: ${location}`;
     await notifySecurityStaff(message, 'new_item');
     
-    // If this is a found item, notify users who have reported lost items
+    // If this is a found item, notify ALL users
     if (status === 'found') {
       try {
-        // Get users who have reported lost items in the last 30 days
-        const [usersWithLostItems] = await pool.query(
-          `SELECT DISTINCT u.id 
-           FROM Users u 
-           JOIN Items i ON u.id = i.user_id 
-           WHERE i.status = 'lost' 
-           AND i.is_deleted = 0 
-           AND i.created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)`
+        console.log('Notifying all users about new found item');
+        
+        // Get all active users
+        const [allUsers] = await pool.query(
+          `SELECT id, name, email 
+           FROM Users 
+           WHERE is_deleted = 0 
+           AND id != ?`, // Exclude the user who reported the item
+          [req.user.id]
         );
         
+        console.log(`Found ${allUsers.length} users to notify about new found item`);
+        
         // Notify each user about the new found item
-        for (const user of usersWithLostItems) {
+        for (const user of allUsers) {
           await createNotification(
             user.id,
-            `A new item has been found in category "${category}" at location "${location}". Check if it matches your lost item.`,
-            'new_found_item',
-            result.insertId,
-            'found'
+            `A new item "${title}" has been found in category "${category}" at location "${location}". Check if it matches your lost item.`,
+            `/items/${result.insertId}`
           );
         }
         
-        console.log(`Notified ${usersWithLostItems.length} users about new found item`);
+        console.log(`Notified ${allUsers.length} users about new found item`);
       } catch (notifyError) {
         console.error('Error notifying users about new found item:', notifyError);
       }
@@ -2870,13 +2871,34 @@ app.put('/api/admin/users/:userId/ban', authenticateToken, async (req, res) => {
     }
     
     // Soft delete the user
-    await pool.query('UPDATE Users SET is_deleted = TRUE WHERE id = ?', [userId]);
+    await pool.query('UPDATE Users SET is_deleted = TRUE, ban_reason = ? WHERE id = ?', [reason, userId]);
     
     // Log the action
     await pool.query(
       'INSERT INTO Logs (action, by_user) VALUES (?, ?)',
       [`User ${users[0].name} (ID: ${userId}) banned: ${reason}`, req.user.id]
     );
+    
+    // Send email notification to the banned user
+    try {
+      console.log('\n==== SENDING BAN EMAIL NOTIFICATION ====');
+      console.log('User email:', users[0].email);
+      console.log('User name:', users[0].name);
+      
+      const emailService = require('./server-email-nodemailer');
+      const emailResult = await emailService.sendAccountBlockedNotification(users[0].email, users[0].name, reason);
+      
+      if (emailResult.success) {
+        console.log('Ban notification email sent successfully!');
+        console.log('Message ID:', emailResult.messageId);
+      } else {
+        console.error('Failed to send ban notification email:', emailResult.error);
+      }
+      console.log('==========================================\n');
+    } catch (emailError) {
+      console.error('Failed to send ban notification email:', emailError);
+      // Continue with the ban process even if email fails
+    }
     
     res.json({ message: 'User banned successfully' });
   } catch (error) {
@@ -3034,7 +3056,7 @@ app.put('/api/admin/users/:id/block', authenticateToken, async (req, res) => {
     }
     
     // Block the user
-    await pool.query('UPDATE Users SET is_deleted = 1 WHERE id = ?', [userId]);
+    await pool.query('UPDATE Users SET is_deleted = 1, ban_reason = ? WHERE id = ?', [reason, userId]);
     
     // Log the action
     await logSystemAction(`User ${userId} blocked by admin`, { userId, reason }, req.user.id);
@@ -4017,19 +4039,29 @@ app.put('/api/admin/items/:itemId/soft-delete', authenticateToken, async (req, r
       [`Item "${item.title}" (ID: ${itemId}) soft deleted: ${reason}`, req.user.id]
     );
 
-    // Create notification for item owner if applicable
+    // Create notification for item owner if applicable and not banned
     if (item.user_id) {
       try {
-        await pool.query(
-          'INSERT INTO Notifications (user_id, message, type, related_item_id) VALUES (?, ?, ?, ?)',
-          [
-            item.user_id,
-            `Your item "${item.title}" has been removed by an administrator: ${reason}`,
-            'system',
-            itemId
-          ]
+        // Check if user is banned
+        const [userStatus] = await pool.query(
+          'SELECT is_deleted FROM Users WHERE id = ?',
+          [item.user_id]
         );
-        console.log('Notification created for item owner');
+        
+        if (userStatus.length > 0 && !userStatus[0].is_deleted) {
+          await pool.query(
+            'INSERT INTO Notifications (user_id, message, type, related_item_id) VALUES (?, ?, ?, ?)',
+            [
+              item.user_id,
+              `Your item "${item.title}" has been removed by an administrator: ${reason}`,
+              'system',
+              itemId
+            ]
+          );
+          console.log('Notification created for item owner');
+        } else {
+          console.log('Skipping notification for item owner - user is banned');
+        }
       } catch (notificationError) {
         console.error('Error creating notification:', notificationError);
         // Continue even if notification creation fails

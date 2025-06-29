@@ -10,6 +10,7 @@ const nodemailer = require('nodemailer');
 const fs = require('fs');
 const path = require('path');
 const { createNotification } = require('./notificationService');
+const config = require('../server-config');
 
 // Load environment variables
 require('dotenv').config();
@@ -17,27 +18,21 @@ require('dotenv').config();
 // Email configuration
 const emailConfig = {
   // SMTP configuration
-  service: process.env.EMAIL_SERVICE || 'gmail', // Default to gmail but can be changed in .env
+  service: config.emailConfig?.service || process.env.EMAIL_SERVICE || 'gmail',
   auth: {
-    user: process.env.EMAIL_USER || 'your-email@gmail.com', // Set your email in .env file
-    pass: process.env.EMAIL_PASS || 'your-app-password'     // Set your app password in .env file
+    user: config.emailConfig?.auth?.user || process.env.EMAIL_USER || 'your-email@gmail.com',
+    pass: config.emailConfig?.auth?.pass || process.env.EMAIL_PASS || 'your-app-password'
   },
   // Email template paths
   templates: {
     matchNotification: path.join(__dirname, '../public/match-template.html')
-  }
+  },
+  // Whether to send match emails
+  sendMatchEmails: config.emailConfig?.sendMatchEmails || (process.env.SEND_MATCH_EMAILS === 'true') || false
 };
 
 // Database configuration
-const pool = mysql.createPool({
-  host: 'localhost',
-  user: 'root',
-  password: '',
-  database: 'lost_and_found_system', // Correct database name
-  waitForConnections: true,
-  connectionLimit: 10,
-  queueLimit: 0
-});
+const pool = mysql.createPool(config.dbConfig);
 
 /**
  * Calculate similarity between two strings
@@ -108,6 +103,20 @@ const calculateMatchScore = (lostItem, foundItem) => {
 const sendMatchNotificationEmail = async (userDetails, itemDetails, matchedItem, matchScore) => {
   try {
     console.log(`Sending match notification email to ${userDetails.email} for match score ${matchScore}`);
+    console.log(`User name: ${userDetails.name}`);
+    console.log(`Lost item: ${itemDetails.title}`);
+    console.log(`Found item: ${matchedItem.title}`);
+    console.log(`Match score: ${Math.round(matchScore * 100)}%`);
+
+    // Check if match emails are disabled
+    if (!emailConfig.sendMatchEmails) {
+      console.log('Match notification emails are disabled in configuration');
+      return { 
+        success: false, 
+        skipped: true,
+        reason: 'Match emails disabled in configuration' 
+      };
+    }
 
     // Format current time
     const now = new Date();
@@ -120,9 +129,11 @@ const sendMatchNotificationEmail = async (userDetails, itemDetails, matchedItem,
     let template;
     try {
       template = fs.readFileSync(emailConfig.templates.matchNotification, 'utf8');
+      console.log('Match notification template loaded successfully');
     } catch (err) {
       console.error('Error reading email template:', err);
       // Fallback to a simple template
+      console.log('Using fallback template');
       template = `
         <h1>Match Found!</h1>
         <p>Hello {{user_name}},</p>
@@ -154,17 +165,24 @@ const sendMatchNotificationEmail = async (userDetails, itemDetails, matchedItem,
     });
     
     // Create a transporter
-    console.log(`Creating email transporter with service: ${emailConfig.service}, user: ${emailConfig.auth.user}`);
+    console.log('Creating email transporter for match notification...');
+    console.log('Email service:', emailConfig.service);
+    console.log('Email user:', emailConfig.auth.user);
+    
     const transporter = nodemailer.createTransport({
       service: emailConfig.service,
-      auth: emailConfig.auth,
-      debug: true // Enable debug logs
+      auth: {
+        user: emailConfig.auth.user,
+        pass: emailConfig.auth.pass
+      },
+      debug: true
     });
     
     // Verify connection configuration
     try {
+      console.log('Verifying transporter configuration...');
       await transporter.verify();
-      console.log('Transporter verification successful');
+      console.log('Transporter verification successful!');
     } catch (verifyError) {
       console.error('Transporter verification failed:', verifyError);
       return { 
@@ -323,27 +341,53 @@ const matchItems = async (newItem) => {
         
         const lostItemUser = lostItemUserDetails[0];
         
-        // Create notification for lost item user
-        const lostItemMessage = `A potential match (${Math.round(score * 100)}% similarity) has been found for your lost item "${lostItem.title}"`;
-        await createNotification(
-          lostItem.user_id, 
-          lostItemMessage, 
-          `/items/${foundItem.id}`
+        // Create notification for lost item user with match score percentage
+        // Check if user is banned before sending notification
+        const [lostUserStatus] = await pool.query(
+          'SELECT is_deleted FROM Users WHERE id = ?',
+          [lostItem.user_id]
         );
+        
+        if (lostUserStatus.length > 0 && !lostUserStatus[0].is_deleted) {
+          const matchScorePercent = Math.round(score * 100);
+          const lostItemMessage = `A potential match (${matchScorePercent}% similarity) has been found for your lost item "${lostItem.title}"`;
+          await createNotification(
+            lostItem.user_id, 
+            lostItemMessage, 
+            `/items/${foundItem.id}`
+          );
+          
+          console.log(`Created notification for lost item user: ${lostItemUser.name} (ID: ${lostItem.user_id})`);
+        } else {
+          console.log(`Skipping notification for lost item user ${lostItem.user_id} - user is banned`);
+        }
         
         // Create notification for found item user if different from lost item user
         if (foundItemUserDetails.length > 0 && foundItem.user_id !== lostItem.user_id) {
-          const foundItemUser = foundItemUserDetails[0];
-          const foundItemMessage = `Your found item "${foundItem.title}" has been matched (${Math.round(score * 100)}% similarity) with a lost item`;
-          await createNotification(
-            foundItem.user_id, 
-            foundItemMessage, 
-            `/items/${lostItem.id}`
+          // Check if user is banned before sending notification
+          const [foundUserStatus] = await pool.query(
+            'SELECT is_deleted FROM Users WHERE id = ?',
+            [foundItem.user_id]
           );
+          
+          if (foundUserStatus.length > 0 && !foundUserStatus[0].is_deleted) {
+            const foundItemUser = foundItemUserDetails[0];
+            const matchScorePercent = Math.round(score * 100);
+            const foundItemMessage = `Your found item "${foundItem.title}" has been matched (${matchScorePercent}% similarity) with a lost item`;
+            await createNotification(
+              foundItem.user_id, 
+              foundItemMessage, 
+              `/items/${lostItem.id}`
+            );
+            
+            console.log(`Created notification for found item user: ${foundItemUser.name} (ID: ${foundItem.user_id})`);
+          } else {
+            console.log(`Skipping notification for found item user ${foundItem.user_id} - user is banned`);
+          }
         }
         
         // Send email notification ONLY to the lost item user if enabled
-        const sendEmails = process.env.SEND_MATCH_EMAILS === 'true';
+        const sendEmails = emailConfig.sendMatchEmails;
         
         if (sendEmails) {
           try {
@@ -371,7 +415,7 @@ const matchItems = async (newItem) => {
             // Continue processing - the match is still recorded
           }
         } else {
-          console.log(`Email notifications are disabled. Set SEND_MATCH_EMAILS=true in .env to enable.`);
+          console.log(`Email notifications are disabled. Enable sendMatchEmails in config or set SEND_MATCH_EMAILS=true in .env to enable.`);
         }
       } catch (matchError) {
         console.error('Error processing match:', matchError);

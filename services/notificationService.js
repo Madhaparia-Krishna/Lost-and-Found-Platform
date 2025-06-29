@@ -42,6 +42,17 @@ async function createNotification(userId, message, linkUrl) {
     console.log(`Creating notification for user ${userId}:`);
     console.log(`- Message: ${message}`);
     console.log(`- Link URL: ${linkUrl || 'None'}`);
+    
+    // Check if user is banned before creating notification
+    const [userStatus] = await pool.query(
+      'SELECT is_deleted FROM Users WHERE id = ?',
+      [userId]
+    );
+    
+    if (userStatus.length === 0 || userStatus[0].is_deleted) {
+      console.log(`Skipping notification for user ${userId} - user does not exist or is banned`);
+      return null;
+    }
 
     // Insert notification into database
     try {
@@ -116,9 +127,9 @@ async function notifySecurityStaff(message, linkUrl) {
     console.log(`Message: ${message}`);
     console.log(`Link URL: ${linkUrl}`);
     
-    // Get all security staff users
+    // Get all active security staff users (not banned)
     const [securityUsers] = await pool.query(
-      'SELECT id, name, email, role FROM Users WHERE role = "security" OR role = "admin"'
+      'SELECT id, name, email, role FROM Users WHERE (role = "security" OR role = "admin") AND is_deleted = FALSE'
     );
     
     console.log(`Found ${securityUsers.length} security staff to notify:`);

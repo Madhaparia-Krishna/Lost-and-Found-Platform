@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import '../styles/SuccessMessage.css';
 
@@ -10,6 +10,14 @@ const SuccessMessage = ({
   resetButtonText = 'Report Another Item',
   showDashboardLink = true
 }) => {
+  useEffect(() => {
+    // Scroll to the component when it mounts
+    window.scrollTo({
+      top: 0,
+      behavior: 'smooth'
+    });
+  }, []);
+  
   return (
     <div className="success-message-container">
       <div className="success-icon">
@@ -25,12 +33,14 @@ const SuccessMessage = ({
             onClick={onReset}
             className="btn primary-btn"
           >
+            <i className="fas fa-plus-circle me-2"></i>
             {resetButtonText}
           </button>
         )}
         
         {showDashboardLink && (
           <Link to="/dashboard" className="btn secondary-btn">
+            <i className="fas fa-th-large me-2"></i>
             Go to Dashboard
           </Link>
         )}
