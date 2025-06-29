@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Notification Test</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+    h1 {
+      color: #E85A4F;
+    }
+    .notification {
+      border: 1px solid #ddd;
+      border-radius: 5px;
+      padding: 15px;
+      margin-bottom: 10px;
+      background-color: #f9f9f9;
+    }
+    .notification.unread {
+      background-color: #f0f7ff;
+      border-left: 4px solid #E85A4F;
+    }
+    .notification-header {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 5px;
+    }
+    .notification-message {
+      font-size: 16px;
+      margin-bottom: 10px;
+    }
+    .notification-time {
+      color: #777;
+      font-size: 12px;
+    }
+    .notification-link {
+      color: #E85A4F;
+      text-decoration: none;
+      font-weight: bold;
+    }
+    .notification-link:hover {
+      text-decoration: underline;
+    }
+    .notification-actions {
+      margin-top: 10px;
+      text-align: right;
+    }
+    button {
+      background-color: #E85A4F;
+      color: white;
+      border: none;
+      padding: 8px 15px;
+      border-radius: 4px;
+      cursor: pointer;
+      margin-left: 10px;
+    }
+    button:hover {
+      background-color: #E98074;
+    }
+    #token-input {
+      width: 100%;
+      padding: 8px;
+      margin-bottom: 10px;
+    }
+    .error {
+      color: red;
+      margin: 10px 0;
+    }
+    .success {
+      color: green;
+      margin: 10px 0;
+    }
+  </style>
+</head>
+<body>
+  <h1>Notification Test</h1>
+  
+  <div>
+    <h2>Authentication</h2>
+    <input type="text" id="token-input" placeholder="Paste your JWT token here">
+    <button id="auth-button">Authenticate</button>
+    <div id="auth-status"></div>
+  </div>
+  
+  <div>
+    <h2>Create Test Notification</h2>
+    <button id="create-notification">Create Test Notification</button>
+    <div id="create-status"></div>
+  </div>
+  
+  <div>
+    <h2>Your Notifications</h2>
+    <button id="fetch-notifications">Refresh Notifications</button>
+    <div id="notifications-container"></div>
+  </div>
+  
+  <script>
+    const API_BASE_URL = window.location.origin;
+    let currentToken = '';
+    
+    // DOM elements
+    const tokenInput = document.getElementById('token-input');
+    const authButton = document.getElementById('auth-button');
+    const authStatus = document.getElementById('auth-status');
+    const createNotificationButton = document.getElementById('create-notification');
+    const createStatus = document.getElementById('create-status');
+    const fetchNotificationsButton = document.getElementById('fetch-notifications');
+    const notificationsContainer = document.getElementById('notifications-container');
+    
+    // Check if token is in localStorage
+    const savedToken = localStorage.getItem('notification_test_token');
+    if (savedToken) {
+      tokenInput.value = savedToken;
+      currentToken = savedToken;
+      authStatus.innerHTML = '<div class="success">Token loaded from storage</div>';
+    }
+    
+    // Authentication
+    authButton.addEventListener('click', () => {
+      const token = tokenInput.value.trim();
+      if (!token) {
+        authStatus.innerHTML = '<div class="error">Please enter a token</div>';
+        return;
+      }
+      
+      currentToken = token;
+      localStorage.setItem('notification_test_token', token);
+      authStatus.innerHTML = '<div class="success">Token saved</div>';
+    });
+    
+    // Create notification
+    createNotificationButton.addEventListener('click', async () => {
+      if (!currentToken) {
+        createStatus.innerHTML = '<div class="error">Please authenticate first</div>';
+        return;
+      }
+      
+      try {
+        createStatus.innerHTML = '<div>Creating notification...</div>';
+        
+        const response = await fetch(`${API_BASE_URL}/api/debug/notification`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${currentToken}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            message: 'Test notification from notification test page',
+            linkUrl: '/dashboard'
+          })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+          createStatus.innerHTML = '<div class="success">Notification created successfully!</div>';
+          fetchNotifications();
+        } else {
+          createStatus.innerHTML = `<div class="error">Error: ${data.message || 'Unknown error'}</div>`;
+        }
+      } catch (error) {
+        createStatus.innerHTML = `<div class="error">Error: ${error.message}</div>`;
+      }
+    });
+    
+    // Fetch notifications
+    async function fetchNotifications() {
+      if (!currentToken) {
+        notificationsContainer.innerHTML = '<div class="error">Please authenticate first</div>';
+        return;
+      }
+      
+      try {
+        notificationsContainer.innerHTML = '<div>Loading notifications...</div>';
+        
+        const response = await fetch(`${API_BASE_URL}/api/notifications`, {
+          headers: {
+            'Authorization': `Bearer ${currentToken}`
+          }
+        });
+        
+        const data = await response.json();
+        
+        if (data.notifications && data.notifications.length > 0) {
+          notificationsContainer.innerHTML = data.notifications.map(notification => `
+            <div class="notification ${notification.is_read ? '' : 'unread'}">
+              <div class="notification-header">
+                <span class="notification-type">${notification.type || 'system'}</span>
+                <span class="notification-time">${new Date(notification.created_at).toLocaleString()}</span>
+              </div>
+              <div class="notification-message">${notification.message}</div>
+              ${notification.link_url ? `<a href="${notification.link_url}" class="notification-link">View Details</a>` : ''}
+              <div class="notification-actions">
+                ${!notification.is_read ? `<button onclick="markAsRead(${notification.id})">Mark as Read</button>` : ''}
+              </div>
+            </div>
+          `).join('');
+        } else {
+          notificationsContainer.innerHTML = '<div>No notifications found</div>';
+        }
+      } catch (error) {
+        notificationsContainer.innerHTML = `<div class="error">Error: ${error.message}</div>`;
+      }
+    }
+    
+    // Mark notification as read
+    window.markAsRead = async (notificationId) => {
+      if (!currentToken) {
+        return;
+      }
+      
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/notifications/${notificationId}/read`, {
+          method: 'PUT',
+          headers: {
+            'Authorization': `Bearer ${currentToken}`,
+            'Content-Type': 'application/json'
+          }
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+          fetchNotifications();
+        }
+      } catch (error) {
+        console.error('Error marking notification as read:', error);
+      }
+    };
+    
+    // Initial fetch if token exists
+    if (currentToken) {
+      fetchNotifications();
+    }
+    
+    // Refresh button
+    fetchNotificationsButton.addEventListener('click', fetchNotifications);
+  </script>
+</body>
+</html> 

@@ -12,6 +12,19 @@ const config = require('../server-config');
 // Create database connection pool (reusing the existing pool from server.js)
 const pool = mysql.createPool(config.dbConfig);
 
+// Reference to Socket.IO instance (will be set from server.js)
+let io = null;
+
+/**
+ * Set the Socket.IO instance
+ * 
+ * @param {Object} socketIo - The Socket.IO instance
+ */
+function setSocketIO(socketIo) {
+  io = socketIo;
+  console.log('Socket.IO instance set in notification routes');
+}
+
 /**
  * @route   GET /api/notifications
  * @desc    Get all notifications for the logged-in user
@@ -73,7 +86,26 @@ router.put('/:id/read', async (req, res) => {
       [notificationId]
     );
     
-    res.json({ message: 'Notification marked as read' });
+    // Count remaining unread notifications
+    const [unreadResult] = await pool.query(
+      'SELECT COUNT(*) as count FROM Notifications WHERE user_id = ? AND is_read = 0',
+      [userId]
+    );
+    
+    const unreadCount = unreadResult[0].count;
+    
+    // Emit socket event if io is available
+    if (io) {
+      io.to(`user:${userId}`).emit('notification_read', { 
+        id: notificationId,
+        unreadCount
+      });
+    }
+    
+    res.json({ 
+      message: 'Notification marked as read',
+      unreadCount
+    });
   } catch (error) {
     console.error('Error marking notification as read:', error);
     res.status(500).json({ message: 'Error marking notification as read' });
@@ -95,6 +127,13 @@ router.post('/mark-read', async (req, res) => {
       [userId]
     );
     
+    // Emit socket event if io is available
+    if (io) {
+      io.to(`user:${userId}`).emit('all_notifications_read', { 
+        unreadCount: 0
+      });
+    }
+    
     res.json({ message: 'All notifications marked as read' });
   } catch (error) {
     console.error('Error marking all notifications as read:', error);
@@ -102,4 +141,7 @@ router.post('/mark-read', async (req, res) => {
   }
 });
 
-module.exports = router; 
+module.exports = {
+  router,
+  setSocketIO
+}; 

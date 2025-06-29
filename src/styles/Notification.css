@@ -295,4 +295,33 @@
 .match-notification-footer {
   font-style: italic;
   color: #6c757d;
+}
+
+@keyframes bell-shake {
+  0% { transform: rotate(0); }
+  10% { transform: rotate(10deg); }
+  20% { transform: rotate(-10deg); }
+  30% { transform: rotate(8deg); }
+  40% { transform: rotate(-8deg); }
+  50% { transform: rotate(6deg); }
+  60% { transform: rotate(-6deg); }
+  70% { transform: rotate(4deg); }
+  80% { transform: rotate(-4deg); }
+  90% { transform: rotate(2deg); }
+  100% { transform: rotate(0); }
+}
+
+.notification-bell-button.animate-bell {
+  animation: bell-shake 0.8s ease-in-out;
+  color: #E85A4F;
+}
+
+.notification-bell-button.animate-bell .notification-badge {
+  animation: pulse 0.8s ease-in-out;
+}
+
+@keyframes pulse {
+  0% { transform: translate(25%, -25%) scale(1); }
+  50% { transform: translate(25%, -25%) scale(1.2); }
+  100% { transform: translate(25%, -25%) scale(1); }
 } 

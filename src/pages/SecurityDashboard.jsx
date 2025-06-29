@@ -33,12 +33,55 @@ const SecurityDashboard = () => {
   const [showRejectModal, setShowRejectModal] = useState(false);
   const [itemToReject, setItemToReject] = useState(null);
   const [userSearchQuery, setUserSearchQuery] = useState('');
+  const [newNotification, setNewNotification] = useState(null);
   const [stats, setStats] = useState({
     totalItems: 0,
     pendingItems: 0,
     requestedItems: 0,
     totalUsers: 0
   });
+  
+  // Listen for security notifications
+  useEffect(() => {
+    // Function to handle security notification
+    const handleSecurityNotification = (event) => {
+      const data = event.detail;
+      console.log('Security notification received:', data);
+      
+      // Show a temporary notification message
+      setNewNotification({
+        message: data.message,
+        link: data.link_url,
+        timestamp: new Date()
+      });
+      
+      // Clear the notification after 5 seconds
+      setTimeout(() => {
+        setNewNotification(null);
+      }, 5000);
+      
+      // Refresh data based on the notification type
+      refreshData();
+      
+      // If the notification is about a new pending item, switch to pending items tab
+      if (data.message.includes('new item') || data.message.includes('needs approval')) {
+        setActiveKey('pendingItems');
+      }
+      
+      // If the notification is about a new request, switch to requested items tab
+      if (data.message.includes('request')) {
+        setActiveKey('requestedItems');
+      }
+    };
+    
+    // Add event listener to the global window object to receive notifications from NotificationContext
+    window.addEventListener('security_notification', handleSecurityNotification);
+    
+    // Clean up
+    return () => {
+      window.removeEventListener('security_notification', handleSecurityNotification);
+    };
+  }, []);
   
   // Dummy data for charts - replace with actual data from backend if available
   const itemApprovalData = {
@@ -106,7 +149,7 @@ const SecurityDashboard = () => {
         }
         
         try {
-          await fetchNotifications();
+          await fetchSecurityNotifications();
         } catch (err) {
           console.error("Error loading notifications:", err);
           // Continue loading other data
@@ -250,9 +293,9 @@ const SecurityDashboard = () => {
     }
   };
   
-  const fetchNotifications = async () => {
+  const fetchSecurityNotifications = async () => {
     try {
-      console.log("Fetching notifications...");
+      console.log("Fetching security notifications...");
       // Use the notificationsApi utility
       const result = await notificationsApi.getAll();
       console.log("Received notifications:", result.notifications.length);
@@ -1047,6 +1090,30 @@ const SecurityDashboard = () => {
 
   return (
     <div className="security-dashboard-container">
+      {/* Real-time notification alert */}
+      {newNotification && (
+        <div className="security-notification-alert">
+          <div className="notification-content">
+            <i className="fas fa-bell notification-icon"></i>
+            <div className="notification-message">
+              <p><strong>New Notification:</strong> {newNotification.message}</p>
+              <small>{new Date(newNotification.timestamp).toLocaleString()}</small>
+            </div>
+          </div>
+          {newNotification.link && (
+            <Link to={newNotification.link} className="notification-link">
+              View Details
+            </Link>
+          )}
+          <button 
+            className="notification-close-btn" 
+            onClick={() => setNewNotification(null)}
+          >
+            <i className="fas fa-times"></i>
+          </button>
+        </div>
+      )}
+
       <div className="page-header">
         <h1 className="page-title">Security Dashboard</h1>
         <p className="page-description">Welcome, {currentUser?.name || 'Security Staff'}! Monitor and manage item approvals and user requests.</p>

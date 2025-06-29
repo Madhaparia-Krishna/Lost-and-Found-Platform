@@ -1,11 +1,23 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useNotifications } from '../context/NotificationContext';
 import '../styles/Notification.css';
 
 const NotificationBell = () => {
   const [isOpen, setIsOpen] = useState(false);
+  const [animate, setAnimate] = useState(false);
   const { notifications, unreadCount, markAsRead, markAllAsRead } = useNotifications();
+
+  // Add animation when unread count changes
+  useEffect(() => {
+    if (unreadCount > 0) {
+      setAnimate(true);
+      const timer = setTimeout(() => {
+        setAnimate(false);
+      }, 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [unreadCount]);
 
   const handleToggle = () => {
     // If opening the dropdown and there are unread notifications, mark them as read
@@ -27,7 +39,7 @@ const NotificationBell = () => {
   return (
     <div className="notification-bell-container">
       <button 
-        className="notification-bell-button"
+        className={`notification-bell-button ${animate ? 'animate-bell' : ''}`}
         onClick={handleToggle}
         aria-label="Notifications"
       >

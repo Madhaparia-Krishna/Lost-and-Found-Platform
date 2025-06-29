@@ -14,10 +14,11 @@ const { calculateMatchScore } = require('./server-utils');
 const emailService = require('./server-email');
 const fs = require('fs');
 const { matchItems } = require('./services/matching.service');
-const { createNotification } = require('./services/notificationService');
+const notificationService = require('./services/notificationService');
+const { createNotification } = notificationService;
 
 // Import routes
-const notificationRoutes = require('./routes/notificationRoutes');
+const notificationRoutesModule = require('./routes/notificationRoutes');
 
 // Ensure uploads directory exists
 const uploadsDir = path.join(__dirname, 'uploads');
@@ -49,6 +50,10 @@ const io = socketIo(server, {
     methods: ["GET", "POST"]
   }
 });
+
+// Pass Socket.IO instance to notification service and routes
+notificationService.setSocketIO(io);
+notificationRoutesModule.setSocketIO(io);
 
 // Middleware
 app.use(cors({
@@ -193,7 +198,7 @@ const authenticateToken = (req, res, next) => {
 };
 
 // Apply route middleware
-app.use('/api/notifications', authenticateToken, notificationRoutes);
+app.use('/api/notifications', authenticateToken, notificationRoutesModule.router);
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {
@@ -1268,19 +1273,8 @@ app.post('/items/found', authenticateToken, async (req, res) => {
 // Helper function to notify security staff
 async function notifySecurityStaff(message, type = 'item_report') {
   try {
-    // Get all security and admin users
-    const [securityUsers] = await pool.query(
-      'SELECT id FROM Users WHERE role IN ("security", "admin") AND is_deleted = FALSE'
-    );
-
-    // Create notifications for each security staff member
-    for (const user of securityUsers) {
-      await createNotification(
-        user.id,
-        message,
-        '/security-dashboard'
-      );
-    }
+    // Use the notifySecurityStaff function from notificationService
+    await notificationService.notifySecurityStaff(message, '/security-dashboard');
   } catch (error) {
     console.error('Error notifying security staff:', error);
   }
@@ -1289,6 +1283,33 @@ async function notifySecurityStaff(message, type = 'item_report') {
 // Socket.IO connection handling
 io.on('connection', (socket) => {
   console.log('New client connected');
+
+  // Authentication for socket connection
+  socket.on('authenticate', (token) => {
+    try {
+      // Verify the token
+      const decoded = jwt.verify(token, JWT_SECRET);
+      console.log('Socket authenticated for user:', decoded.id);
+      
+      // Store user info in socket
+      socket.userId = decoded.id;
+      socket.userRole = decoded.role;
+      
+      // Join user's personal notification channel
+      socket.join(`user:${decoded.id}`);
+      
+      // If security role, join security channel
+      if (decoded.role === 'security' || decoded.role === 'admin') {
+        socket.join('security-staff');
+        console.log(`User ${decoded.id} joined security-staff channel`);
+      }
+      
+      socket.emit('authenticated', { success: true });
+    } catch (error) {
+      console.error('Socket authentication failed:', error.message);
+      socket.emit('authenticated', { success: false, error: 'Invalid token' });
+    }
+  });
 
   // Join a chat room
   socket.on('join_room', (roomId) => {
@@ -2024,10 +2045,15 @@ app.post('/api/items/:itemId/claim', authenticateToken, async (req, res) => {
       await createNotification(
         staff.id,
         `New item request for "${item.title}"`,
-        'request',
-        itemId
+        `/items/${itemId}`
       );
     }
+    
+    // Also notify all security staff using notifySecurityStaff
+    await notifySecurityStaff(
+      `New item request for "${item.title}" needs your attention`,
+      `/security-dashboard`
+    );
 
     res.status(201).json({ 
       message: 'Item request submitted successfully',
@@ -2110,22 +2136,22 @@ app.put('/items/:itemId/request', async (req, res) => {
         // Create notification for security staff
         if (userId) {
           try {
-            // Get security users
-            const [securityUsers] = await pool.query(
-              'SELECT id FROM Users WHERE role = "security" OR role = "admin"'
+            // Get item details for better notification
+            const [itemDetails] = await pool.query(
+              'SELECT title FROM Items WHERE id = ?',
+              [itemId]
             );
             
-            console.log(`Found ${securityUsers.length} security/admin users to notify`);
+            const itemTitle = itemDetails.length > 0 ? itemDetails[0].title : `Item #${itemId}`;
             
-            // Notify each security staff member
-            for (const secUser of securityUsers) {
-              await createNotification(
-                secUser.id,
-                `New item request pending approval: Item #${itemId}`,
-                `/security-dashboard`
-              );
-            }
-            console.log('Security staff notifications created');
+            // Use the notifySecurityStaff function for more reliable notification
+            const { notifySecurityStaff } = require('./services/notificationService');
+            await notifySecurityStaff(
+              `New item request for "${itemTitle}" needs your approval`,
+              `/security-dashboard`
+            );
+            
+            console.log('Security staff notifications created via notifySecurityStaff');
           } catch (notifyError) {
             console.error('Error notifying security staff:', notifyError);
             // Continue anyway
@@ -2229,22 +2255,22 @@ app.post('/items/request/:itemId', async (req, res) => {
         // Create notification for security staff
         if (userId) {
           try {
-            // Get security users
-            const [securityUsers] = await pool.query(
-              'SELECT id FROM Users WHERE role = "security" OR role = "admin"'
+            // Get item details for better notification
+            const [itemDetails] = await pool.query(
+              'SELECT title FROM Items WHERE id = ?',
+              [itemId]
             );
             
-            console.log(`Found ${securityUsers.length} security/admin users to notify`);
+            const itemTitle = itemDetails.length > 0 ? itemDetails[0].title : `Item #${itemId}`;
             
-            // Notify each security staff member
-            for (const secUser of securityUsers) {
-              await createNotification(
-                secUser.id,
-                `New item request pending approval: Item #${itemId}`,
-                `/security-dashboard`
-              );
-            }
-            console.log('Security staff notifications created');
+            // Use the notifySecurityStaff function for more reliable notification
+            const { notifySecurityStaff } = require('./services/notificationService');
+            await notifySecurityStaff(
+              `New item request for "${itemTitle}" needs your approval`,
+              `/security-dashboard`
+            );
+            
+            console.log('Security staff notifications created via notifySecurityStaff');
           } catch (notifyError) {
             console.error('Error notifying security staff:', notifyError);
             // Continue anyway
@@ -3348,7 +3374,15 @@ app.put('/api/security/users/:userId/ban', authenticateToken, async (req, res) =
       [`User ${user.name} (ID: ${userId}) banned: ${reason}`, req.user.id]
     );
     
-    // Send email notification to the banned user
+    // Create notification for the banned user
+    const { createNotification } = require('./services/notificationService');
+    await createNotification(
+      userId,
+      `Your account has been suspended. Reason: ${reason}`,
+      '/support'
+    );
+
+    // Send email notification
     try {
       console.log('\n==== SENDING BAN EMAIL NOTIFICATION ====');
       console.log('User email:', user.email);
@@ -3356,7 +3390,7 @@ app.put('/api/security/users/:userId/ban', authenticateToken, async (req, res) =
       console.log('Ban reason:', reason);
       
       const emailService = require('./server-email-nodemailer');
-      const emailResult = await emailService.sendAccountBlockedNotification(user.email, user.name);
+      const emailResult = await emailService.sendAccountSuspensionNotification(user.email, user.name, reason);
       
       if (emailResult.success) {
         console.log('Ban notification email sent successfully!');
@@ -3364,16 +3398,16 @@ app.put('/api/security/users/:userId/ban', authenticateToken, async (req, res) =
       } else {
         console.error('Failed to send ban notification email:', emailResult.error);
       }
-      console.log('========================================\n');
+      console.log('==========================================\n');
     } catch (emailError) {
       console.error('Failed to send ban notification email:', emailError);
       // Continue with the ban process even if email fails
     }
-
-    res.json({ message: 'User banned successfully' });
+    
+    res.json({ message: `User ${user.name} banned successfully` });
   } catch (error) {
     console.error('Error banning user:', error);
-    res.status(500).json({ message: 'Error banning user', error: error.message });
+    res.status(500).json({ message: 'Error banning user' });
   }
 });
 
@@ -4831,3 +4865,240 @@ app.put('/api/security/users/:userId/unban', authenticateToken, async (req, res)
 
 // Admin API endpoints
 // ... existing code ...
+
+// Test route to create a notification
+app.post('/api/test/notification', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { message, linkUrl } = req.body;
+    
+    // Create notification
+    const notification = await createNotification(
+      userId,
+      message || "This is a test notification",
+      linkUrl || "/dashboard"
+    );
+    
+    if (notification) {
+      res.json({ 
+        success: true, 
+        message: 'Test notification created successfully',
+        notification
+      });
+    } else {
+      res.status(500).json({ 
+        success: false, 
+        message: 'Failed to create test notification' 
+      });
+    }
+  } catch (error) {
+    console.error('Error creating test notification:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Error creating test notification',
+      error: error.message
+    });
+  }
+});
+
+// API endpoint for requesting items (matches the path used in the frontend)
+app.post('/api/items/:itemId/request', authenticateToken, async (req, res) => {
+  try {
+    const { itemId } = req.params;
+    const userId = req.user.id;
+    
+    console.log(`API request endpoint called for item ${itemId} by user ${userId}`);
+    
+    // Check if item exists and is available
+    const [items] = await pool.query(
+      'SELECT * FROM Items WHERE id = ? AND is_deleted = 0',
+      [itemId]
+    );
+
+    if (items.length === 0) {
+      return res.status(404).json({ message: 'Item not found' });
+    }
+
+    const item = items[0];
+    
+    // Only allow requesting items with 'found' status
+    if (item.status !== 'found') {
+      return res.status(400).json({ 
+        message: `Item cannot be requested because its status is '${item.status}' not 'found'` 
+      });
+    }
+    
+    // Update item status to 'requested' with pending approval
+    try {
+      // Add request_status column if it doesn't exist
+      try {
+        await pool.query(`
+          ALTER TABLE Items 
+          ADD COLUMN IF NOT EXISTS request_status VARCHAR(20) DEFAULT NULL,
+          ADD COLUMN IF NOT EXISTS request_user_id INT DEFAULT NULL
+        `);
+      } catch (alterError) {
+        console.error('Error altering Items table:', alterError);
+        // Continue anyway, column might already exist
+      }
+      
+      // Update with pending approval status
+      await pool.query(
+        'UPDATE Items SET status = "requested", request_status = "pending", request_user_id = ?, updated_at = NOW() WHERE id = ?',
+        [userId, itemId]
+      );
+      console.log(`Successfully updated item ${itemId} to 'requested' status with pending approval`);
+      
+      // Get item details for better notification
+      const [itemDetails] = await pool.query(
+        'SELECT title FROM Items WHERE id = ?',
+        [itemId]
+      );
+      
+      const itemTitle = itemDetails.length > 0 ? itemDetails[0].title : `Item #${itemId}`;
+      
+      // Use the notifySecurityStaff function for more reliable notification
+      const { notifySecurityStaff } = require('./services/notificationService');
+      await notifySecurityStaff(
+        `New item request for "${itemTitle}" needs your approval`,
+        `/security-dashboard`
+      );
+      
+      console.log('Security staff notifications created via notifySecurityStaff');
+      
+      // Return the updated item
+      res.json({ 
+        message: 'Item requested successfully. Your request is pending approval by security staff.',
+        item: {
+          ...item,
+          status: 'requested',
+          request_status: 'pending'
+        }
+      });
+    } catch (statusUpdateError) {
+      console.error('Error updating item status:', statusUpdateError);
+      return res.status(500).json({ 
+        message: 'Error updating item status', 
+        error: statusUpdateError.message 
+      });
+    }
+  } catch (error) {
+    console.error('Error requesting item:', error);
+    res.status(500).json({ message: 'Error requesting item', error: error.message });
+  }
+});
+
+// Debug endpoint to test security notifications
+app.post('/api/debug/notify-security', authenticateToken, async (req, res) => {
+  try {
+    // Check if user is admin
+    if (req.user.role !== 'admin' && req.user.role !== 'security') {
+      return res.status(403).json({ message: 'Unauthorized access' });
+    }
+    
+    const { message } = req.body;
+    console.log('Sending test notification to security staff:', message);
+    
+    // Use the notifySecurityStaff function
+    const { notifySecurityStaff } = require('./services/notificationService');
+    const notifications = await notifySecurityStaff(
+      message || 'This is a test security notification',
+      '/security-dashboard'
+    );
+    
+    res.json({ 
+      success: true, 
+      message: 'Test notification sent to security staff',
+      notificationsCreated: notifications.length,
+      notifications
+    });
+  } catch (error) {
+    console.error('Error sending test notification:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Error sending test notification',
+      error: error.message
+    });
+  }
+});
+
+// Debug endpoint to test notifications
+app.post('/api/debug/notification', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { message, linkUrl } = req.body;
+    
+    console.log('=== DEBUG NOTIFICATION TEST ===');
+    console.log(`Creating test notification for user ${userId}`);
+    console.log(`Message: ${message || 'Test notification'}`);
+    console.log(`Link URL: ${linkUrl || '/dashboard'}`);
+    
+    // Create notification using the service
+    const notification = await createNotification(
+      userId,
+      message || 'This is a test notification',
+      linkUrl || '/dashboard'
+    );
+    
+    if (notification) {
+      console.log('✓ Test notification created successfully:', notification);
+      res.json({ 
+        success: true, 
+        message: 'Test notification created successfully',
+        notification 
+      });
+    } else {
+      console.error('✗ Failed to create test notification');
+      res.status(500).json({ 
+        success: false, 
+        message: 'Failed to create test notification' 
+      });
+    }
+    console.log('=== END DEBUG TEST ===');
+  } catch (error) {
+    console.error('Error creating test notification:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Error creating test notification',
+      error: error.message 
+    });
+  }
+});
+
+// Debug endpoint to test security notifications
+app.post('/api/debug/security-notification', authenticateToken, async (req, res) => {
+  try {
+    // Check if user is admin
+    if (req.user.role !== 'admin' && req.user.role !== 'security') {
+      return res.status(403).json({ message: 'Unauthorized access' });
+    }
+    
+    const { message, linkUrl } = req.body;
+    
+    console.log('=== DEBUG SECURITY NOTIFICATION TEST ===');
+    console.log(`Message: ${message || 'Test security notification'}`);
+    console.log(`Link URL: ${linkUrl || '/security-dashboard'}`);
+    
+    // Use the notifySecurityStaff function
+    const notifications = await notifySecurityStaff(
+      message || 'This is a test security notification',
+      linkUrl || '/security-dashboard'
+    );
+    
+    console.log(`Created ${notifications.length} security notifications`);
+    
+    res.json({ 
+      success: true, 
+      message: 'Test security notification sent',
+      notifications 
+    });
+    console.log('=== END DEBUG SECURITY TEST ===');
+  } catch (error) {
+    console.error('Error sending test security notification:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Error sending test security notification',
+      error: error.message 
+    });
+  }
+});

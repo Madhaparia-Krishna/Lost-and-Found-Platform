@@ -141,6 +141,74 @@ function Profile() {
         {error && <div className="login-error">{error}</div>}
         {success && <div className="login-success">{success}</div>}
         
+        {/* Test notification section */}
+        <div style={{ marginTop: '20px', marginBottom: '20px', padding: '15px', backgroundColor: '#f8f9fa', borderRadius: '5px' }}>
+          <h3 style={{ marginBottom: '10px', color: '#E85A4F' }}>Test Notifications</h3>
+          <p style={{ marginBottom: '15px' }}>Use these buttons to test the notification system:</p>
+          
+          <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+            <button
+              type="button"
+              className="login-button"
+              style={{ backgroundColor: '#E98074', padding: '8px 15px', fontSize: '14px' }}
+              onClick={async () => {
+                try {
+                  const response = await axios.post(
+                    `${API_BASE_URL}/api/debug/notification`,
+                    { message: 'This is a test notification from your profile page!' },
+                    { 
+                      headers: { 
+                        'Authorization': `Bearer ${currentUser.token}`,
+                        'Content-Type': 'application/json'
+                      } 
+                    }
+                  );
+                  if (response.data.success) {
+                    setSuccess('Test notification sent! Check the notification bell.');
+                    setTimeout(() => setSuccess(null), 3000);
+                  }
+                } catch (error) {
+                  setError('Failed to send test notification: ' + (error.response?.data?.message || error.message));
+                  setTimeout(() => setError(null), 3000);
+                }
+              }}
+            >
+              Test Personal Notification
+            </button>
+            
+            {(currentUser.role === 'admin' || currentUser.role === 'security') && (
+              <button
+                type="button"
+                className="login-button"
+                style={{ backgroundColor: '#8E8D8A', padding: '8px 15px', fontSize: '14px' }}
+                onClick={async () => {
+                  try {
+                    const response = await axios.post(
+                      `${API_BASE_URL}/api/debug/security-notification`,
+                      { message: 'This is a test security notification!' },
+                      { 
+                        headers: { 
+                          'Authorization': `Bearer ${currentUser.token}`,
+                          'Content-Type': 'application/json'
+                        } 
+                      }
+                    );
+                    if (response.data.success) {
+                      setSuccess('Test security notification sent! Security staff should receive it.');
+                      setTimeout(() => setSuccess(null), 3000);
+                    }
+                  } catch (error) {
+                    setError('Failed to send security notification: ' + (error.response?.data?.message || error.message));
+                    setTimeout(() => setError(null), 3000);
+                  }
+                }}
+              >
+                Test Security Notification
+              </button>
+            )}
+          </div>
+        </div>
+        
         {/* Admin access panel only */}
         {currentUser && currentUser.role === 'admin' && (
           <div className="role-panels">
@@ -256,6 +324,60 @@ function Profile() {
           >
             Back to Home
           </button>
+        </div>
+        
+        {/* Test notification section */}
+        <div style={{ marginTop: '20px', marginBottom: '20px', padding: '15px', backgroundColor: '#f8f9fa', borderRadius: '5px' }}>
+          <h3 style={{ marginBottom: '10px', color: '#E85A4F' }}>Test Notifications</h3>
+          <p style={{ marginBottom: '15px' }}>Use these buttons to test the notification system:</p>
+          
+          <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+            <button
+              type="button"
+              className="login-button"
+              style={{ backgroundColor: '#E98074', padding: '8px 15px', fontSize: '14px' }}
+              onClick={async () => {
+                try {
+                  const response = await axios.post(
+                    `${API_BASE_URL}/api/debug/notification`,
+                    { message: 'This is a test notification from your profile page!' },
+                    { headers: { Authorization: `Bearer ${currentUser.token}` } }
+                  );
+                  if (response.data.success) {
+                    setSuccess('Test notification sent! Check the notification bell.');
+                  }
+                } catch (error) {
+                  setError('Failed to send test notification: ' + (error.response?.data?.message || error.message));
+                }
+              }}
+            >
+              Test Personal Notification
+            </button>
+            
+            {(currentUser.role === 'admin' || currentUser.role === 'security') && (
+              <button
+                type="button"
+                className="login-button"
+                style={{ backgroundColor: '#8E8D8A', padding: '8px 15px', fontSize: '14px' }}
+                onClick={async () => {
+                  try {
+                    const response = await axios.post(
+                      `${API_BASE_URL}/api/debug/security-notification`,
+                      { message: 'This is a test security notification!' },
+                      { headers: { Authorization: `Bearer ${currentUser.token}` } }
+                    );
+                    if (response.data.success) {
+                      setSuccess('Test security notification sent! Security staff should receive it.');
+                    }
+                  } catch (error) {
+                    setError('Failed to send security notification: ' + (error.response?.data?.message || error.message));
+                  }
+                }}
+              >
+                Test Security Notification
+              </button>
+            )}
+          </div>
         </div>
       </form>
     </div>
