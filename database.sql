@@ -3,6 +3,7 @@ DROP DATABASE IF EXISTS lost_and_found_system;
 CREATE DATABASE lost_and_found_system;
 USE lost_and_found_system;
 
+
 -- USERS TABLE
 DROP TABLE IF EXISTS Users;
 CREATE TABLE Users (

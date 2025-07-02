@@ -1,6 +1,7 @@
 import emailjs from '@emailjs/browser';
 import { emailConfig } from '../config';
 
+
 // Initialize EmailJS with your public key
 const initEmailJS = () => {
   try {
