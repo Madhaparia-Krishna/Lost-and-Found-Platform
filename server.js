@@ -27,6 +27,15 @@ if (!fs.existsSync(uploadsDir)) {
   console.log('Created uploads directory');
 }
 
+// Log all files in uploads directory for debugging
+fs.readdir(uploadsDir, (err, files) => {
+  if (err) {
+    console.error('Error reading uploads directory:', err);
+  } else {
+    console.log('Files in uploads directory:', files);
+  }
+});
+
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
     cb(null, 'uploads/');
@@ -94,21 +103,28 @@ app.use(bodyParser.json());
 
 // Ensure uploads directory is properly served with absolute path
 app.use('/uploads', (req, res, next) => {
-  
   // Add CORS headers for images
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET');
   res.setHeader('Cache-Control', 'public, max-age=3600');
   
-  // Check if file exists and log full path
-  const filePath = path.join(__dirname, 'uploads', req.url);
+  // Get the requested file path
+  const requestedFile = req.path.replace(/^\/+/, ''); // Remove leading slashes
+  const filePath = path.join(__dirname, 'uploads', requestedFile);
+  
+  console.log(`Image request: ${req.path}`);
+  console.log(`Looking for file: ${filePath}`);
+  
+  // Check if file exists
   if (fs.existsSync(filePath)) {
     console.log(`Image file exists: ${filePath}`);
+    // Serve the file directly
+    res.sendFile(filePath);
   } else {
     console.log(`Image file does not exist: ${filePath}`);
+    // Continue to next middleware (which will likely return 404)
+    next();
   }
-  
-  next();
 }, express.static(path.join(__dirname, 'uploads')));
 
 app.use(express.static('public')); // Serve static files from public directory

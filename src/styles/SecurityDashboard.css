@@ -589,66 +589,41 @@
 
 /* Pending Items Section */
 .pending-items-header {
-  margin-bottom: 1.5rem;
-  padding: 1rem;
-  background-color: #f9f5f0;
-  border-left: 4px solid #E98074;
-  border-radius: 4px;
-}
-
-.pending-items-header h3 {
-  margin-top: 0;
-  margin-bottom: 0.5rem;
-  color: #333;
-  font-size: 1.4rem;
+  margin-bottom: 20px;
 }
 
 .approval-instructions {
-  color: #4D4C4A;
-}
-
-.approval-instructions p {
-  margin-bottom: 0.5rem;
-}
-
-.approval-instructions i {
-  color: #E98074;
-  margin-right: 0.5rem;
+  background-color: #f8f9fa;
+  padding: 15px;
+  border-radius: 5px;
+  border-left: 4px solid #17a2b8;
+  margin-bottom: 20px;
 }
 
 .no-pending-items {
-  padding: 0.5rem;
-  background-color: #d4edda;
-  color: #155724;
-  border-radius: 4px;
-  margin-top: 0.5rem;
-}
-
-.no-pending-items i {
   color: #28a745;
-  margin-right: 0.5rem;
+  font-weight: bold;
+  margin-top: 10px;
 }
 
 .pending-count {
-  margin-top: 0.5rem;
-  font-weight: 500;
-  color: #4D4C4A;
+  margin-top: 10px;
+  font-weight: bold;
 }
 
 .pending-count .badge {
   font-size: 1rem;
-  margin-right: 0.5rem;
-  padding: 0.3rem 0.6rem;
-  background-color: #E98074;
-  color: white;
+  padding: 5px 10px;
+  margin-right: 5px;
 }
 
 .pending-approval-row {
-  background-color: #f9f5f0;
+  background-color: rgba(255, 193, 7, 0.1) !important;
+  border-left: 4px solid #ffc107;
 }
 
 .pending-approval-row:hover {
-  background-color: #f2ece3;
+  background-color: rgba(255, 193, 7, 0.2) !important;
 }
 
 /* Table styling */

@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Image Test</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+    .image-test {
+      margin-bottom: 30px;
+      border: 1px solid #ddd;
+      padding: 15px;
+      border-radius: 5px;
+    }
+    .image-container {
+      margin-top: 10px;
+      border: 1px dashed #ccc;
+      padding: 10px;
+      text-align: center;
+    }
+    img {
+      max-width: 100%;
+      max-height: 300px;
+    }
+    .success {
+      color: green;
+      font-weight: bold;
+    }
+    .error {
+      color: red;
+      font-weight: bold;
+    }
+    input {
+      width: 100%;
+      padding: 8px;
+      margin-bottom: 10px;
+    }
+  </style>
+</head>
+<body>
+  <h1>Image Loading Test</h1>
+  
+  <div class="image-test">
+    <h2>Test Image</h2>
+    <input type="text" id="imageInput" value="1751726708112-keys.jpeg" placeholder="Enter image filename">
+    <button onclick="updateImage()">Update Image</button>
+    
+    <div class="image-container">
+      <h3>Direct Path</h3>
+      <img id="directImage" src="/uploads/1751726708112-keys.jpeg" alt="Test Image">
+      <p id="directPath">/uploads/1751726708112-keys.jpeg</p>
+      <p id="directStatus"></p>
+    </div>
+    
+    <div class="image-container">
+      <h3>Full URL Path</h3>
+      <img id="fullUrlImage" src="http://localhost:5000/uploads/1751726708112-keys.jpeg" alt="Test Image">
+      <p id="fullUrlPath">http://localhost:5000/uploads/1751726708112-keys.jpeg</p>
+      <p id="fullUrlStatus"></p>
+    </div>
+    
+    <div class="image-container">
+      <h3>Relative Path</h3>
+      <img id="relativeImage" src="../uploads/1751726708112-keys.jpeg" alt="Test Image">
+      <p id="relativePath">../uploads/1751726708112-keys.jpeg</p>
+      <p id="relativeStatus"></p>
+    </div>
+  </div>
+  
+  <div class="image-test">
+    <h2>All Uploads Test</h2>
+    <div id="allUploads">
+      <p>Loading uploads directory...</p>
+    </div>
+  </div>
+
+  <script>
+    // Check if images loaded successfully
+    document.getElementById('directImage').onload = function() {
+      document.getElementById('directStatus').innerHTML = '<span class="success">Image loaded successfully!</span>';
+    };
+    document.getElementById('directImage').onerror = function() {
+      document.getElementById('directStatus').innerHTML = '<span class="error">Failed to load image!</span>';
+    };
+    
+    document.getElementById('fullUrlImage').onload = function() {
+      document.getElementById('fullUrlStatus').innerHTML = '<span class="success">Image loaded successfully!</span>';
+    };
+    document.getElementById('fullUrlImage').onerror = function() {
+      document.getElementById('fullUrlStatus').innerHTML = '<span class="error">Failed to load image!</span>';
+    };
+    
+    document.getElementById('relativeImage').onload = function() {
+      document.getElementById('relativeStatus').innerHTML = '<span class="success">Image loaded successfully!</span>';
+    };
+    document.getElementById('relativeImage').onerror = function() {
+      document.getElementById('relativeStatus').innerHTML = '<span class="error">Failed to load image!</span>';
+    };
+    
+    // Function to update all images with new filename
+    function updateImage() {
+      const filename = document.getElementById('imageInput').value;
+      
+      document.getElementById('directImage').src = `/uploads/${filename}`;
+      document.getElementById('directPath').textContent = `/uploads/${filename}`;
+      
+      document.getElementById('fullUrlImage').src = `http://localhost:5000/uploads/${filename}`;
+      document.getElementById('fullUrlPath').textContent = `http://localhost:5000/uploads/${filename}`;
+      
+      document.getElementById('relativeImage').src = `../uploads/${filename}`;
+      document.getElementById('relativePath').textContent = `../uploads/${filename}`;
+    }
+    
+    // Try to fetch all uploads
+    fetch('/uploads')
+      .then(response => {
+        if (!response.ok) {
+          throw new Error('Failed to access uploads directory');
+        }
+        return response.text();
+      })
+      .then(html => {
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(html, 'text/html');
+        const links = Array.from(doc.querySelectorAll('a'));
+        
+        const uploadsDiv = document.getElementById('allUploads');
+        uploadsDiv.innerHTML = '<h3>Available Files</h3><ul>';
+        
+        links.forEach(link => {
+          if (link.href.includes('/uploads/') && !link.href.endsWith('/uploads/')) {
+            const filename = link.href.split('/').pop();
+            uploadsDiv.innerHTML += `
+              <li>
+                <a href="${link.href}" target="_blank">${filename}</a>
+                <img src="${link.href}" alt="${filename}" style="max-height: 50px; margin-left: 10px;">
+              </li>
+            `;
+          }
+        });
+        
+        uploadsDiv.innerHTML += '</ul>';
+      })
+      .catch(error => {
+        document.getElementById('allUploads').innerHTML = `
+          <p class="error">Error: ${error.message}</p>
+          <p>The server may not be configured to show directory listings.</p>
+        `;
+      });
+  </script>
+</body>
+</html> 

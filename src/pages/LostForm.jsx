@@ -94,17 +94,6 @@ const LostForm = ({ currentUserId }) => {
         throw new Error('Authentication token is missing. Please log out and log in again.');
       }
 
-      // Log form data for debugging
-      console.log('Submitting form data:', {
-        title: formData.title,
-        category: formData.category,
-        subcategory: formData.subcategory,
-        location: formData.location,
-        date: formData.date,
-        description: formData.description,
-        image: formData.image ? 'Image file present' : 'No image'
-      });
-
       // Creating a JSON payload for the item data
       const jsonPayload = {
         title: formData.title,
@@ -121,22 +110,15 @@ const LostForm = ({ currentUserId }) => {
       let imageFilename = null;
       if (formData.image) {
         try {
-          console.log('Uploading image...');
           const uploadResult = await itemsApi.uploadImage(formData.image);
           imageFilename = uploadResult.filename;
-          console.log('Image uploaded successfully:', imageFilename);
         } catch (uploadError) {
           console.error('Image upload error:', uploadError);
           // Continue with form submission even if image upload fails
           setActionStatus({ 
             type: 'warning', 
-            message: `Note: Image upload failed (${uploadError.message}), but you can still submit the form.` 
+            message: `Note: Image upload failed, but continuing with form submission.` 
           });
-          
-          // Clear warning after 5 seconds
-          setTimeout(() => {
-            setActionStatus(null);
-          }, 5000);
         }
       }
 
@@ -144,13 +126,10 @@ const LostForm = ({ currentUserId }) => {
       if (imageFilename) {
         jsonPayload.image = imageFilename;
       }
-
-      console.log('Sending JSON payload to server:', jsonPayload);
       
-      // Submit the item data using the API utility
+      // Submit the item data using the optimized API utility
       const response = await itemsApi.reportLost(jsonPayload);
-      console.log('Server response:', response);
-
+      
       setSubmitSuccess(true);
       setFormData({
         title: '',
@@ -172,46 +151,10 @@ const LostForm = ({ currentUserId }) => {
       setActionStatus({ type: 'success', message: 'Lost item reported successfully!' });
     } catch (err) {
       console.error('Form submission error:', err);
-      
-      // Provide more detailed error messages
-      if (err.response) {
-        // The request was made and the server responded with a status code
-        // that falls out of the range of 2xx
-        if (err.response.status === 401) {
-          setActionStatus({ 
-            type: 'error', 
-            message: 'Authentication error: Your session may have expired. Please log out and log in again.' 
-          });
-        } else if (err.response.status === 403) {
-          setActionStatus({ 
-            type: 'error', 
-            message: 'Permission denied: You do not have permission to submit lost items.' 
-          });
-        } else if (err.response.data && err.response.data.message) {
-          setActionStatus({ 
-            type: 'error', 
-            message: `Server error: ${err.response.data.message}` 
-          });
-        } else {
-          setActionStatus({ 
-            type: 'error', 
-            message: `Server error (${err.response.status}): Please try again later.` 
-          });
-        }
-      } else if (err.request) {
-        // The request was made but no response was received
-        setActionStatus({ 
-          type: 'error', 
-          message: 'Network error: No response received from server. Please check your internet connection.' 
-        });
-      } else {
-        // Something happened in setting up the request that triggered an Error
-        setActionStatus({ 
-          type: 'error', 
-          message: err.message || 'An unexpected error occurred. Please try again.' 
-        });
-      }
-      
+      setActionStatus({ 
+        type: 'error', 
+        message: err.message || 'Failed to submit lost item report. Please try again.'
+      });
       setSubmitError(err.message || 'An unexpected error occurred. Please try again.');
     } finally {
       setIsSubmitting(false);

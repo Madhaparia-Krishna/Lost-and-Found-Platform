@@ -145,13 +145,15 @@ export const itemsApi = {
         const response = await axios.get(url);
         
         let items = response.data;
-        console.log(`Received ${items?.length || 0} items from server`);
+        console.log(`Initial items from server:`, items);
         
         // Double check filtering by status if needed
         if (status && Array.isArray(items)) {
-          console.log(`Filtering ${items.length} items for status: ${status}`);
+          console.log(`Pre-status filtering - Items count: ${items.length}`);
+          console.log('Items before status filtering:', items.map(item => ({ id: item.id, status: item.status })));
           items = items.filter(item => item.status === status);
-          console.log(`After filtering: ${items.length} items`);
+          console.log(`Post-status filtering - Items count: ${items.length}`);
+          console.log('Items after status filtering:', items.map(item => ({ id: item.id, status: item.status })));
         }
         
         // For found items, only show approved items to regular users
@@ -164,6 +166,7 @@ export const itemsApi = {
             try {
               const userData = JSON.parse(user);
               isSecurityOrAdmin = userData.role === 'security' || userData.role === 'admin';
+              console.log('User role check:', { role: userData.role, isSecurityOrAdmin });
             } catch (error) {
               console.error('Error parsing user data:', error);
             }
@@ -171,13 +174,16 @@ export const itemsApi = {
           
           // If not security or admin, filter for approved items only
           if (!isSecurityOrAdmin) {
-            console.log('Filtering for approved items only');
-            items = items.filter(item => 
-              item.is_approved === true || 
-              item.is_approved === 1 || 
-              item.is_approved === '1'
-            );
-            console.log(`After approval filtering: ${items.length} items`);
+            console.log('Pre-approval filtering - Items count:', items.length);
+            console.log('Items before approval filtering:', items.map(item => ({ id: item.id, is_approved: item.is_approved, type: typeof item.is_approved })));
+            items = items.filter(item => {
+              // Convert is_approved to a number for consistent comparison
+              const approvalValue = Number(item.is_approved);
+              console.log(`Item ${item.id}: is_approved=${item.is_approved} (${typeof item.is_approved}) -> approvalValue=${approvalValue} (${typeof approvalValue})`);
+              return approvalValue === 1;
+            });
+            console.log('Post-approval filtering - Items count:', items.length);
+            console.log('Items after approval filtering:', items.map(item => ({ id: item.id, is_approved: item.is_approved })));
           }
         }
         
@@ -339,11 +345,36 @@ export const itemsApi = {
   // Report lost item
   reportLost: async (itemData, token) => {
     try {
-      const config = token ? { headers: { Authorization: `Bearer ${token}` } } : {};
+      // Get token if not provided
+      if (!token) {
+        const user = localStorage.getItem('user');
+        if (user) {
+          try {
+            const userData = JSON.parse(user);
+            token = userData.token;
+          } catch (error) {
+            console.error('Error parsing user data:', error);
+          }
+        }
+      }
+      
+      const config = token ? { 
+        headers: { 
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        timeout: 8000 // Reduced timeout for faster response
+      } : {};
+      
+      // Use a direct endpoint to avoid redirects
+      console.log('Reporting lost item with optimized call');
       const response = await axios.post('/items/lost', itemData, config);
-      return handleResponse(response);
+      return response.data;
     } catch (error) {
-      return handleError(error);
+      console.error('Error reporting lost item:', error);
+      // Simplified error handling for faster response
+      const errorMessage = error.response?.data?.message || error.message || 'Failed to report lost item';
+      throw new Error(errorMessage);
     }
   },
   
@@ -751,7 +782,16 @@ export const securityApi = {
         console.log('Trying direct axios call to /api/security/pending-items');
         const response = await axios.get(`${API_BASE_URL}/api/security/pending-items`, config);
         console.log('Pending items direct response:', response.data);
-        return response.data;
+        
+        // Ensure we're getting found items with is_approved = 0
+        const pendingItems = Array.isArray(response.data) ? response.data.filter(item => 
+          item.status === 'found' && 
+          (item.is_approved === false || item.is_approved === 0 || item.is_approved === '0') && 
+          item.is_deleted !== true
+        ) : [];
+        
+        console.log('Filtered pending items from direct response:', pendingItems.length);
+        return pendingItems;
       } catch (directError) {
         console.error('Direct endpoint failed:', directError);
         

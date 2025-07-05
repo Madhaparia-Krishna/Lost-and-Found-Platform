@@ -21,7 +21,7 @@ const FoundItems = () => {
   const [filters, setFilters] = useState({
     category: '',
     location: '',
-    dateRange: '30'
+    dateRange: '365'
   });
 
   useEffect(() => {
@@ -67,7 +67,7 @@ const FoundItems = () => {
     setFilters({
       category: '',
       location: '',
-      dateRange: '30'
+      dateRange: '365'
     });
   };
 
@@ -136,10 +136,18 @@ const FoundItems = () => {
 
   // Filter and sort items based on search term and selected category
   const filteredItems = useMemo(() => {
+    console.log('Starting item filtering in FoundItems component');
+    console.log('Initial items:', items);
+    
     let filtered = [...items];
+    console.log('Items after spread:', filtered);
     
     // Ensure we only show 'found' status items
-    filtered = filtered.filter(item => item.status === 'found');
+    filtered = filtered.filter(item => {
+      console.log(`Checking item ${item.id}: status=${item.status}`);
+      return item.status === 'found';
+    });
+    console.log('After status filtering:', filtered);
     
     // Apply search filter
     if (searchTerm) {
@@ -150,6 +158,7 @@ const FoundItems = () => {
         (item.category && item.category.toLowerCase().includes(search)) ||
         (item.location && item.location.toLowerCase().includes(search))
       );
+      console.log('After search filtering:', filtered);
     }
     
     // Apply additional filters
@@ -157,12 +166,14 @@ const FoundItems = () => {
       filtered = filtered.filter(item => 
         item.category === filters.category
       );
+      console.log('After category filtering:', filtered);
     }
     
     if (filters.location && filters.location !== '') {
       filtered = filtered.filter(item => 
         item.location === filters.location
       );
+      console.log('After location filtering:', filtered);
     }
     
     if (filters.dateRange && filters.dateRange !== '') {
@@ -171,31 +182,38 @@ const FoundItems = () => {
       
       filtered = filtered.filter(item => {
         if (!item.date) return true; // Include items without dates
-        const itemDate = new Date(item.date);
-        return itemDate >= date;
+        try {
+          const itemDate = new Date(item.date);
+          // Check if it's a valid date
+          if (isNaN(itemDate.getTime())) {
+            console.log(`Invalid date for item ${item.id}:`, item.date);
+            return true; // Include items with invalid dates
+          }
+          console.log(`Comparing dates for item ${item.id}:`, {
+            itemDate: itemDate.toISOString(),
+            filterDate: date.toISOString(),
+            isIncluded: itemDate >= date
+          });
+          return itemDate >= date;
+        } catch (error) {
+          console.log(`Error parsing date for item ${item.id}:`, error);
+          return true; // Include items with unparseable dates
+        }
       });
+      console.log('After date filtering:', filtered.map(item => ({id: item.id, date: item.date})));
     }
     
-    // Process items to ensure they have proper image paths and format
-    const processedItems = filtered.map(item => {
-      // Ensure image path is correctly formatted
+    // Log all image filenames for debugging
+    filtered.forEach(item => {
       if (item.image) {
-        // If it's just a filename without a path, add the full path
-        if (!item.image.startsWith('http') && !item.image.startsWith('/')) {
-          item.image = `${API_BASE_URL}/uploads/${item.image}`;
-        }
-        // If it already has /uploads in the path but is missing the base URL
-        else if (item.image.startsWith('/uploads/')) {
-          item.image = `${API_BASE_URL}${item.image}`;
-        }
-        
-        console.log('Image path in grid:', item.image);
+        console.log(`Item ${item.id} image:`, item.image);
+      } else {
+        console.log(`Item ${item.id} has no image`);
       }
-      return item;
     });
     
-    console.log('Filtered items:', processedItems);
-    return processedItems;
+    console.log('Final filtered items:', filtered);
+    return filtered;
   }, [items, filters, searchTerm]);
 
   // Handle search input change
@@ -273,9 +291,16 @@ const FoundItems = () => {
             <div key={item.id} className="item-card">
               <div className="item-image">
                 <Image
-                  src={item.image}
+                  src={item.image || ''}
                   alt={item.title}
                   className="item-image"
+                  onError={() => console.log(`Failed to load image for item: ${item.id}`)}
+                  onLoad={() => console.log(`Successfully loaded image for item: ${item.id}`)}
+                  style={{
+                    width: '100%',
+                    height: '200px',
+                    objectFit: 'cover'
+                  }}
                 />
               </div>
               

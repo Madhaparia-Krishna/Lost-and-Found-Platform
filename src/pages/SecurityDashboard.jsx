@@ -181,17 +181,27 @@ const SecurityDashboard = () => {
       const itemsArray = await securityApi.getPendingItems();
       console.log("Received pending items:", itemsArray);
       
+      // Filter to only include found items with is_approved = 0
+      const pendingFoundItems = Array.isArray(itemsArray) ? itemsArray.filter(item => {
+        return item.status === 'found' && 
+              (item.is_approved === false || 
+               item.is_approved === 0 || 
+               item.is_approved === '0');
+      }) : [];
+      
+      console.log("Filtered pending found items:", pendingFoundItems);
+      
       // If there are pending items, automatically show the pending items tab
-      if (itemsArray && itemsArray.length > 0 && activeKey === 'dashboard') {
+      if (pendingFoundItems.length > 0 && activeKey === 'dashboard') {
         setActiveKey('pendingItems');
       }
       
-      setPendingItems(Array.isArray(itemsArray) ? itemsArray : []);
+      setPendingItems(pendingFoundItems);
       
       // Update stats
       setStats(prevStats => ({
         ...prevStats,
-        pendingItems: Array.isArray(itemsArray) ? itemsArray.length : 0
+        pendingItems: pendingFoundItems.length
       }));
     } catch (error) {
       console.error('Error fetching pending items:', error);
@@ -787,7 +797,7 @@ const SecurityDashboard = () => {
           <div className="approval-instructions">
             <p>
               <i className="fas fa-info-circle"></i> Found items require your approval before they become visible to users. 
-              Lost items are automatically approved and don't appear here.
+              Only items with is_approved = 0 are shown here.
             </p>
             {itemsToRender.length === 0 ? (
               <div className="no-pending-items">
@@ -806,6 +816,7 @@ const SecurityDashboard = () => {
         <thead>
           <tr>
             <th>ID</th>
+            <th>Image</th>
             <th>Name</th>
             <th>Category</th>
             <th>Status</th>
@@ -818,15 +829,31 @@ const SecurityDashboard = () => {
         <tbody>
           {itemsToRender.length > 0 ? (
             itemsToRender.map(item => (
-              <tr key={item.id} className={item.status === 'found' && !item.is_approved ? 'pending-approval-row' : ''}>
+              <tr key={item.id} className={item.status === 'found' && (item.is_approved === 0 || item.is_approved === false || item.is_approved === '0') ? 'pending-approval-row' : ''}>
                 <td>{item.id}</td>
+                <td>
+                  {item.image ? (
+                    <img 
+                      src={`${API_BASE_URL}/uploads/${item.image}`} 
+                      alt={item.title || 'Item'} 
+                      style={{ width: '50px', height: '50px', objectFit: 'cover', borderRadius: '4px' }} 
+                      onError={(e) => { e.target.onerror = null; e.target.src = fallbackImageSrc; }}
+                    />
+                  ) : (
+                    <img 
+                      src={fallbackImageSrc} 
+                      alt="No image" 
+                      style={{ width: '50px', height: '50px', objectFit: 'cover', borderRadius: '4px' }} 
+                    />
+                  )}
+                </td>
                 <td>{item.name || item.title}</td>
                 <td>{item.category}</td>
                 <td><Badge bg={item.status === 'lost' ? 'danger' : 'success'}>{item.status}</Badge></td>
                 <td>
                   {item.is_approved !== undefined ? (
-                    <Badge bg={item.is_approved ? 'success' : 'warning'}>
-                      {item.is_approved ? 'Yes' : 'No'}
+                    <Badge bg={item.is_approved === true || item.is_approved === 1 || item.is_approved === '1' ? 'success' : 'warning'}>
+                      {item.is_approved === true || item.is_approved === 1 || item.is_approved === '1' ? 'Yes' : 'No'}
                     </Badge>
                   ) : (
                     'N/A'
@@ -873,7 +900,7 @@ const SecurityDashboard = () => {
             ))
           ) : (
             <tr>
-              <td colSpan={showActions ? "8" : "7"} className="text-center">
+              <td colSpan={showActions ? "9" : "8"} className="text-center">
                 <p>No items to display.</p>
               </td>
             </tr>
@@ -1163,7 +1190,7 @@ const SecurityDashboard = () => {
         </div>
 
         <div className="tab-content">
-          {activeKey === 'dashboard' && renderDashboard()}\n          {activeKey === 'pendingItems' && renderItemsTable(pendingItems)}
+          {activeKey === 'dashboard' && renderDashboard()}          {activeKey === 'pendingItems' && renderItemsTable(pendingItems)}
           {activeKey === 'approvedItems' && renderItemsTable(approvedItems, false)}
           {activeKey === 'requestedItems' && renderItemsTable(requestedItems)}
           {activeKey === 'users' && renderUsersTab()}

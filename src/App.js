@@ -5,6 +5,7 @@ import { NotificationProvider } from './context/NotificationContext';
 import { Toaster } from 'react-hot-toast';
 import Navbar from './components/Navbar';
 import NotificationBell from './components/NotificationBell';
+import TestImage from './components/TestImage';
 
 // Layouts
 import DashboardLayout from './components/layouts/DashboardLayout';
@@ -160,6 +161,9 @@ const AppContent = () => {
               <TestMatchPage />
             </PrivateRoute>
           } />
+          
+          {/* TestImage route */}
+          <Route path="/test-image" element={<TestImage />} />
           
           {/* Catch-all route */}
           <Route path="*" element={<NotFound />} />
