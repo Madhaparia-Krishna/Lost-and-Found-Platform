@@ -449,11 +449,12 @@ const ViewAllItems = () => {
                      item.status === 'received' ? 'Received' : 'Unknown'}
                   </div>
                   
-                  <div className="square-image">
+                  <div className="square-image" style={{ width: '100%', aspectRatio: '1/1', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f8f8f8', borderRadius: '10px', overflow: 'hidden' }}>
                     {item.image && !imageErrors[item.id] ? (
                       <img 
                         src={`${API_BASE_URL}/uploads/${item.image}`}
                         alt={item.title || 'Found Item'}
+                        style={{ maxWidth: '80%', maxHeight: '80%', width: 'auto', height: 'auto', objectFit: 'contain', borderRadius: '8px', background: '#f8f8f8', display: 'block', margin: '0 auto' }}
                         onError={(e) => {
                           e.target.onerror = null;
                           e.target.src = fallbackImageSrc;
@@ -490,4 +491,4 @@ const ViewAllItems = () => {
   );
 };
 
-export default ViewAllItems; 
+export default ViewAllItems;

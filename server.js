@@ -2412,25 +2412,18 @@ app.put('/api/security/requests/:itemId/approve', authenticateToken, async (req,
     
     console.log(`Found item ${itemId}: status=${itemCheck[0].status}, request_user_id=${itemCheck[0].request_user_id || 'null'}`);
     
-    // If item exists but is not in requested status, update it
-    if (itemCheck[0].status !== 'requested') {
-      console.log(`Item ${itemId} exists but has status "${itemCheck[0].status}" instead of "requested". Updating status.`);
-      await pool.query('UPDATE Items SET status = "requested" WHERE id = ?', [itemId]);
-      console.log(`Updated item ${itemId} status to "requested"`);
-    }
-    
     // Use the fetched item
     const item = itemCheck[0];
     
-    // Update the request status to approved
+    // Update the item status to returned and request status to approved
     try {
       await pool.query(
-        'UPDATE Items SET request_status = "approved" WHERE id = ?',
+        'UPDATE Items SET status = "returned", request_status = "approved" WHERE id = ?',
         [itemId]
       );
-      console.log(`Updated request_status to approved for item ${itemId}`);
+      console.log(`Updated item ${itemId} status to "returned" and request_status to "approved"`);
     } catch (updateError) {
-      console.error('Error updating request_status:', updateError);
+      console.error('Error updating item status:', updateError);
       // Continue processing even if this specific update fails
     }
     

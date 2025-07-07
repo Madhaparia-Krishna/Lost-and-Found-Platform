@@ -262,8 +262,9 @@ const ItemDetail = () => {
           <div className="item-actions">
             {isClaimable && (
               <button onClick={handleClaimRequest} className="claim-btn">
-                <i className="fas fa-hand-paper"></i> Claim This Item
+                <i className="fas fa-hand-paper"></i> Request This Item
               </button>
+              
             )}
             
             {canEdit && (

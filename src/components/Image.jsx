@@ -79,7 +79,7 @@ const Image = ({
         src={error ? FALLBACK_IMAGE : imageUrl}
         alt={alt}
         style={{ 
-          objectFit: 'cover',
+          objectFit: 'contain',
           borderRadius: '8px',
           opacity: isLoading ? 0.5 : 1,
           transition: 'opacity 0.3s ease',
