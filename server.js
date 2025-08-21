@@ -312,12 +312,10 @@ app.post('/api/login', async (req, res) => {
   }
   
   try {
-    // Find user in database
+    // Find user in database (regardless of is_deleted status)
     console.log('Attempting to find user with email:', email);
-    const [users] = await pool.query('SELECT * FROM Users WHERE email = ? AND is_deleted = FALSE', [email]);
-    
-    console.log('Users found with that email:', users.length);
-    if (users.length === 0) {
+    const [usersAll] = await pool.query('SELECT * FROM Users WHERE email = ?', [email]);
+    if (usersAll.length === 0) {
       console.log('No account found with email:', email);
       return res.status(401)
         .header('Content-Type', 'application/json')
@@ -327,8 +325,17 @@ app.post('/api/login', async (req, res) => {
           errorType: 'account_not_found'
         });
     }
-    
-    const user = users[0];
+    const user = usersAll[0];
+    if (user.is_deleted) {
+      console.log('Account is blocked for user:', user.id);
+      return res.status(403)
+        .header('Content-Type', 'application/json')
+        .json({
+          message: 'Your account has been blocked. Please contact support for assistance.',
+          success: false,
+          errorType: 'account_blocked'
+        });
+    }
     
     // Compare password
     console.log('Comparing password for user:', user.id);

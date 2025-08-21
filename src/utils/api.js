@@ -101,15 +101,18 @@ const handleError = (error) => {
     const errorMessage = error.response.data?.message || 'An unknown error occurred';
     
     // Specific handling for authentication errors
-    if (error.response.status === 401) {
-      console.error('Authentication error (401):', error.response.data);
-      
+    if (error.response.status === 401 || error.response.status === 403) {
+      console.error('Authentication error:', error.response.data);
+      // Check for blocked account error
+      if (error.response.data?.errorType === 'account_blocked' ||
+          error.response.data?.message?.toLowerCase().includes('blocked')) {
+        return Promise.reject(new Error('Your account has been blocked. Please contact support for assistance.'));
+      }
       // Check for wrong password error
       if (error.response.data?.errorType === 'wrong_password' || 
           error.response.data?.message.includes('Wrong password')) {
         return Promise.reject(new Error('Wrong password. Please try again.'));
       }
-      
       return Promise.reject(new Error(errorMessage || 'Authentication failed'));
     }
     
@@ -617,36 +620,19 @@ export const authApi = {
       console.log('Login attempt with:', credentials.email);
       const response = await axios.post('/api/login', credentials);
       console.log('Login response received:', response.status);
-      
       // Make sure we return the user object from the response
       const data = handleResponse(response);
-      
-      // Check if response has user property
       if (data && data.user) {
         console.log('Login successful, returning user data');
         return data.user;
       }
-      
-      // If response doesn't have user property but has the necessary data itself
       if (data && data.token) {
         console.log('Login successful, returning data directly');
         return data;
       }
-      
-      // If we don't have proper data, throw an error
       throw new Error('Invalid response format from server');
     } catch (error) {
-      console.error('Login error details:', error);
-      
-      // Specific error handling for authentication failures
-      if (error.response && error.response.status === 401) {
-        const errorMessage = error.response.data?.message || 'Authentication failed';
-        console.log('Authentication error:', errorMessage);
-        throw new Error(errorMessage);
-      }
-      
-      // For other errors
-      throw new Error(error.message || 'Login failed. Please try again.');
+      return handleError(error);
     }
   },
   

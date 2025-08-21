@@ -726,8 +726,12 @@ const SecurityDashboard = () => {
       const bannedUserName = userToBan.name || 'User';
       const banReasonText = banReason;
       
-      // Close modal immediately for better UX
+      // Close modal immediately for better UX - ensure this happens before API call
       setShowBanModal(false);
+      
+      // Clear inputs immediately
+      setUserToBan(null);
+      setBanReason('');
       
       // Update the local users array - optimistic update
       setUsers(prevUsers => 
@@ -737,10 +741,6 @@ const SecurityDashboard = () => {
             : user
         )
       );
-      
-      // Clear inputs
-      setUserToBan(null);
-      setBanReason('');
       
       // Make the API call
       const response = await securityApi.banUser(bannedUserId, banReasonText);
@@ -762,6 +762,9 @@ const SecurityDashboard = () => {
     } catch (error) {
       console.error('Error banning user:', error);
       
+      // Make sure modal is closed even on error
+      setShowBanModal(false);
+      
       setActionStatus({
         type: 'error',
         message: `Failed to ban user: ${error.message || 'Unknown error'}`
@@ -778,7 +781,9 @@ const SecurityDashboard = () => {
         );
       }
     } finally {
+      // Ensure modal is closed and loading state is reset
       setActionLoading(false);
+      setShowBanModal(false);
     }
   };
 
@@ -797,7 +802,6 @@ const SecurityDashboard = () => {
           <div className="approval-instructions">
             <p>
               <i className="fas fa-info-circle"></i> Found items require your approval before they become visible to users. 
-              Only items with is_approved = 0 are shown here.
             </p>
             {itemsToRender.length === 0 ? (
               <div className="no-pending-items">

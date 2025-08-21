@@ -78,7 +78,9 @@ const AuthForms = ({ initialForm = 'login' }) => {
       
       // Show specific message for different error types
       if (err.message) {
-        if (err.message.includes('Wrong password') || 
+        if (err.message.toLowerCase().includes('blocked')) {
+          setError('Your account has been blocked. Please contact support for assistance.');
+        } else if (err.message.includes('Wrong password') || 
             err.message.includes('Invalid password') ||
             err.message.includes('password is incorrect') ||
             err.message.includes('INVALID_PASSWORD')) {
