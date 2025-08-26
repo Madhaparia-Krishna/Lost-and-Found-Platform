@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lost@Campus - Security Dashboard</title>
+    <link rel="stylesheet" href="shared-styles.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        .security-header {
+            background: linear-gradient(135deg, #3a5683, #2c3e50);
+            color: white;
+            padding: var(--spacing-lg);
+            text-align: center;
+        }
+
+        .security-title {
+            font-size: var(--font-size-xl);
+            font-weight: 700;
+            margin-bottom: var(--spacing-xs);
+        }
+
+        .security-subtitle {
+            font-size: var(--font-size-sm);
+            opacity: 0.9;
+        }
+
+        .stats-overview {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: var(--spacing-md);
+            padding: var(--spacing-md);
+        }
+
+        .stat-card {
+            background: white;
+            border-radius: var(--border-radius-md);
+            padding: var(--spacing-md);
+            text-align: center;
+            box-shadow: var(--shadow-sm);
+        }
+
+        .stat-number {
+            font-size: var(--font-size-xl);
+            font-weight: 700;
+            color: #3a5683;
+            margin-bottom: var(--spacing-xs);
+        }
+
+        .stat-label {
+            font-size: var(--font-size-sm);
+            color: var(--gray-600);
+        }
+
+        .security-actions {
+            padding: var(--spacing-md);
+        }
+
+        .action-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: var(--spacing-md);
+        }
+
+        .action-card {
+            background: white;
+            border-radius: var(--border-radius-md);
+            padding: var(--spacing-lg);
+            text-align: center;
+            box-shadow: var(--shadow-sm);
+            cursor: pointer;
+            transition: all 0.2s;
+            border: 2px solid transparent;
+        }
+
+        .action-card:hover {
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-md);
+            border-color: #3a5683;
+        }
+
+        .action-icon {
+            font-size: var(--font-size-xxl);
+            color: #3a5683;
+            margin-bottom: var(--spacing-sm);
+        }
+
+        .action-title {
+            font-size: var(--font-size-md);
+            font-weight: 600;
+            color: var(--dark-color);
+            margin-bottom: var(--spacing-xs);
+        }
+
+        .action-description {
+            font-size: var(--font-size-sm);
+            color: var(--gray-600);
+        }
+
+        .pending-items {
+            background: white;
+            margin: var(--spacing-md);
+            border-radius: var(--border-radius-md);
+            padding: var(--spacing-lg);
+            box-shadow: var(--shadow-sm);
+        }
+
+        .section-title {
+            font-size: var(--font-size-lg);
+            font-weight: 600;
+            color: var(--dark-color);
+            margin-bottom: var(--spacing-md);
+        }
+
+        .pending-item {
+            display: flex;
+            align-items: center;
+            padding: var(--spacing-md);
+            border: 1px solid var(--gray-200);
+            border-radius: var(--border-radius-sm);
+            margin-bottom: var(--spacing-sm);
+            transition: all 0.2s;
+        }
+
+        .pending-item:hover {
+            box-shadow: var(--shadow-sm);
+            border-color: #3a5683;
+        }
+
+        .item-info {
+            flex: 1;
+        }
+
+        .item-title {
+            font-weight: 600;
+            color: var(--dark-color);
+            margin-bottom: var(--spacing-xs);
+        }
+
+        .item-meta {
+            font-size: var(--font-size-sm);
+            color: var(--gray-600);
+        }
+
+        .item-actions {
+            display: flex;
+            gap: var(--spacing-xs);
+        }
+
+        .btn-approve {
+            background-color: #28a745;
+            color: white;
+            border: none;
+            padding: var(--spacing-xs) var(--spacing-sm);
+            border-radius: var(--border-radius-sm);
+            font-size: var(--font-size-xs);
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn-reject {
+            background-color: #dc3545;
+            color: white;
+            border: none;
+            padding: var(--spacing-xs) var(--spacing-sm);
+            border-radius: var(--border-radius-sm);
+            font-size: var(--font-size-xs);
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn-approve:hover { background-color: #218838; }
+        .btn-reject:hover { background-color: #c82333; }
+
+        .access-denied {
+            text-align: center;
+            padding: var(--spacing-xl);
+            color: #3a5683;
+        }
+
+        .access-denied-icon {
+            font-size: 64px;
+            margin-bottom: var(--spacing-md);
+        }
+    </style>
+</head>
+<body>
+    <div class="mobile-container">
+        <!-- Status Bar -->
+        <div class="status-bar">
+            <div class="status-left">
+                <span class="status-time">09:41</span>
+            </div>
+            <div class="status-right">
+                <i class="fas fa-signal"></i>
+                <i class="fas fa-wifi"></i>
+                <i class="fas fa-battery-three-quarters"></i>
+            </div>
+        </div>
+
+        <!-- App Bar -->
+        <div class="app-bar" style="background-color: #3a5683;">
+            <button class="app-bar-back" onclick="window.location.href='dashboard.html'">
+                <i class="fas fa-arrow-left"></i>
+            </button>
+            <div class="app-bar-title">Security Dashboard</div>
+            <button class="app-bar-action" onclick="navigateTo('profile')">
+                <i class="fas fa-user"></i>
+            </button>
+        </div>
+
+        <!-- Content Area -->
+        <div class="content-area">
+            <div id="security-content">
+                <!-- Security Header -->
+                <div class="security-header">
+                    <h1 class="security-title">Security Dashboard</h1>
+                    <p class="security-subtitle">Item Approval & Security Management</p>
+                </div>
+
+                <!-- Stats Overview -->
+                <div class="stats-overview">
+                    <div class="stat-card">
+                        <div class="stat-number">8</div>
+                        <div class="stat-label">Pending Items</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number">45</div>
+                        <div class="stat-label">Approved Items</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number">12</div>
+                        <div class="stat-label">Active Requests</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number">28</div>
+                        <div class="stat-label">Returned Items</div>
+                    </div>
+                </div>
+
+                <!-- Security Actions -->
+                <div class="security-actions">
+                    <div class="action-grid">
+                        <div class="action-card" onclick="showMessage('Item approval feature - Review and approve/reject found items', 'info')">
+                            <div class="action-icon">
+                                <i class="fas fa-check-circle"></i>
+                            </div>
+                            <h3 class="action-title">Item Approval</h3>
+                            <p class="action-description">Review pending items</p>
+                        </div>
+
+                        <div class="action-card" onclick="showMessage('Claim requests feature - Manage item claim requests from users', 'info')">
+                            <div class="action-icon">
+                                <i class="fas fa-hand-paper"></i>
+                            </div>
+                            <h3 class="action-title">Claim Requests</h3>
+                            <p class="action-description">Manage claims</p>
+                        </div>
+
+                        <div class="action-card" onclick="showMessage('User verification feature - Verify user identity for item claims', 'info')">
+                            <div class="action-icon">
+                                <i class="fas fa-user-check"></i>
+                            </div>
+                            <h3 class="action-title">User Verification</h3>
+                            <p class="action-description">Verify identities</p>
+                        </div>
+
+                        <div class="action-card" onclick="showMessage('Security reports feature - Generate security and audit reports', 'info')">
+                            <div class="action-icon">
+                                <i class="fas fa-file-alt"></i>
+                            </div>
+                            <h3 class="action-title">Security Reports</h3>
+                            <p class="action-description">Generate reports</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Pending Items -->
+                <div class="pending-items">
+                    <h3 class="section-title">Items Awaiting Approval</h3>
+                    
+                    <div class="pending-item">
+                        <div class="item-info">
+                            <div class="item-title">Black iPhone 13</div>
+                            <div class="item-meta">Electronics • Found at Library • 2 hours ago</div>
+                        </div>
+                        <div class="item-actions">
+                            <button class="btn-approve" onclick="approveItem(1)">Approve</button>
+                            <button class="btn-reject" onclick="rejectItem(1)">Reject</button>
+                        </div>
+                    </div>
+
+                    <div class="pending-item">
+                        <div class="item-info">
+                            <div class="item-title">Red Water Bottle</div>
+                            <div class="item-meta">Bottle • Found at STC • 4 hours ago</div>
+                        </div>
+                        <div class="item-actions">
+                            <button class="btn-approve" onclick="approveItem(2)">Approve</button>
+                            <button class="btn-reject" onclick="rejectItem(2)">Reject</button>
+                        </div>
+                    </div>
+
+                    <div class="pending-item">
+                        <div class="item-info">
+                            <div class="item-title">Student ID Card</div>
+                            <div class="item-meta">Documents • Found at Central Building • 1 day ago</div>
+                        </div>
+                        <div class="item-actions">
+                            <button class="btn-approve" onclick="approveItem(3)">Approve</button>
+                            <button class="btn-reject" onclick="rejectItem(3)">Reject</button>
+                        </div>
+                    </div>
+
+                    <button class="btn btn-outline" style="width: 100%; margin-top: var(--spacing-md);" onclick="showMessage('Viewing all pending items...', 'info')">
+                        <i class="fas fa-list"></i> View All Pending Items
+                    </button>
+                </div>
+            </div>
+
+            <!-- Access Denied (hidden by default) -->
+            <div id="access-denied" class="access-denied" style="display: none;">
+                <div class="access-denied-icon">
+                    <i class="fas fa-ban"></i>
+                </div>
+                <h2>Access Denied</h2>
+                <p>You do not have security privileges to access this page.</p>
+                <a href="dashboard.html" class="btn btn-primary">
+                    <i class="fas fa-arrow-left"></i> Back to Dashboard
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <script src="shared-scripts.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Check authentication and security access
+            const currentUser = mobileApp.getCurrentUser();
+            
+            if (!currentUser) {
+                window.location.href = 'auth.html';
+                return;
+            }
+
+            if (currentUser.role !== 'security' && currentUser.role !== 'admin') {
+                document.getElementById('security-content').style.display = 'none';
+                document.getElementById('access-denied').style.display = 'block';
+                return;
+            }
+        });
+
+        function approveItem(itemId) {
+            mobileApp.showMessage(`Item ${itemId} approved successfully!`, 'success');
+            // Remove the item from the list
+            document.querySelector(`[onclick="approveItem(${itemId})"]`).closest('.pending-item').style.display = 'none';
+        }
+
+        function rejectItem(itemId) {
+            if (confirm('Are you sure you want to reject this item?')) {
+                mobileApp.showMessage(`Item ${itemId} rejected.`, 'warning');
+                // Remove the item from the list
+                document.querySelector(`[onclick="rejectItem(${itemId})"]`).closest('.pending-item').style.display = 'none';
+            }
+        }
+
+        function showMessage(message, type) {
+            mobileApp.showMessage(message, type);
+        }
+    </script>
+</body>
+</html>

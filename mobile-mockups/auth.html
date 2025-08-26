@@ -1,0 +1,440 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lost@Campus - Login & Register</title>
+    <link rel="stylesheet" href="shared-styles.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        /* Auth page specific styles */
+        .auth-container {
+            background-color: var(--light-color);
+            min-height: calc(100vh - var(--status-bar-height));
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            padding: var(--spacing-lg) var(--spacing-md);
+        }
+
+        .auth-card {
+            background: white;
+            border-radius: var(--border-radius-md);
+            padding: var(--spacing-xl);
+            box-shadow: var(--shadow-md);
+            border: 1px solid var(--gray-300);
+            max-width: 360px;
+            margin: 0 auto;
+            width: 100%;
+        }
+
+        .auth-title {
+            font-size: var(--font-size-xxl);
+            font-weight: 700;
+            color: var(--primary-color);
+            text-align: center;
+            margin-bottom: var(--spacing-xl);
+        }
+
+        .auth-form {
+            width: 100%;
+        }
+
+        .auth-input-group {
+            margin-bottom: var(--spacing-md);
+        }
+
+        .auth-input {
+            width: 100%;
+            padding: var(--spacing-md);
+            border: 1px solid var(--gray-300);
+            border-radius: var(--border-radius-sm);
+            background-color: #f9f7f3;
+            font-size: var(--font-size-md);
+            color: var(--dark-color);
+            transition: all 0.2s;
+        }
+
+        .auth-input:focus {
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 2px rgba(233, 128, 116, 0.2);
+            background-color: white;
+        }
+
+        .auth-input.error {
+            border-color: var(--danger-color);
+            background-color: #fff0f0;
+            box-shadow: 0 0 0 2px rgba(232, 90, 79, 0.15);
+        }
+
+        .auth-btn {
+            width: 100%;
+            padding: var(--spacing-md) var(--spacing-lg);
+            border: none;
+            border-radius: var(--border-radius-sm);
+            background-color: var(--primary-color);
+            color: white;
+            font-size: var(--font-size-md);
+            font-weight: 600;
+            cursor: pointer;
+            margin-bottom: var(--spacing-md);
+            transition: background-color 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: var(--spacing-sm);
+        }
+
+        .auth-btn:hover {
+            background-color: var(--danger-color);
+        }
+
+        .auth-btn:disabled {
+            opacity: 0.7;
+            cursor: not-allowed;
+        }
+
+        .auth-error {
+            color: var(--danger-color);
+            background-color: #f9e2e2;
+            border-radius: var(--border-radius-sm);
+            padding: var(--spacing-sm) var(--spacing-md);
+            margin-bottom: var(--spacing-md);
+            text-align: center;
+            font-size: var(--font-size-sm);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: var(--spacing-xs);
+            border-left: 4px solid var(--danger-color);
+        }
+
+        .auth-success {
+            color: var(--dark-color);
+            background-color: var(--secondary-color);
+            border-radius: var(--border-radius-sm);
+            padding: var(--spacing-sm) var(--spacing-md);
+            margin-bottom: var(--spacing-md);
+            text-align: center;
+            font-size: var(--font-size-sm);
+        }
+
+        .forgot-link {
+            color: var(--primary-color);
+            font-size: var(--font-size-sm);
+            text-decoration: none;
+            display: block;
+            text-align: center;
+            margin: var(--spacing-sm) 0 var(--spacing-md);
+            transition: color 0.2s;
+        }
+
+        .forgot-link:hover {
+            color: var(--danger-color);
+            text-decoration: underline;
+        }
+
+        .auth-toggle-text {
+            color: var(--gray-600);
+            text-align: center;
+            font-size: var(--font-size-sm);
+            margin-bottom: var(--spacing-xs);
+        }
+
+        .auth-toggle-btn {
+            color: var(--primary-color);
+            text-decoration: none;
+            font-weight: 500;
+            background: none;
+            border: none;
+            cursor: pointer;
+            font-size: var(--font-size-sm);
+            transition: color 0.2s;
+            display: block;
+            text-align: center;
+            width: 100%;
+        }
+
+        .auth-toggle-btn:hover {
+            color: var(--danger-color);
+            text-decoration: underline;
+        }
+
+        .spinner {
+            width: 16px;
+            height: 16px;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top-color: white;
+            animation: spin 1s linear infinite;
+        }
+
+        .back-btn {
+            position: absolute;
+            top: var(--spacing-md);
+            left: var(--spacing-md);
+            background: none;
+            border: none;
+            color: var(--gray-600);
+            font-size: var(--font-size-lg);
+            cursor: pointer;
+            padding: var(--spacing-sm);
+            border-radius: 50%;
+            transition: background-color 0.2s;
+        }
+
+        .back-btn:hover {
+            background-color: rgba(0, 0, 0, 0.1);
+        }
+
+        /* Form validation */
+        .form-group.error .auth-input {
+            border-color: var(--danger-color);
+            background-color: #fff0f0;
+        }
+
+        .field-error {
+            color: var(--danger-color);
+            font-size: var(--font-size-xs);
+            margin-top: var(--spacing-xs);
+            display: none;
+        }
+
+        .form-group.error .field-error {
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <div class="mobile-container">
+        <!-- Status Bar -->
+        <div class="status-bar">
+            <div class="status-left">
+                <span class="status-time">09:41</span>
+            </div>
+            <div class="status-right">
+                <i class="fas fa-signal"></i>
+                <i class="fas fa-wifi"></i>
+                <i class="fas fa-battery-three-quarters"></i>
+            </div>
+        </div>
+
+        <!-- Content Area -->
+        <div class="content-area">
+            <button class="back-btn" onclick="window.location.href='welcome.html'">
+                <i class="fas fa-arrow-left"></i>
+            </button>
+
+            <div class="auth-container">
+                <div class="auth-card">
+                    <!-- Login Form -->
+                    <div class="login-form">
+                        <h1 class="auth-title">Sign In</h1>
+                        
+                        <div id="auth-message" style="display: none;"></div>
+                        
+                        <form class="auth-form" data-form-type="login" id="login-form">
+                            <div class="form-group">
+                                <input
+                                    type="email"
+                                    name="email"
+                                    class="auth-input"
+                                    placeholder="E-mail"
+                                    required
+                                >
+                                <div class="field-error">Please enter a valid email address</div>
+                            </div>
+                            
+                            <div class="form-group">
+                                <input
+                                    type="password"
+                                    name="password"
+                                    class="auth-input"
+                                    placeholder="Password"
+                                    required
+                                >
+                                <div class="field-error">Password is required</div>
+                            </div>
+                            
+                            <a href="#" class="forgot-link">Forgot Password?</a>
+                            
+                            <button type="submit" class="auth-btn" id="login-btn">
+                                Sign In
+                            </button>
+                        </form>
+                        
+                        <p class="auth-toggle-text">Don't have an account?</p>
+                        <button class="auth-toggle-btn" onclick="toggleAuthForm()">Sign Up</button>
+                    </div>
+
+                    <!-- Register Form -->
+                    <div class="register-form d-none">
+                        <h1 class="auth-title">Sign Up</h1>
+                        
+                        <div id="register-message" style="display: none;"></div>
+                        
+                        <form class="auth-form" data-form-type="register" id="register-form">
+                            <div class="form-group">
+                                <input
+                                    type="text"
+                                    name="name"
+                                    class="auth-input"
+                                    placeholder="Full Name"
+                                    required
+                                >
+                                <div class="field-error">Full name is required</div>
+                            </div>
+                            
+                            <div class="form-group">
+                                <input
+                                    type="email"
+                                    name="email"
+                                    class="auth-input"
+                                    placeholder="E-mail"
+                                    required
+                                >
+                                <div class="field-error">Please enter a valid email address</div>
+                            </div>
+                            
+                            <div class="form-group">
+                                <input
+                                    type="password"
+                                    name="password"
+                                    class="auth-input"
+                                    placeholder="Password"
+                                    required
+                                    minlength="8"
+                                >
+                                <div class="field-error">Password must be at least 8 characters long</div>
+                            </div>
+                            
+                            <div class="form-group">
+                                <input
+                                    type="password"
+                                    name="confirmPassword"
+                                    class="auth-input"
+                                    placeholder="Confirm Password"
+                                    required
+                                >
+                                <div class="field-error">Passwords do not match</div>
+                            </div>
+                            
+                            <button type="submit" class="auth-btn" id="register-btn">
+                                Sign Up
+                            </button>
+                        </form>
+                        
+                        <p class="auth-toggle-text">Already have an account?</p>
+                        <button class="auth-toggle-btn" onclick="toggleAuthForm()">Sign In</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="shared-scripts.js"></script>
+    <script>
+        // Form validation and enhanced functionality
+        document.addEventListener('DOMContentLoaded', function() {
+            const loginForm = document.getElementById('login-form');
+            const registerForm = document.getElementById('register-form');
+            
+            // Real-time validation
+            function validateField(field) {
+                const formGroup = field.closest('.form-group');
+                const fieldError = formGroup.querySelector('.field-error');
+                let isValid = true;
+                
+                // Remove existing error state
+                formGroup.classList.remove('error');
+                
+                // Validate based on field type
+                if (field.type === 'email') {
+                    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+                    if (!emailRegex.test(field.value)) {
+                        isValid = false;
+                    }
+                } else if (field.type === 'password' && field.name === 'password') {
+                    if (field.value.length < 8) {
+                        isValid = false;
+                    }
+                } else if (field.name === 'confirmPassword') {
+                    const passwordField = field.form.querySelector('input[name="password"]');
+                    if (field.value !== passwordField.value) {
+                        isValid = false;
+                    }
+                } else if (field.required && !field.value.trim()) {
+                    isValid = false;
+                }
+                
+                if (!isValid) {
+                    formGroup.classList.add('error');
+                }
+                
+                return isValid;
+            }
+            
+            // Add validation listeners
+            document.querySelectorAll('.auth-input').forEach(input => {
+                input.addEventListener('blur', () => validateField(input));
+                input.addEventListener('input', () => {
+                    if (input.closest('.form-group').classList.contains('error')) {
+                        validateField(input);
+                    }
+                });
+            });
+            
+            // Enhanced form submission
+            function handleFormSubmit(form, event) {
+                event.preventDefault();
+                
+                // Validate all fields
+                let isFormValid = true;
+                const inputs = form.querySelectorAll('.auth-input');
+                inputs.forEach(input => {
+                    if (!validateField(input)) {
+                        isFormValid = false;
+                    }
+                });
+                
+                if (!isFormValid) {
+                    showMessage('Please fix the errors above', 'error');
+                    return;
+                }
+                
+                // Show loading state
+                const submitBtn = form.querySelector('button[type="submit"]');
+                const originalText = submitBtn.innerHTML;
+                submitBtn.innerHTML = '<div class="spinner"></div> Processing...';
+                submitBtn.disabled = true;
+                
+                // Simulate API call delay
+                setTimeout(() => {
+                    // Reset button
+                    submitBtn.innerHTML = originalText;
+                    submitBtn.disabled = false;
+                    
+                    // Handle form submission via the global app
+                    mobileApp.handleFormSubmission(form);
+                }, 1500);
+            }
+            
+            loginForm.addEventListener('submit', (e) => handleFormSubmit(loginForm, e));
+            registerForm.addEventListener('submit', (e) => handleFormSubmit(registerForm, e));
+            
+            function showMessage(message, type) {
+                const messageEl = document.getElementById('auth-message');
+                messageEl.className = type === 'error' ? 'auth-error' : 'auth-success';
+                messageEl.innerHTML = type === 'error' ? 
+                    `<i class="fas fa-exclamation-circle"></i> ${message}` : 
+                    message;
+                messageEl.style.display = 'block';
+                
+                setTimeout(() => {
+                    messageEl.style.display = 'none';
+                }, 5000);
+            }
+        });
+    </script>
+</body>
+</html>

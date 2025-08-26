@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lost@Campus - Admin Dashboard</title>
+    <link rel="stylesheet" href="shared-styles.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        .admin-header {
+            background: linear-gradient(135deg, #dc3545, #c82333);
+            color: white;
+            padding: var(--spacing-lg);
+            text-align: center;
+        }
+
+        .admin-title {
+            font-size: var(--font-size-xl);
+            font-weight: 700;
+            margin-bottom: var(--spacing-xs);
+        }
+
+        .admin-subtitle {
+            font-size: var(--font-size-sm);
+            opacity: 0.9;
+        }
+
+        .stats-overview {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: var(--spacing-md);
+            padding: var(--spacing-md);
+        }
+
+        .stat-card {
+            background: white;
+            border-radius: var(--border-radius-md);
+            padding: var(--spacing-md);
+            text-align: center;
+            box-shadow: var(--shadow-sm);
+        }
+
+        .stat-number {
+            font-size: var(--font-size-xl);
+            font-weight: 700;
+            color: #dc3545;
+            margin-bottom: var(--spacing-xs);
+        }
+
+        .stat-label {
+            font-size: var(--font-size-sm);
+            color: var(--gray-600);
+        }
+
+        .admin-actions {
+            padding: var(--spacing-md);
+        }
+
+        .action-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: var(--spacing-md);
+        }
+
+        .action-card {
+            background: white;
+            border-radius: var(--border-radius-md);
+            padding: var(--spacing-lg);
+            text-align: center;
+            box-shadow: var(--shadow-sm);
+            cursor: pointer;
+            transition: all 0.2s;
+            border: 2px solid transparent;
+        }
+
+        .action-card:hover {
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-md);
+            border-color: #dc3545;
+        }
+
+        .action-icon {
+            font-size: var(--font-size-xxl);
+            color: #dc3545;
+            margin-bottom: var(--spacing-sm);
+        }
+
+        .action-title {
+            font-size: var(--font-size-md);
+            font-weight: 600;
+            color: var(--dark-color);
+            margin-bottom: var(--spacing-xs);
+        }
+
+        .action-description {
+            font-size: var(--font-size-sm);
+            color: var(--gray-600);
+        }
+
+        .quick-actions {
+            background: white;
+            margin: var(--spacing-md);
+            border-radius: var(--border-radius-md);
+            padding: var(--spacing-lg);
+            box-shadow: var(--shadow-sm);
+        }
+
+        .section-title {
+            font-size: var(--font-size-lg);
+            font-weight: 600;
+            color: var(--dark-color);
+            margin-bottom: var(--spacing-md);
+        }
+
+        .quick-btn {
+            display: block;
+            width: 100%;
+            background-color: #dc3545;
+            color: white;
+            padding: var(--spacing-md);
+            border: none;
+            border-radius: var(--border-radius-sm);
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            margin-bottom: var(--spacing-sm);
+            text-decoration: none;
+            text-align: center;
+        }
+
+        .quick-btn:hover {
+            background-color: #c82333;
+            transform: translateY(-1px);
+        }
+
+        .access-denied {
+            text-align: center;
+            padding: var(--spacing-xl);
+            color: #dc3545;
+        }
+
+        .access-denied-icon {
+            font-size: 64px;
+            margin-bottom: var(--spacing-md);
+        }
+    </style>
+</head>
+<body>
+    <div class="mobile-container">
+        <!-- Status Bar -->
+        <div class="status-bar">
+            <div class="status-left">
+                <span class="status-time">09:41</span>
+            </div>
+            <div class="status-right">
+                <i class="fas fa-signal"></i>
+                <i class="fas fa-wifi"></i>
+                <i class="fas fa-battery-three-quarters"></i>
+            </div>
+        </div>
+
+        <!-- App Bar -->
+        <div class="app-bar" style="background-color: #dc3545;">
+            <button class="app-bar-back" onclick="window.location.href='dashboard.html'">
+                <i class="fas fa-arrow-left"></i>
+            </button>
+            <div class="app-bar-title">Admin Dashboard</div>
+            <button class="app-bar-action" onclick="navigateTo('profile')">
+                <i class="fas fa-user"></i>
+            </button>
+        </div>
+
+        <!-- Content Area -->
+        <div class="content-area">
+            <div id="admin-content">
+                <!-- Admin Header -->
+                <div class="admin-header">
+                    <h1 class="admin-title">Admin Dashboard</h1>
+                    <p class="admin-subtitle">System Administration & Management</p>
+                </div>
+
+                <!-- Stats Overview -->
+                <div class="stats-overview">
+                    <div class="stat-card">
+                        <div class="stat-number">156</div>
+                        <div class="stat-label">Total Users</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number">89</div>
+                        <div class="stat-label">All Items</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number">23</div>
+                        <div class="stat-label">Pending Items</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number">12</div>
+                        <div class="stat-label">Active Reports</div>
+                    </div>
+                </div>
+
+                <!-- Admin Actions -->
+                <div class="admin-actions">
+                    <div class="action-grid">
+                        <div class="action-card" onclick="showMessage('User management feature - Access user accounts, roles, and permissions', 'info')">
+                            <div class="action-icon">
+                                <i class="fas fa-users"></i>
+                            </div>
+                            <h3 class="action-title">User Management</h3>
+                            <p class="action-description">Manage users, roles & permissions</p>
+                        </div>
+
+                        <div class="action-card" onclick="showMessage('Item management feature - Approve, reject, and manage all reported items', 'info')">
+                            <div class="action-icon">
+                                <i class="fas fa-boxes"></i>
+                            </div>
+                            <h3 class="action-title">Item Management</h3>
+                            <p class="action-description">Approve & manage items</p>
+                        </div>
+
+                        <div class="action-card" onclick="showMessage('Security logs feature - View system logs and security events', 'info')">
+                            <div class="action-icon">
+                                <i class="fas fa-clipboard-list"></i>
+                            </div>
+                            <h3 class="action-title">Activity Logs</h3>
+                            <p class="action-description">View system logs</p>
+                        </div>
+
+                        <div class="action-card" onclick="showMessage('System settings feature - Configure system parameters and settings', 'info')">
+                            <div class="action-icon">
+                                <i class="fas fa-cogs"></i>
+                            </div>
+                            <h3 class="action-title">System Settings</h3>
+                            <p class="action-description">Configure system</p>
+                        </div>
+
+                        <div class="action-card" onclick="showMessage('Reports feature - Generate and export system reports', 'info')">
+                            <div class="action-icon">
+                                <i class="fas fa-chart-bar"></i>
+                            </div>
+                            <h3 class="action-title">Reports</h3>
+                            <p class="action-description">Generate reports</p>
+                        </div>
+
+                        <div class="action-card" onclick="showMessage('Backup feature - Backup and restore system data', 'info')">
+                            <div class="action-icon">
+                                <i class="fas fa-database"></i>
+                            </div>
+                            <h3 class="action-title">Data Backup</h3>
+                            <p class="action-description">Backup system data</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Quick Actions -->
+                <div class="quick-actions">
+                    <h3 class="section-title">Quick Actions</h3>
+                    <button class="quick-btn" onclick="showMessage('Creating new admin user...', 'info')">
+                        <i class="fas fa-user-plus"></i> Create Admin User
+                    </button>
+                    <button class="quick-btn" onclick="showMessage('Generating system report...', 'info')">
+                        <i class="fas fa-file-alt"></i> Generate System Report
+                    </button>
+                    <button class="quick-btn" onclick="showMessage('Broadcasting notification to all users...', 'info')">
+                        <i class="fas fa-bullhorn"></i> Send System Notification
+                    </button>
+                    <a href="dashboard.html" class="quick-btn" style="background-color: var(--gray-600);">
+                        <i class="fas fa-arrow-left"></i> Back to Dashboard
+                    </a>
+                </div>
+            </div>
+
+            <!-- Access Denied (hidden by default) -->
+            <div id="access-denied" class="access-denied" style="display: none;">
+                <div class="access-denied-icon">
+                    <i class="fas fa-ban"></i>
+                </div>
+                <h2>Access Denied</h2>
+                <p>You do not have administrator privileges to access this page.</p>
+                <a href="dashboard.html" class="btn btn-primary">
+                    <i class="fas fa-arrow-left"></i> Back to Dashboard
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <script src="shared-scripts.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Check authentication and admin access
+            const currentUser = mobileApp.getCurrentUser();
+            
+            if (!currentUser) {
+                window.location.href = 'auth.html';
+                return;
+            }
+
+            if (currentUser.role !== 'admin') {
+                document.getElementById('admin-content').style.display = 'none';
+                document.getElementById('access-denied').style.display = 'block';
+                return;
+            }
+        });
+
+        function showMessage(message, type) {
+            mobileApp.showMessage(message, type);
+        }
+    </script>
+</body>
+</html>
