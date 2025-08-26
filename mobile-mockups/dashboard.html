@@ -1,0 +1,533 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lost@Campus - Dashboard</title>
+    <link rel="stylesheet" href="shared-styles.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        /* Dashboard specific styles */
+        .dashboard-header {
+            background: white;
+            padding: var(--spacing-md);
+            border-bottom: 1px solid var(--gray-200);
+            box-shadow: var(--shadow-sm);
+        }
+
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: var(--spacing-sm);
+            margin-bottom: var(--spacing-sm);
+        }
+
+        .user-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background-color: var(--primary-color);
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 600;
+            font-size: var(--font-size-lg);
+        }
+
+        .user-details h3 {
+            font-size: var(--font-size-md);
+            font-weight: 600;
+            color: var(--dark-color);
+            margin: 0;
+        }
+
+        .user-role {
+            font-size: var(--font-size-xs);
+            background-color: var(--secondary-color);
+            color: var(--dark-color);
+            padding: 2px 8px;
+            border-radius: 12px;
+            text-transform: uppercase;
+            font-weight: 500;
+        }
+
+        .dashboard-actions {
+            display: flex;
+            gap: var(--spacing-sm);
+            margin-top: var(--spacing-sm);
+        }
+
+        .action-btn {
+            flex: 1;
+            padding: var(--spacing-sm);
+            border: none;
+            border-radius: var(--border-radius-sm);
+            font-size: var(--font-size-xs);
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: var(--spacing-xs);
+        }
+
+        .action-btn.lost {
+            background-color: var(--danger-color);
+            color: white;
+        }
+
+        .action-btn.found {
+            background-color: var(--success-color);
+            color: white;
+        }
+
+        .action-btn:hover {
+            opacity: 0.9;
+            transform: translateY(-1px);
+        }
+
+        .tab-content {
+            padding: var(--spacing-md);
+            min-height: 400px;
+        }
+
+        .items-grid {
+            display: grid;
+            gap: var(--spacing-md);
+        }
+
+        .item-card {
+            background: white;
+            border-radius: var(--border-radius-md);
+            padding: var(--spacing-md);
+            box-shadow: var(--shadow-sm);
+            border-left: 4px solid transparent;
+            transition: all 0.2s;
+        }
+
+        .item-card:hover {
+            box-shadow: var(--shadow-md);
+            transform: translateY(-2px);
+        }
+
+        .item-card.lost {
+            border-left-color: var(--danger-color);
+        }
+
+        .item-card.found {
+            border-left-color: var(--success-color);
+        }
+
+        .item-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: var(--spacing-sm);
+        }
+
+        .item-title {
+            font-size: var(--font-size-md);
+            font-weight: 600;
+            color: var(--dark-color);
+            margin: 0;
+        }
+
+        .item-status {
+            font-size: var(--font-size-xs);
+            padding: 2px 8px;
+            border-radius: 12px;
+            text-transform: uppercase;
+            font-weight: 500;
+        }
+
+        .item-status.lost {
+            background-color: #ffebee;
+            color: var(--danger-color);
+        }
+
+        .item-status.found {
+            background-color: #e8f5e8;
+            color: #2e7d32;
+        }
+
+        .item-status.pending {
+            background-color: #fff3e0;
+            color: #f57c00;
+        }
+
+        .item-meta {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: var(--spacing-xs);
+            margin-bottom: var(--spacing-sm);
+            font-size: var(--font-size-sm);
+            color: var(--gray-600);
+        }
+
+        .item-description {
+            font-size: var(--font-size-sm);
+            color: var(--gray-700);
+            line-height: 1.4;
+            margin-bottom: var(--spacing-sm);
+        }
+
+        .item-actions {
+            display: flex;
+            gap: var(--spacing-sm);
+            margin-top: var(--spacing-sm);
+        }
+
+        .item-btn {
+            flex: 1;
+            padding: var(--spacing-xs) var(--spacing-sm);
+            border: 1px solid var(--primary-color);
+            border-radius: var(--border-radius-sm);
+            background: transparent;
+            color: var(--primary-color);
+            font-size: var(--font-size-xs);
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .item-btn:hover {
+            background-color: var(--primary-color);
+            color: white;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: var(--spacing-xl);
+            color: var(--gray-600);
+        }
+
+        .empty-icon {
+            font-size: 48px;
+            color: var(--gray-400);
+            margin-bottom: var(--spacing-md);
+        }
+
+        .stats-section {
+            background: white;
+            margin: var(--spacing-md);
+            border-radius: var(--border-radius-md);
+            padding: var(--spacing-md);
+            box-shadow: var(--shadow-sm);
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: var(--spacing-md);
+        }
+
+        .stat-item {
+            text-align: center;
+            padding: var(--spacing-md);
+            background-color: var(--light-color);
+            border-radius: var(--border-radius-sm);
+        }
+
+        .stat-number {
+            font-size: var(--font-size-xl);
+            font-weight: 700;
+            color: var(--primary-color);
+            margin-bottom: var(--spacing-xs);
+        }
+
+        .stat-label {
+            font-size: var(--font-size-sm);
+            color: var(--gray-600);
+        }
+
+        /* Bottom navigation for mobile */
+        .bottom-nav-spacing {
+            height: 72px; /* Account for bottom navigation */
+        }
+    </style>
+</head>
+<body>
+    <div class="mobile-container">
+        <!-- Status Bar -->
+        <div class="status-bar">
+            <div class="status-left">
+                <span class="status-time">09:41</span>
+            </div>
+            <div class="status-right">
+                <i class="fas fa-signal"></i>
+                <i class="fas fa-wifi"></i>
+                <i class="fas fa-battery-three-quarters"></i>
+            </div>
+        </div>
+
+        <!-- App Bar -->
+        <div class="app-bar">
+            <div class="app-bar-title">Dashboard</div>
+            <button class="app-bar-action" onclick="navigateTo('profile')">
+                <i class="fas fa-user"></i>
+            </button>
+        </div>
+
+        <!-- Content Area -->
+        <div class="content-area">
+            <!-- Dashboard Header -->
+            <div class="dashboard-header">
+                <div class="user-info">
+                    <div class="user-avatar" id="user-avatar">U</div>
+                    <div class="user-details">
+                        <h3 id="user-name">User Name</h3>
+                        <span class="user-role" id="user-role">user</span>
+                    </div>
+                </div>
+                
+                <div class="dashboard-actions">
+                    <a href="lost-form.html" class="action-btn lost">
+                        <i class="fas fa-exclamation-circle"></i>
+                        Report Lost
+                    </a>
+                    <a href="found-form.html" class="action-btn found">
+                        <i class="fas fa-hand-holding"></i>
+                        Report Found
+                    </a>
+                </div>
+            </div>
+
+            <!-- Stats Section -->
+            <div class="stats-section">
+                <div class="stats-grid">
+                    <div class="stat-item">
+                        <div class="stat-number" id="lost-count">0</div>
+                        <div class="stat-label">Lost Items</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-number" id="found-count">0</div>
+                        <div class="stat-label">Found Items</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-number" id="my-items-count">0</div>
+                        <div class="stat-label">My Reports</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-number">24/7</div>
+                        <div class="stat-label">Support</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tab Bar -->
+            <div class="tab-bar">
+                <div class="tab active" data-tab="lost">Lost Items</div>
+                <div class="tab" data-tab="found">Found Items</div>
+                <div class="tab" data-tab="my-items">My Items</div>
+            </div>
+
+            <!-- Tab Content -->
+            <div class="tab-content">
+                <!-- Lost Items Tab -->
+                <div id="lost-tab" class="tab-panel">
+                    <div class="items-grid" id="lost-items-grid"></div>
+                </div>
+
+                <!-- Found Items Tab -->
+                <div id="found-tab" class="tab-panel d-none">
+                    <div class="items-grid" id="found-items-grid"></div>
+                </div>
+
+                <!-- My Items Tab -->
+                <div id="my-items-tab" class="tab-panel d-none">
+                    <div class="items-grid" id="my-items-grid"></div>
+                </div>
+            </div>
+
+            <div class="bottom-nav-spacing"></div>
+        </div>
+
+        <!-- Bottom Navigation -->
+        <div class="bottom-nav">
+            <a href="dashboard.html" class="bottom-nav-item active">
+                <i class="fas fa-home"></i>
+                <span>Home</span>
+            </a>
+            <a href="lost-form.html" class="bottom-nav-item">
+                <i class="fas fa-plus-circle"></i>
+                <span>Report</span>
+            </a>
+            <a href="#" class="bottom-nav-item" onclick="showMessage('Search feature coming soon!', 'info')">
+                <i class="fas fa-search"></i>
+                <span>Search</span>
+            </a>
+            <a href="profile.html" class="bottom-nav-item">
+                <i class="fas fa-user"></i>
+                <span>Profile</span>
+            </a>
+        </div>
+    </div>
+
+    <script src="shared-scripts.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Check if user is logged in
+            const currentUser = mobileApp.getCurrentUser();
+            if (!currentUser) {
+                window.location.href = 'auth.html';
+                return;
+            }
+
+            // Initialize dashboard
+            initializeDashboard();
+            setupTabs();
+            loadItems();
+        });
+
+        function initializeDashboard() {
+            const currentUser = mobileApp.getCurrentUser();
+            if (currentUser) {
+                // Update user info
+                const userAvatar = document.getElementById('user-avatar');
+                const userName = document.getElementById('user-name');
+                const userRole = document.getElementById('user-role');
+
+                userAvatar.textContent = currentUser.name.charAt(0).toUpperCase();
+                userName.textContent = currentUser.name;
+                userRole.textContent = currentUser.role;
+
+                // Add admin/security dashboard links if applicable
+                if (currentUser.role === 'admin' || currentUser.role === 'security') {
+                    addAdminActions();
+                }
+            }
+        }
+
+        function addAdminActions() {
+            const actionsDiv = document.querySelector('.dashboard-actions');
+            const currentUser = mobileApp.getCurrentUser();
+            
+            if (currentUser.role === 'security') {
+                const securityBtn = document.createElement('a');
+                securityBtn.href = 'security-dashboard.html';
+                securityBtn.className = 'action-btn';
+                securityBtn.style.backgroundColor = '#3a5683';
+                securityBtn.style.color = 'white';
+                securityBtn.innerHTML = '<i class="fas fa-shield-alt"></i> Security';
+                actionsDiv.appendChild(securityBtn);
+            }
+            
+            if (currentUser.role === 'admin') {
+                const adminBtn = document.createElement('a');
+                adminBtn.href = 'admin-dashboard.html';
+                adminBtn.className = 'action-btn';
+                adminBtn.style.backgroundColor = '#dc3545';
+                adminBtn.style.color = 'white';
+                adminBtn.innerHTML = '<i class="fas fa-user-shield"></i> Admin';
+                actionsDiv.appendChild(adminBtn);
+            }
+        }
+
+        function setupTabs() {
+            const tabs = document.querySelectorAll('.tab');
+            const tabPanels = document.querySelectorAll('.tab-panel');
+
+            tabs.forEach(tab => {
+                tab.addEventListener('click', () => {
+                    // Remove active class from all tabs
+                    tabs.forEach(t => t.classList.remove('active'));
+                    tabPanels.forEach(panel => panel.classList.add('d-none'));
+
+                    // Add active class to clicked tab
+                    tab.classList.add('active');
+                    
+                    // Show corresponding panel
+                    const tabName = tab.getAttribute('data-tab');
+                    document.getElementById(`${tabName}-tab`).classList.remove('d-none');
+                });
+            });
+        }
+
+        function loadItems() {
+            const lostItems = mobileApp.getLostItems();
+            const foundItems = mobileApp.getFoundItems();
+            const userItems = mobileApp.getUserItems();
+
+            // Update stats
+            document.getElementById('lost-count').textContent = lostItems.length;
+            document.getElementById('found-count').textContent = foundItems.length;
+            document.getElementById('my-items-count').textContent = userItems.length;
+
+            // Render items
+            renderItems('lost-items-grid', lostItems, 'lost');
+            renderItems('found-items-grid', foundItems, 'found');
+            renderItems('my-items-grid', userItems, 'my');
+        }
+
+        function renderItems(containerId, items, type) {
+            const container = document.getElementById(containerId);
+            
+            if (items.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-icon">
+                            <i class="fas fa-${type === 'lost' ? 'search' : type === 'found' ? 'hand-holding' : 'list'}"></i>
+                        </div>
+                        <h3>No ${type === 'my' ? 'items reported' : type + ' items'} yet</h3>
+                        <p>${type === 'lost' ? 'No lost items have been reported recently.' : 
+                             type === 'found' ? 'No found items are currently available.' : 
+                             'You haven\'t reported any items yet.'}</p>
+                    </div>
+                `;
+                return;
+            }
+
+            container.innerHTML = items.map(item => `
+                <div class="item-card ${item.status}" data-item-id="${item.id}">
+                    <div class="item-header">
+                        <h3 class="item-title">${item.title}</h3>
+                        <span class="item-status ${item.status}">${item.status}</span>
+                    </div>
+                    
+                    <div class="item-meta">
+                        <div><i class="fas fa-tag"></i> ${item.category}</div>
+                        <div><i class="fas fa-map-marker-alt"></i> ${item.location}</div>
+                        <div><i class="fas fa-calendar"></i> ${formatDate(item.date)}</div>
+                        <div><i class="fas fa-user"></i> ${item.reporterName || 'Anonymous'}</div>
+                    </div>
+                    
+                    <div class="item-description">${item.description}</div>
+                    
+                    ${type === 'found' ? `
+                        <div class="item-actions">
+                            <button class="item-btn" onclick="requestItem(${item.id})">
+                                <i class="fas fa-hand-paper"></i> Request Item
+                            </button>
+                        </div>
+                    ` : ''}
+                    
+                    ${type === 'my' && item.status === 'found' && !item.isApproved ? `
+                        <div class="item-status pending">Pending Approval</div>
+                    ` : ''}
+                </div>
+            `).join('');
+        }
+
+        function formatDate(dateString) {
+            if (!dateString) return 'Unknown';
+            const date = new Date(dateString);
+            return date.toLocaleDateString('en-US', { 
+                month: 'short', 
+                day: 'numeric',
+                year: 'numeric'
+            });
+        }
+
+        function requestItem(itemId) {
+            mobileApp.showMessage('Request submitted! The owner will be notified.', 'success');
+        }
+
+        // Global function for message showing
+        function showMessage(message, type) {
+            mobileApp.showMessage(message, type);
+        }
+    </script>
+</body>
+</html>

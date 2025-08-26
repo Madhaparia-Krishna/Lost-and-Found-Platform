@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lost@Campus - Report Found Item</title>
+    <link rel="stylesheet" href="shared-styles.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        .form-container {
+            padding: var(--spacing-md);
+            background-color: var(--light-color);
+            min-height: calc(100vh - var(--status-bar-height) - var(--navbar-height));
+        }
+
+        .form-card {
+            background: white;
+            border-radius: var(--border-radius-md);
+            padding: var(--spacing-lg);
+            box-shadow: var(--shadow-sm);
+            margin-bottom: var(--spacing-md);
+        }
+
+        .form-title {
+            font-size: var(--font-size-xl);
+            font-weight: 600;
+            color: var(--dark-color);
+            margin-bottom: var(--spacing-md);
+            text-align: center;
+        }
+
+        .form-notice {
+            background-color: #e3f2fd;
+            color: #1976d2;
+            padding: var(--spacing-md);
+            border-radius: var(--border-radius-sm);
+            margin-bottom: var(--spacing-lg);
+            font-size: var(--font-size-sm);
+            border-left: 4px solid #2196f3;
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: var(--spacing-md);
+            margin-bottom: var(--spacing-md);
+        }
+
+        .form-group-full {
+            grid-column: 1 / -1;
+        }
+
+        .image-upload-area {
+            border: 2px dashed var(--gray-300);
+            border-radius: var(--border-radius-md);
+            padding: var(--spacing-xl);
+            text-align: center;
+            transition: border-color 0.2s;
+            cursor: pointer;
+        }
+
+        .image-upload-area:hover {
+            border-color: var(--primary-color);
+        }
+
+        .image-upload-area.dragover {
+            border-color: var(--primary-color);
+            background-color: rgba(233, 128, 116, 0.05);
+        }
+
+        .upload-icon {
+            font-size: var(--font-size-xxl);
+            color: var(--gray-500);
+            margin-bottom: var(--spacing-sm);
+        }
+
+        .image-preview {
+            margin-top: var(--spacing-md);
+            text-align: center;
+        }
+
+        .image-preview img {
+            max-width: 200px;
+            max-height: 200px;
+            border-radius: var(--border-radius-sm);
+            box-shadow: var(--shadow-sm);
+        }
+
+        .submit-section {
+            margin-top: var(--spacing-xl);
+            text-align: center;
+        }
+
+        .submit-btn {
+            width: 100%;
+            padding: var(--spacing-md) var(--spacing-lg);
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            border-radius: var(--border-radius-md);
+            font-size: var(--font-size-md);
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: var(--spacing-sm);
+            min-height: 48px;
+        }
+
+        .submit-btn:hover {
+            background-color: var(--danger-color);
+            transform: translateY(-1px);
+            box-shadow: var(--shadow-md);
+        }
+
+        .submit-btn:disabled {
+            opacity: 0.7;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .success-message {
+            text-align: center;
+            padding: var(--spacing-xl);
+            background: white;
+            border-radius: var(--border-radius-md);
+            box-shadow: var(--shadow-sm);
+        }
+
+        .success-icon {
+            font-size: 64px;
+            color: var(--primary-color);
+            margin-bottom: var(--spacing-md);
+        }
+
+        .success-message h2 {
+            color: var(--dark-color);
+            margin-bottom: var(--spacing-sm);
+        }
+
+        .success-message p {
+            color: var(--gray-600);
+            margin-bottom: var(--spacing-lg);
+        }
+
+        @media (max-width: 480px) {
+            .form-row {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="mobile-container">
+        <!-- Status Bar -->
+        <div class="status-bar">
+            <div class="status-left">
+                <span class="status-time">09:41</span>
+            </div>
+            <div class="status-right">
+                <i class="fas fa-signal"></i>
+                <i class="fas fa-wifi"></i>
+                <i class="fas fa-battery-three-quarters"></i>
+            </div>
+        </div>
+
+        <!-- App Bar -->
+        <div class="app-bar">
+            <button class="app-bar-back" onclick="window.location.href='dashboard.html'">
+                <i class="fas fa-arrow-left"></i>
+            </button>
+            <div class="app-bar-title">Report Found Item</div>
+        </div>
+
+        <!-- Content Area -->
+        <div class="content-area">
+            <div class="form-container">
+                <div class="form-card">
+                    <h1 class="form-title">Report Found Item</h1>
+                    
+                    <div class="form-notice">
+                        <i class="fas fa-info-circle"></i>
+                        Please provide accurate details about the found item. This will help us match it with lost items and reunite owners with their belongings.
+                    </div>
+
+                    <form id="found-item-form" data-form-type="found-item">
+                        <div class="form-group">
+                            <label class="form-label" for="title">Item Name/Title *</label>
+                            <input 
+                                type="text" 
+                                id="title" 
+                                name="title" 
+                                class="form-input" 
+                                placeholder="E.g. Blue Wallet, iPhone 13, Student ID Card"
+                                required
+                            >
+                        </div>
+
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label class="form-label" for="category">Category *</label>
+                                <select id="category" name="category" class="form-input form-select" required>
+                                    <option value="Electronics">Electronics</option>
+                                    <option value="Clothing">Clothing</option>
+                                    <option value="Books">Books</option>
+                                    <option value="Bags">Bags</option>
+                                    <option value="Documents">Documents</option>
+                                    <option value="Bottle">Bottle</option>
+                                    <option value="Other">Other</option>
+                                </select>
+                            </div>
+
+                            <div class="form-group" id="subcategory-group" style="display: none;">
+                                <label class="form-label" for="subcategory">Subcategory</label>
+                                <select id="subcategory" name="subcategory" class="form-input form-select">
+                                    <option value="Phones">Phones</option>
+                                    <option value="Chargers">Chargers</option>
+                                    <option value="Laptops">Laptops</option>
+                                    <option value="Buds">Buds</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label class="form-label" for="location">Found Location *</label>
+                                <select id="location" name="location" class="form-input form-select" required>
+                                    <option value="stc">STC</option>
+                                    <option value="stmb">STMB</option>
+                                    <option value="msb">MSB</option>
+                                    <option value="central building">Central Building</option>
+                                    <option value="oval building">Oval Building</option>
+                                    <option value="library">Library</option>
+                                    <option value="other">Other</option>
+                                </select>
+                            </div>
+
+                            <div class="form-group">
+                                <label class="form-label" for="date">Date Found *</label>
+                                <input 
+                                    type="date" 
+                                    id="date" 
+                                    name="date" 
+                                    class="form-input"
+                                    required
+                                >
+                            </div>
+                        </div>
+
+                        <div class="form-group form-group-full">
+                            <label class="form-label" for="description">Description *</label>
+                            <textarea 
+                                id="description" 
+                                name="description" 
+                                class="form-input form-textarea" 
+                                placeholder="Provide details about the item (color, brand, condition, any identifying features, etc.)"
+                                required
+                                rows="4"
+                            ></textarea>
+                        </div>
+
+                        <div class="form-group form-group-full">
+                            <label class="form-label">Upload Image (Optional)</label>
+                            <div class="image-upload-area" onclick="document.getElementById('image').click()">
+                                <div class="upload-icon">
+                                    <i class="fas fa-cloud-upload-alt"></i>
+                                </div>
+                                <p>Tap to upload image</p>
+                                <small>Max file size: 5MB. Supported formats: JPG, PNG, GIF.</small>
+                            </div>
+                            <input 
+                                type="file" 
+                                id="image" 
+                                name="image" 
+                                accept="image/*" 
+                                style="display: none;"
+                            >
+                            <div id="image-preview" class="image-preview" style="display: none;"></div>
+                        </div>
+
+                        <div class="submit-section">
+                            <button type="submit" class="submit-btn" id="submit-btn">
+                                <i class="fas fa-paper-plane"></i>
+                                Submit Found Item
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="shared-scripts.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Check authentication
+            const currentUser = mobileApp.getCurrentUser();
+            if (!currentUser) {
+                window.location.href = 'auth.html';
+                return;
+            }
+
+            setupForm();
+        });
+
+        function setupForm() {
+            const form = document.getElementById('found-item-form');
+            const categorySelect = document.getElementById('category');
+            const subcategoryGroup = document.getElementById('subcategory-group');
+            const imageInput = document.getElementById('image');
+            const imagePreview = document.getElementById('image-preview');
+            const dateInput = document.getElementById('date');
+
+            // Set max date to today
+            const today = new Date().toISOString().split('T')[0];
+            dateInput.setAttribute('max', today);
+            dateInput.value = today;
+
+            // Handle category change
+            categorySelect.addEventListener('change', function() {
+                if (this.value === 'Electronics') {
+                    subcategoryGroup.style.display = 'block';
+                } else {
+                    subcategoryGroup.style.display = 'none';
+                }
+            });
+
+            // Handle image upload
+            imageInput.addEventListener('change', function(e) {
+                const file = e.target.files[0];
+                if (file) {
+                    if (!file.type.startsWith('image/')) {
+                        mobileApp.showMessage('Please upload only image files', 'error');
+                        return;
+                    }
+                    
+                    if (file.size > 5 * 1024 * 1024) {
+                        mobileApp.showMessage('File size must be less than 5MB', 'error');
+                        return;
+                    }
+
+                    const reader = new FileReader();
+                    reader.onload = function(e) {
+                        imagePreview.innerHTML = `<img src="${e.target.result}" alt="Preview">`;
+                        imagePreview.style.display = 'block';
+                    };
+                    reader.readAsDataURL(file);
+                }
+            });
+
+            // Drag and drop functionality
+            const uploadArea = document.querySelector('.image-upload-area');
+            
+            ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+                uploadArea.addEventListener(eventName, preventDefaults, false);
+            });
+
+            function preventDefaults(e) {
+                e.preventDefault();
+                e.stopPropagation();
+            }
+
+            ['dragenter', 'dragover'].forEach(eventName => {
+                uploadArea.addEventListener(eventName, highlight, false);
+            });
+
+            ['dragleave', 'drop'].forEach(eventName => {
+                uploadArea.addEventListener(eventName, unhighlight, false);
+            });
+
+            function highlight(e) {
+                uploadArea.classList.add('dragover');
+            }
+
+            function unhighlight(e) {
+                uploadArea.classList.remove('dragover');
+            }
+
+            uploadArea.addEventListener('drop', handleDrop, false);
+
+            function handleDrop(e) {
+                const dt = e.dataTransfer;
+                const files = dt.files;
+                
+                if (files.length > 0) {
+                    imageInput.files = files;
+                    const event = new Event('change', { bubbles: true });
+                    imageInput.dispatchEvent(event);
+                }
+            }
+
+            // Form submission
+            form.addEventListener('submit', function(e) {
+                e.preventDefault();
+                
+                const submitBtn = document.getElementById('submit-btn');
+                const originalText = submitBtn.innerHTML;
+                
+                // Show loading state
+                submitBtn.innerHTML = '<div class="spinner"></div> Submitting...';
+                submitBtn.disabled = true;
+                
+                // Simulate API call
+                setTimeout(() => {
+                    // Reset button
+                    submitBtn.innerHTML = originalText;
+                    submitBtn.disabled = false;
+                    
+                    // Handle form submission
+                    mobileApp.handleFormSubmission(form);
+                }, 1500);
+            });
+        }
+    </script>
+</body>
+</html>
